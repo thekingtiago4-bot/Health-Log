@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.4.0';
+  const VERSAO = '0.5.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -97,7 +97,7 @@
   function renderTelaAtual() {
     if (tela === 'notas') renderNotas();
     else if (tela === 'folha') renderFolha();
-    else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); }
+    else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'relatorios') RT.relatorios.render();
     else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
@@ -396,12 +396,12 @@
     lista.sort((a, b) => { const x = kf(a), y = kf(b); return (typeof x === 'number' ? x - y : cmp(x, y)) * f.dir; });
     const t = N.somar(lista), MAX = 1500, ver = lista.slice(0, MAX);
     const th = (k, rot, dir) => '<th data-ord="' + k + '" class="' + (dir ? 'dir' : '') + '">' + rot + (f.ord === k ? (f.dir > 0 ? ' ▲' : ' ▼') : '') + '</th>';
-    $('#n-tabela').innerHTML = '<thead><tr>' + th('nf', 'NF') + th('origem', 'Origem') + th('cliente', 'Cliente') + th('cidade', 'Cidade') + th('vol', 'Vol', 1) + th('peso', 'Peso kg', 1) + th('valor', 'Valor', 1) + th('carro', 'Carro') + '</tr></thead><tbody>' +
+    $('#n-tabela').innerHTML = '<thead><tr>' + th('nf', 'NF') + th('origem', 'Origem') + th('cliente', 'Cliente') + th('cidade', 'Cidade') + th('vol', 'Vol', 1) + th('peso', 'Peso kg', 1) + th('valor', 'Valor', 1) + th('carro', 'Carro') + '<th>Bipada</th></tr></thead><tbody>' +
       ver.map(n => {
         const a = op.atrib[n.id], c = a != null ? carroPorId(a) : null;
         return '<tr><td>' + esc(n.nf) + '</td><td>' + esc(n.origem.replace(/\.xml$/i, '')) + '</td><td title="' + esc(n.cliente) + '">' + esc(n.cliente) + '</td><td>' + esc(n.cidade) + '/' + esc(n.uf) + '</td><td class="dir">' + n.vol + '</td><td class="dir">' + N.fmtPeso(n.peso) + '</td><td class="dir">' + m$(n.valor) + '</td><td>' +
-          (c ? '<span class="carro-tag" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + '</span>' : '<span class="livre-tag">livre</span>') + '</td></tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="4">' + i$(t.notas) + ' nota(s)</td><td class="dir">' + i$(t.vol) + '</td><td class="dir">' + N.fmtPeso(t.peso) + '</td><td class="dir">' + m$(t.valor) + '</td><td></td></tr></tfoot>';
+          (c ? '<span class="carro-tag" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + '</span>' : '<span class="livre-tag">livre</span>') + '</td><td>' + ((op.bipes || {})[n.id] ? '<span style="color:var(--ok);font-weight:700" title="Bipada às ' + new Date(op.bipes[n.id].em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '">✓</span>' : '') + '</td></tr>';
+      }).join('') + '</tbody><tfoot><tr><td colspan="4">' + i$(t.notas) + ' nota(s)</td><td class="dir">' + i$(t.vol) + '</td><td class="dir">' + N.fmtPeso(t.peso) + '</td><td class="dir">' + m$(t.valor) + '</td><td></td><td></td></tr></tfoot>';
     $('#n-rodape').textContent = lista.length > MAX ? 'Mostrando as primeiras ' + MAX + ' de ' + lista.length + '. Use a busca para afunilar. Os totais acima valem para todas as ' + lista.length + '.' : 'Peso ausente no XML conta como zero.';
   }
 
@@ -536,6 +536,7 @@
       (op ? '<div class="mural-c"><h3>Cidades</h3><b class="big">' + i$(r.cidades.length) + '</b> na operação<ul><li><span class="ok">✓ completas (tudo em carro)</span><b>' + r.cont.completa + '</b></li><li><span class="aten">! faltam notas</span><b>' + r.cont.parcial + '</b></li><li><span>sem carro ainda</span><b>' + r.cont.pendente + '</b></li></ul><button class="btn mini" data-ir="rotas" type="button">Montar rotas</button></div>' +
         '<div class="mural-c"><h3>Alocação nos carros</h3><b class="big ' + (r.pctAloc === 100 ? 'ok' : '') + '">' + r.pctAloc + '%</b> das notas<div class="barra"><i style="width:' + r.pctAloc + '%"></i></div><p class="sub" style="margin:0;font-size:var(--fs-sm)">' + i$(r.alocRota.notas) + ' de ' + i$(r.rota.notas) + ' notas em rota · ' + m$(r.alocRota.valor) + ' de ' + m$(r.rota.valor) + '. “Alocada” = está num veículo; não é entregue nem conferida.' + (r.fora.notas ? ' Fora de rota (' + r.fora.cidades + ' cidade(s)): ' + r.fora.notas + ' notas, ' + m$(r.fora.valor) + ' — não entram nesta conta.' : '') + '</p></div>' +
         '<div class="mural-c"><h3>Carros</h3><b class="big">' + car.length + '</b> com rota' + (car.length ? '<ul>' + car.slice(0, 6).map(c => '<li><span><i class="chip-pos" style="--cor:' + c.carro.cor + '">' + c.carro.numero + '</i> ' + esc(c.carro.motorista || '') + '</span><b>' + i$(c.vol) + ' vol · ' + m$(c.valor) + '</b></li>').join('') + (car.length > 6 ? '<li><span>+ ' + (car.length - 6) + ' carro(s)</span></li>' : '') + '</ul>' : '<p class="sub" style="margin:4px 0 0">Nenhum carro com notas.</p>') + '</div>' +
+        (Object.keys(op.bipes || {}).length || (op.extras || []).length ? '<div class="mural-c"><h3>Bipagem</h3><b class="big">' + Object.keys(op.bipes || {}).length + '</b> de ' + i$(r.tot.notas) + ' notas bipadas<ul><li><span>fora do romaneio</span><b>' + (op.extras || []).length + '</b></li></ul><button class="btn mini" data-ir="importar" type="button">Bipar notas</button></div>' : '') +
         '<div class="mural-c"><h3>Origens (arquivos)</h3><b class="big">' + r.origens.size + '</b> origem(ns)<ul>' + [...r.origens.entries()].sort((a, b) => b[1].notas - a[1].notas).slice(0, 8).map(([o, x]) => '<li><span class="base">' + esc(o.replace(/\.xml$/i, '')) + '</span><b>' + x.notas + ' notas</b></li>').join('') + '</ul></div>' : '') +
       '<div class="mural-c' + (op && r.cidadesSemPosicao ? ' aviso' : '') + '"><h3>Avisos</h3>' + (op && r.cidadesSemPosicao ? '<p class="aten" style="margin:0 0 6px"><b>' + r.cidadesSemPosicao + '</b> cidade(s) sem posição no mapa (nome não achado no IBGE). Elas continuam na lista de pendentes.</p>' : '<p class="sub" style="margin:0">Sem avisos.</p>') + '</div>' +
       '<div class="mural-c"><h3>Cópia de segurança</h3>' + (bk && bk.toDateString() === new Date().toDateString() ? '<b class="ok">Feita hoje às ' + bk.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</b>' : '<b class="aten">Nenhuma cópia nesta sessão</b>') + '<p class="sub" style="margin:6px 0 0;font-size:var(--fs-sm)">O app guarda uma cópia sozinho antes de ações destrutivas. Você também pode baixar o arquivo.</p>' + (op ? '<button class="btn mini" data-mural-bk type="button">Baixar cópia da operação</button>' : '') + '</div>' +
@@ -1014,5 +1015,6 @@
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
+  RT.A = { salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

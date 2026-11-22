@@ -17,8 +17,11 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 - Parada nos RELATÓRIOS = um endereço por dia (como no PDF do Tiago). Ticket por parada = valor das notas ÷ paradas.
 - Fora de rota = só em listas LKR/BH/Cajamar do Health Search (ou DF) e em nenhuma região atendida; editável na Geolocalização. Cidade em nenhuma lista conta como EM ROTA (o mapa embutido é incompleto).
 
+- Bipagem: bipada (conferida) ≠ alocada ≠ entregue. Bipe repetido não soma. Nota fora de todos os XMLs vai para o ROMANEIO EXTRA e só entra nos totais depois de completar cliente/cidade/UF/volumes/valor (a chave só dá NF, CNPJ do emitente e série — nada de inventar).
+- Relatórios: só leem operações guardadas; cada dia importado precisa ser uma operação com a data certa.
+
 ## Arquivos
-`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `abertura.js` animação (cópia do Health Search v10.6)
+`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `abertura.js` animação (cópia do Health Search v10.6)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)
 
 ## Publicar

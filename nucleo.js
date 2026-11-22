@@ -389,6 +389,33 @@
   };
 
 
+
+  /* ---------- bipagem: chave da NF-e (44 dígitos) ---------- */
+  N.chaveValida = function (c) {
+    if (!/^\d{44}$/.test(c)) return false;
+    let soma = 0, peso = 2;
+    for (let i = 42; i >= 0; i--) { soma += (+c[i]) * peso; peso = peso === 9 ? 2 : peso + 1; }
+    const r = soma % 11, dv = r < 2 ? 0 : 11 - r;
+    return dv === +c[43];
+  };
+  /* o que a própria chave diz (sem inventar nada): UF do emitente, mês, CNPJ do emitente, série e número */
+  N.lerChave = c => ({ uf: c.slice(0, 2), aamm: c.slice(2, 6), cnpj: c.slice(6, 20), serie: String(+c.slice(22, 25)), nf: String(+c.slice(25, 34)) });
+  /* separa o que veio do leitor em itens: chave (44 dígitos) ou número de NF */
+  N.lerBipe = function (txt) {
+    const itens = [];
+    for (const d of String(txt || '').split(/[\s;,]+/).map(x => x.replace(/\D/g, '')).filter(Boolean)) {
+      if (d.length > 44 && d.length % 44 === 0) { for (let i = 0; i < d.length; i += 44) itens.push({ tipo: 'chave', valor: d.slice(i, i + 44) }); } // leitor que cola várias chaves sem separador
+      else itens.push(d.length === 44 ? { tipo: 'chave', valor: d } : d.length >= 1 && d.length <= 9 ? { tipo: 'nf', valor: d } : { tipo: 'invalido', valor: d });
+    }
+    return itens;
+  };
+  /* procura a leitura nas notas da operação */
+  N.acharBipe = function (op, item) {
+    if (item.tipo === 'chave') { const n = op.notas.find(x => x.chave === item.valor); return n ? [n] : []; }
+    const num = String(+item.valor);
+    return op.notas.filter(x => String(+x.nf) === num);
+  };
+
   /* ---------- relatórios por período (mesmas definições do PDF "Comparativo de Entregas") ----------
      • Nota fiscal ÚNICA: a mesma identidade fiscal em operações diferentes entra UMA vez (a primeira por data).
      • Parada prevista = um ENDEREÇO por DIA. • Ticket por parada = valor das notas ÷ paradas previstas.

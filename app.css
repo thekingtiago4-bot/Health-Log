@@ -442,3 +442,31 @@ body.modo-mapa .rail,body.modo-mapa .barra-carros,body.modo-mapa .faixa-carro,bo
 body.modo-mapa .app{grid-template-columns:1fr}
 body.modo-mapa .mapa-area{min-height:100vh}
 body.modo-mapa .legenda{left:14px;bottom:14px}
+
+/* ---------- bipagem ---------- */
+.bip-topo{display:flex;gap:14px;flex-wrap:wrap;align-items:stretch;margin-bottom:12px}
+.bip-campo{flex:1 1 420px;display:flex;align-items:center;gap:10px;background:var(--sup);border:2px solid var(--teal);border-radius:10px;padding:0 14px;min-height:60px}
+.bip-campo svg{color:var(--teal);flex:none}
+.bip-campo input{all:unset;flex:1;font-size:1.4rem;font-weight:600;letter-spacing:.02em;min-width:0;padding:12px 0}
+.bip-campo input::placeholder{color:var(--mudo);font-weight:400;font-size:1rem}
+.bip-cont{display:flex;gap:10px;flex-wrap:wrap}
+.bip-cont div{background:var(--sup);border:1px solid var(--linha);border-radius:10px;padding:8px 16px;min-width:120px}
+.bip-cont b{font-family:"Barlow Semi Condensed";font-size:1.6rem;display:block;line-height:1.1}
+.bip-cont small{color:var(--mudo)}
+.bip-ok{color:var(--ok)}
+.bip-aviso{border-radius:8px;padding:9px 14px;margin:0 0 10px;font-weight:600}
+.bip-aviso.ok{background:var(--okBg);color:var(--ok)}
+.bip-aviso.am{background:var(--amarBg);color:var(--amarTxt)}
+.bip-aviso.er{background:var(--noBg);color:var(--no)}
+.bip-sec{border:1px solid var(--linha);background:var(--sup);border-radius:10px;margin-top:14px;overflow:hidden}
+.bip-sec h3{margin:0;padding:10px 14px;font-family:"Barlow Semi Condensed";font-size:1.05rem;border-bottom:1px solid var(--linha2);background:var(--sup2);display:flex;justify-content:space-between;gap:10px;align-items:center}
+.bip-sec table{width:100%;border-collapse:collapse;font-size:.85rem}
+.bip-sec th,.bip-sec td{padding:6px 12px;text-align:left;border-bottom:1px solid var(--linha2);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.bip-sec th{background:var(--sup2);font-weight:600}
+.bip-sec .dir{text-align:right}
+.bip-extra{padding:12px 14px;border-bottom:1px solid var(--linha2);display:grid;gap:8px}
+.bip-extra .linha{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.bip-extra label{display:flex;flex-direction:column;gap:2px;font-size:.74rem;color:var(--tinta2)}
+.bip-extra input{border:1.5px solid var(--linha);border-radius:var(--r);padding:5px 8px;background:var(--sup);min-height:32px;min-width:0}
+.bip-prog{display:inline-block;width:80px;height:7px;border-radius:7px;background:var(--linha2);overflow:hidden;vertical-align:middle;margin-right:6px}
+.bip-prog i{display:block;height:100%;background:var(--ok)}
