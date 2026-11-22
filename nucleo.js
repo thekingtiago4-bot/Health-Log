@@ -388,5 +388,62 @@
     return s.size;
   };
 
+
+  /* ---------- relatórios por período (mesmas definições do PDF "Comparativo de Entregas") ----------
+     • Nota fiscal ÚNICA: a mesma identidade fiscal em operações diferentes entra UMA vez (a primeira por data).
+     • Parada prevista = um ENDEREÇO por DIA. • Ticket por parada = valor das notas ÷ paradas previstas.
+     • Dias de operação = datas distintas com nota contada. • Médias diárias = total ÷ dias de operação. */
+  N.chaveEndereco = n => N.normCidade(n.cidade) + '|' + n.uf + '|' + n.cep + '|' + N.norm(n.end) + '|' + N.norm(n.num);
+  const dividir = (a, b) => (b ? a / b : 0);
+  N.relatorio = function (ops, de, ate) {
+    const sel = ops.filter(o => o.data >= de && o.data <= ate).sort((a, b) => a.data.localeCompare(b.data) || String(a.criada).localeCompare(String(b.criada)));
+    const vistos = new Set(), dias = new Map(), paradas = new Set(), cidades = new Map(), clientes = new Map();
+    const r = { de, ate, operacoes: sel.length, duplicadas: 0, notas: 0, valor: 0, volMil: 0, peso: 0, paradas: 0, dias: 0, porDia: [], topCidades: [], topClientes: [] };
+    for (const o of sel) {
+      for (const n of o.notas) {
+        if (vistos.has(n.id)) { r.duplicadas++; continue; }
+        vistos.add(n.id);
+        r.notas++; r.valor += n.valor; r.volMil += N.volMil(n); r.peso += n.peso;
+        const d = dias.get(o.data) || { data: o.data, notas: 0, valor: 0, volMil: 0, paradas: new Set() };
+        d.notas++; d.valor += n.valor; d.volMil += N.volMil(n); d.paradas.add(N.chaveEndereco(n)); dias.set(o.data, d);
+        paradas.add(o.data + '#' + N.chaveEndereco(n));
+        const ck = N.normCidade(n.cidade) + '|' + n.uf; const mun = N.municipio(n.cidade, n.uf); const c = cidades.get(ck) || { nome: mun ? mun.nome : n.cidade, uf: n.uf, valor: 0 }; c.valor += n.valor; cidades.set(ck, c);
+        const kc = n.doc || N.norm(n.cliente); const cl = clientes.get(kc) || { nome: N.titulo(n.cliente), valor: 0 }; cl.valor += n.valor; clientes.set(kc, cl);
+      }
+    }
+    r.paradas = paradas.size; r.dias = dias.size;
+    r.ticket = Math.round(dividir(r.valor, r.paradas));
+    r.porDia = [...dias.values()].sort((a, b) => a.data.localeCompare(b.data)).map(d => ({ data: d.data, notas: d.notas, valor: d.valor, volMil: d.volMil, paradas: d.paradas.size }));
+    r.media = { paradas: dividir(r.paradas, r.dias), valor: dividir(r.valor, r.dias), notas: dividir(r.notas, r.dias), vol: dividir(r.volMil / 1000, r.dias), peso: dividir(r.peso / 10000, r.dias) };
+    r.mapaCidades = cidades;
+    r.topCidades = [...cidades.values()].sort((a, b) => b.valor - a.valor);
+    r.topClientes = [...clientes.values()].sort((a, b) => b.valor - a.valor);
+    return r;
+  };
+  /* "UNIMED DE PRES PRUDENTE LTDA" -> "Unimed de Pres Prudente Ltda" (o XML vem em maiúsculas e sem acento) */
+  N.titulo = function (s) {
+    const peq = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'a', 'o', 'para']);
+    return String(s || '').toLowerCase().replace(/(^|[\s(\/-])([a-zà-ú])([a-zà-ú']*)/g, (m, pre, a, resto, off) => { const w = a + resto; return pre + (off > 0 && peq.has(w) ? w : a.toUpperCase() + resto); });
+  };
+  const varPct = (a, b) => (a ? ((b - a) / a) * 100 : null);
+  /* comparação entre dois períodos já calculados: diferenças, variação % e frases-resumo */
+  N.comparativo = function (A, B) {
+    const m = (nome, a, b) => ({ nome, a, b, dif: b - a, pct: varPct(a, b) });
+    const ind = {
+      paradas: m('Paradas previstas', A.paradas, B.paradas), valor: m('Valor das notas', A.valor, B.valor), notas: m('Notas fiscais únicas', A.notas, B.notas),
+      ticket: m('Ticket por parada', A.ticket, B.ticket), dias: m('Dias de operação', A.dias, B.dias),
+      paradasDia: m('Paradas por dia', A.media.paradas, B.media.paradas), valorDia: m('Valor por dia', A.media.valor, B.media.valor),
+      vol: m('Volumes informados', A.volMil / 1000, B.volMil / 1000), peso: m('Peso informado', A.peso / 10000, B.peso / 10000),
+      volDia: m('Volumes por dia', A.media.vol, B.media.vol), pesoDia: m('Peso por dia', A.media.peso, B.media.peso), notasDia: m('Notas fiscais por dia', A.media.notas, B.media.notas)
+    };
+    /* quem mais explicou a variação do valor: cidade com a maior diferença no mesmo sentido da variação total */
+    const difTotal = B.valor - A.valor, sinal = difTotal >= 0 ? 1 : -1, difs = [];
+    const chaves = new Set([...A.mapaCidades.keys(), ...B.mapaCidades.keys()]);
+    for (const k of chaves) { const a = (A.mapaCidades.get(k) || { valor: 0 }).valor, b = (B.mapaCidades.get(k) || { valor: 0 }).valor, x = A.mapaCidades.get(k) || B.mapaCidades.get(k); difs.push({ nome: x.nome, uf: x.uf, dif: b - a }); }
+    difs.sort((x, y) => (y.dif - x.dif) * sinal);
+    const lider = difs[0] && difs[0].dif * sinal > 0 && difTotal !== 0 ? { nome: difs[0].nome, uf: difs[0].uf, parcela: (difs[0].dif / difTotal) * 100 } : null;
+    return { ind, lider };
+  };
+
   if (typeof module !== 'undefined' && module.exports) module.exports = RT;
 })(typeof window !== 'undefined' ? window : globalThis);

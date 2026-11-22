@@ -26,6 +26,7 @@
       <button data-tela="notas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg><span class="lbl">Notas</span><span class="qt" id="qt-notas" hidden>0</span></button>
       <button data-tela="folha"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M3.5 14.5h17M9.5 9v11"/></svg><span class="lbl">Folha de rotas</span></button>
       <button data-tela="geo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 4 5.3 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.3-4-8.5s1.4-6.1 4-8.5z"/></svg><span class="lbl">Geolocalização</span></button>
+      <button data-tela="relatorios"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="lbl">Relatórios</span></button>
       <div class="nav-grupo">Dados</div>
       <button data-tela="importar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Importar XML</span></button>
     </nav>
@@ -114,6 +115,13 @@
       </details>
     </section>
 
+    <!-- RELATÓRIOS -->
+    <section class="tela" id="t-relatorios" aria-labelledby="h-rel" hidden>
+      <div class="folha-topo"><div><h1 id="h-rel">Relatórios</h1><p class="sub" style="margin:0">Escolha um período, ou compare dois. Notas repetidas entre operações entram uma vez só.</p></div><button class="btn pri" id="bt-imprimir-rel" type="button">Imprimir / salvar PDF</button></div>
+      <div class="rl-ctrl" id="rl-ctrl"></div><p class="dica" id="rl-fonte"></p>
+      <div id="rl-saida"></div>
+    </section>
+
     <!-- NOTAS -->
     <section class="tela" id="t-notas" aria-labelledby="h-notas" hidden>
       <h1 id="h-notas">Notas</h1>
@@ -160,6 +168,7 @@
 <script src="nucleo.js"></script>
 <script src="ui.js"></script>
 <script src="mapa.js"></script>
+<script src="relatorios.js"></script>
 <script src="app.js"></script>
 <script src="abertura.js"></script>
 </body>

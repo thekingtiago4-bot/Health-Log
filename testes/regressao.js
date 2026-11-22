@@ -292,6 +292,33 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(() => !RT.S.reg.regioes.find(r => r.id === 'interior').cidades.includes('3541406'));
   verdade(true, '"Restaurar listas originais" desfaz as edições');
 
+  console.log('\nRelatórios (mesmas definições do PDF do Tiago)');
+  const rel = await p.evaluate(() => {
+    const N = RT.N, mk = (id, cidade, end, valor, vol, peso) => ({ id, nf: id, cidade, uf: 'SP', cep: '14800000', end, num: '1', cliente: 'CLINICA ' + end, doc: '', valor, vol: Math.round(vol), volMil: Math.round(vol * 1000), peso, origem: 'T.XML' });
+    const o1 = { data: '2026-10-06', criada: 'a', notas: [mk('a', 'RIBEIRAO PRETO', 'R1', 100000, 2.5, 5000), mk('b', 'RIBEIRAO PRETO', 'R1', 50000, 1, 1000), mk('c', 'BAURU', 'R2', 20000, 1, 1000)] };
+    const o2 = { data: '2026-10-07', criada: 'b', notas: [mk('c', 'BAURU', 'R2', 20000, 1, 1000), mk('d', 'BAURU', 'R2', 30000, 1, 1000)] };
+    const o3 = { data: '2026-11-04', criada: 'c', notas: [mk('e', 'RIBEIRAO PRETO', 'R1', 400000, 4, 8000), mk('f', 'BAURU', 'R9', 100000, 2, 2000)] };
+    const A = N.relatorio([o1, o2, o3], '2026-10-01', '2026-10-31'), B = N.relatorio([o1, o2, o3], '2026-11-01', '2026-11-30'), c = N.comparativo(A, B);
+    return { A: [A.notas, A.duplicadas, A.paradas, A.dias, A.valor, A.volMil, A.ticket], B: [B.notas, B.paradas, B.dias, B.valor, B.ticket], lider: c.lider && [c.lider.nome, Math.round(c.lider.parcela * 10) / 10], pctValor: Math.round(c.ind.valor.pct * 10) / 10, ticket: [c.ind.ticket.a, c.ind.ticket.b], titulo: N.titulo('UNIMED DE PRES PRUDENTE COOPERATIVA LTDA') };
+  });
+  igual(rel.A, [4, 1, 3, 2, 200000, 5500, 66667], 'nota repetida entre operações entra uma vez; parada = endereço por dia; ticket = valor ÷ paradas');
+  igual(rel.B, [2, 2, 1, 500000, 250000], 'segundo período calculado separado');
+  igual(rel.lider, ['Ribeirão Preto', 83.3], 'cidade que mais explicou a variação (nome oficial do IBGE)');
+  igual(rel.pctValor, 150, 'variação do valor em %');
+  igual(rel.titulo, 'Unimed de Pres Prudente Cooperativa Ltda', 'nomes em maiúsculas viram legíveis');
+  await p.evaluate(async () => { for (const o of [{ n: 'T1', d: '2026-10-06' }, { n: 'T2', d: '2026-11-05' }]) { const x = RT.N.novaOperacao(o.n, o.d); x.notas = RT.S.op.notas.slice(0, 5).map((n, i) => ({ ...n, id: o.n + i })); await RT.DB.put('ops', x); } });
+  await p.click('.nav button[data-tela="relatorios"]');
+  await p.click('[data-rl-pre="antatual"]');
+  await p.evaluate(() => { localStorage.setItem('hr:rel', JSON.stringify({ modo: 'comparar', A: { de: '2026-10-01', ate: '2026-10-31' }, B: { de: '2026-11-01', ate: '2026-11-30' } })); });
+  await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x'); await p.click('.nav button[data-tela="relatorios"]');
+  await p.waitForSelector('.rl-pag');
+  igual(await p.$$eval('.rl-pag', x => x.length), 2, 'comparativo gera 2 páginas (A4) como o PDF');
+  verdade(/Demanda e valor das entregas/.test(await p.innerText('#rl-saida')) && /Ticket por parada/i.test(await p.innerText('#rl-saida')), 'página 1: demanda, valor e ticket por parada');
+  await p.click('[data-rl-modo="unico"]');
+  igual(await p.$$eval('.rl-pag', x => x.length), 2, 'um período também gera 2 páginas');
+  await p.fill('#rl-a-de', '2030-01-01'); await p.fill('#rl-a-ate', '2030-01-31');
+  verdade(/Sem dados/.test(await p.innerText('#rl-saida')), 'período sem operações explica o que fazer, em vez de mostrar zeros');
+
   await ctx.close();
 
   console.log('\nAbertura animada (igual à do Health Search)');

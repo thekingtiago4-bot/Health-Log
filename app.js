@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.2.0';
+  const VERSAO = '0.3.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -97,6 +97,7 @@
     if (tela === 'notas') renderNotas();
     else if (tela === 'folha') renderFolha();
     else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); }
+    else if (tela === 'relatorios') RT.relatorios.render();
     else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
@@ -873,7 +874,7 @@
     $('#n-tabela').addEventListener('click', e => { const th = e.target.closest('th[data-ord]'); if (!th) return; const o = th.dataset.ord; if (S.nf.ord === o) S.nf.dir *= -1; else { S.nf.ord = o; S.nf.dir = 1; } renderNotas(); });
 
     /* folha */
-    $('#bt-imprimir').onclick = () => window.print();
+    $('#bt-imprimir').onclick = () => U.imprimir('folha');
 
     /* importar */
     const arq = $('#arq'), drop = $('#drop');

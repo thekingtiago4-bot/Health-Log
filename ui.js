@@ -91,6 +91,16 @@
     jan.style.left = x + 'px'; jan.style.top = y + 'px'; jan.style.right = 'auto'; jan.style.bottom = 'auto';
   };
 
+  /* imprimir: define o tamanho da folha antes (A4 paisagem para a folha de rotas, retrato para relatórios) */
+  U.imprimir = function (tipo) {
+    let st = document.getElementById('pg-estilo');
+    if (!st) { st = document.createElement('style'); st.id = 'pg-estilo'; document.head.appendChild(st); }
+    st.textContent = tipo === 'rel' ? '@page{size:A4 portrait;margin:0}' : '@page{size:A4 landscape;margin:8mm}';
+    document.body.dataset.imp = tipo;
+    const fim = () => { delete document.body.dataset.imp; window.removeEventListener('afterprint', fim); };
+    window.addEventListener('afterprint', fim);
+    window.print();
+  };
   U.baixar = function (nome, texto, tipo) {
     const b = new Blob([texto], { type: tipo || 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = nome;
