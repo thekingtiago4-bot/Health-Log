@@ -44,6 +44,7 @@
       onMontar(f, fechar);
     });
   }
+  U.modal = modal;
   U.confirmar = function (titulo, texto, rotulo, perigo, rotuloNao) {
     return modal('<h2>' + U.esc(titulo) + '</h2><p>' + U.esc(texto) + '</p><div class="botoes"><button class="btn" data-n>' + U.esc(rotuloNao || 'Cancelar') + '</button><button class="btn ' + (perigo ? 'perigo' : 'pri') + '" data-s>' + U.esc(rotulo || 'Confirmar') + '</button></div>',
       (f, fechar) => { f.querySelector('[data-n]').onclick = () => fechar(false); f.querySelector('[data-s]').onclick = () => fechar(true); f.querySelector('[data-s]').focus(); }).then(v => !!v);
@@ -85,6 +86,9 @@
     const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo'); aoSoltar && aoSoltar({ x: parseFloat(jan.style.left), y: parseFloat(jan.style.top) }); };
     jan.addEventListener('pointerup', fim); jan.addEventListener('pointercancel', fim);
   };
+  /* a janela em que você mexeu vem para a frente (como post-it na parede) */
+  U.z = 30;
+  document.addEventListener('pointerdown', e => { const j = e.target.closest && e.target.closest('.jan'); if (j && j.style.zIndex !== String(U.z)) j.style.zIndex = String(++U.z); }, true);
   U.posicionar = function (jan, area, x, y) {
     const w = jan.offsetWidth, h = jan.offsetHeight, a = area.getBoundingClientRect();
     x = Math.max(4, Math.min(a.width - w - 4, x)); y = Math.max(4, Math.min(a.height - h - 4, y));

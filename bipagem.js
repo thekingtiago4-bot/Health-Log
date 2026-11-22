@@ -92,7 +92,8 @@
     const o = S().op; o.bipes = o.bipes || {};
     if (o.bipes[n.id]) { aviso = { t: 'am', m: 'NF ' + n.nf + ' já foi bipada às ' + hora(o.bipes[n.id].em) + '. Bipe repetido não conta de novo.' }; if (!semRender) render(); return; }
     o.bipes[n.id] = { em: new Date().toISOString() }; o.rev++; A().salvar();
-    aviso = { t: 'ok', m: '✓ NF ' + n.nf + ' · ' + n.cliente + ' · ' + n.cidade + '/' + n.uf + ' · ' + i$(n.vol) + ' vol · ' + m$(n.valor) };
+    const sit = (o.status || {})[n.id];
+    aviso = sit ? { t: 'am', m: '✓ NF ' + n.nf + ' bipada — mas está como ' + (sit.tipo === 'agendamento' ? 'AGENDAMENTO' : 'DIVERGÊNCIA') + ' e fora da rota. ' + n.cliente + ' · ' + n.cidade + '/' + n.uf } : { t: 'ok', m: '✓ NF ' + n.nf + ' · ' + n.cliente + ' · ' + n.cidade + '/' + n.uf + ' · ' + i$(n.vol) + ' vol · ' + m$(n.valor) };
     if (!semRender) render();
   }
   async function fora(it) {

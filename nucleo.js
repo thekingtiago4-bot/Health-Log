@@ -274,6 +274,59 @@
   };
   N.municipioPorCodigo = code => (MUN && MUN[code]) ? { code, nome: MUN[code][0], uf: MUN[code][1], lat: MUN[code][2], lon: MUN[code][3] } : null;
 
+
+  /* ---------- situação da nota: presente (na rota) · agendamento · divergência ----------
+     Nota em agendamento ou divergência SAI da rota (não aparece nas cidades, no mapa nem nos totais da rota),
+     mas continua na operação e nos relatórios (ela veio no XML). */
+  N.estadoNota = (op, n) => (op.status && op.status[n.id] && op.status[n.id].tipo) || 'presente';
+  N.ativas = op => (op.status && Object.keys(op.status).length ? op.notas.filter(n => !op.status[n.id]) : op.notas);
+  N.marcarStatus = function (op, idx, ids, st) {
+    op.status = op.status || {};
+    for (const id of ids) { op.status[id] = Object.assign({ em: new Date().toISOString() }, st); delete op.atrib[id]; }
+    N.reorganizarCidades(op, idx); op.rev++;
+  };
+  /* volta para a rota; `lembrar` impede que a regra automática de agendamento esconda de novo */
+  N.tirarStatus = function (op, ids, lembrar) {
+    op.agIgnorar = op.agIgnorar || {};
+    for (const id of ids) { if (op.status) delete op.status[id]; if (lembrar) op.agIgnorar[id] = true; }
+    op.rev++;
+  };
+  N.ehMesa = n => N.norm(n.origem).includes('MESA');
+  N.casaAgenda = function (n, it) {
+    if (it.tipo === 'nf') return String(+it.valor) === String(+n.nf);
+    const v = N.norm(it.valor), d = N.soDigitos(it.valor);
+    return (d.length >= 11 && n.doc === d) || (v.length >= 4 && N.norm(n.cliente).includes(v));
+  };
+  /* Regra do Tiago: nota que consta nos agendamentos é ocultada da rota automaticamente — EXCETO as do romaneio MESA,
+     que continuam na rota. O que o usuário devolver à mão não é escondido de novo. */
+  N.aplicarAgenda = function (op, itens) {
+    const r = { auto: [], mesa: [] };
+    if (!itens || !itens.length) return r;
+    op.status = op.status || {}; op.agIgnorar = op.agIgnorar || {};
+    for (const n of op.notas) {
+      if (op.status[n.id] || op.agIgnorar[n.id]) continue;
+      const it = itens.find(x => N.casaAgenda(n, x)); if (!it) continue;
+      if (N.ehMesa(n)) { r.mesa.push(n.id); continue; }
+      op.status[n.id] = { tipo: 'agendamento', auto: true, obs: it.obs || '', data: it.data || '', hora: it.hora || '', agendaId: it.id, em: new Date().toISOString() };
+      delete op.atrib[n.id]; r.auto.push(n.id);
+    }
+    if (r.auto.length) op.rev++;
+    return r;
+  };
+  /* lista colada / CSV: "NF;data;hora;obs" ou "cliente;data;hora;obs". Data dd/mm/aaaa ou aaaa-mm-dd. */
+  N.lerAgenda = function (texto) {
+    const itens = [], ruins = [];
+    for (const lin of String(texto || '').split(/\r?\n/)) {
+      const t = lin.trim(); if (!t) continue;
+      const c = t.split(/[;\t]/).map(x => x.trim());
+      let valor = c[0].replace(/^NF\s*/i, ''); if (!valor) { ruins.push(t); continue; }
+      let data = '';
+      const d = (c[1] || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/) ; if (d) data = d[3] + '-' + d[2] + '-' + d[1]; else if (/^\d{4}-\d{2}-\d{2}$/.test(c[1] || '')) data = c[1];
+      itens.push({ id: 'ag' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: /^\d{1,9}$/.test(valor) ? 'nf' : 'cliente', valor, data, hora: /^\d{1,2}:\d{2}$/.test(c[2] || '') ? c[2] : '', obs: c.slice(3).join(' ').trim() });
+    }
+    return { itens, ruins };
+  };
+
   /* ---------- fora de rota ---------- */
   /* Regras: está FORA se só aparece nas listas de LKR/BH/Cajamar do Health Search (ou é do DF) e em nenhuma
      região atendida. Cidade que não aparece em lista nenhuma conta como EM ROTA (o mapa embutido é incompleto:
@@ -298,7 +351,7 @@
 
   N.indexar = function (op) {
     const cidades = new Map(), chaveCidadeDaNota = new Map(), notaPorId = new Map();
-    for (const n of op.notas) {
+    for (const n of N.ativas(op)) {
       const k = N.normCidade(n.cidade) + '|' + n.uf;
       let c = cidades.get(k);
       if (!c) {
@@ -344,9 +397,11 @@
   /* resumo completo da operação (alimenta Mural, mapa, barra de carros e Folha) */
   N.volMil = n => (n.volMil != null ? n.volMil : n.vol * 1000);
   N.resumo = function (op, idx) {
-    const atrib = op.atrib;
-    const tot = N.somar(op.notas);
-    const aloc = N.somar(op.notas.filter(n => atrib[n.id] != null));
+    const atrib = op.atrib, base = N.ativas(op);
+    const tot = N.somar(base);
+    const aloc = N.somar(base.filter(n => atrib[n.id] != null));
+    const ret = { agendamento: 0, divergencia: 0 };
+    for (const id in (op.status || {})) { const t = op.status[id].tipo; if (ret[t] != null) ret[t]++; }
     const cidades = [];
     const cont = { pendente: 0, parcial: 0, completa: 0 };
     const fora = { cidades: 0, notas: 0, vol: 0, peso: 0, valor: 0 };
@@ -376,8 +431,8 @@
       return { carro: car, ...t, paradas: par.size, cidades: car.cidades.map(k => idx.cidades.get(k)).filter(Boolean) };
     });
     const origens = new Map();
-    for (const n of op.notas) { const o = origens.get(n.origem) || zero(); o.notas++; o.vol += n.vol; o.valor += n.valor; origens.set(n.origem, o); }
-    return { tot, aloc, rota, alocRota, fora, cidades, cont, carros, origens,
+    for (const n of base) { const o = origens.get(n.origem) || zero(); o.notas++; o.vol += n.vol; o.valor += n.valor; origens.set(n.origem, o); }
+    return { tot, aloc, rota, alocRota, fora, ret, cidades, cont, carros, origens,
       cidadesSemPosicao: idx.lista.filter(c => c.semPosicao).length,
       pctAloc: rota.notas ? Math.round((alocRota.notas / rota.notas) * 100) : 0 };
   };

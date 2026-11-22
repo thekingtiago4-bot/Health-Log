@@ -22,8 +22,12 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 
 - Api-Key do Meu Danfe: fica SÓ no navegador (IndexedDB meta `meudanfe`), nunca na operação, nas cópias, nos arquivos baixados nem no Git. A consulta só acontece para nota fora dos XMLs carregados (cada consulta é cobrada). API v2: GET /fd/get/xml/{chave}; só 404 autoriza PUT /fd/add/{chave}.
 
+- Situação da nota: presente (✓, padrão) · agendamento (A) · divergência (!: sem volumes ou volumes parciais). Agendamento e divergência SAEM da rota (não entram em cidades, mapa nem totais da rota) mas continuam na operação e nos relatórios.
+- Regra de agendamento (Tiago): nota que consta na lista de agendamentos é ocultada automaticamente, EXCETO a do romaneio com MESA no nome (continua na rota). Pop-up ao abrir o mapa lista as ocultadas; marcar = volta; “Não mostrar mais hoje” vale até meia-noite. O que o usuário devolve não é escondido de novo.
+- A lista de agendamentos do Health Search é colada/importada aqui (não há acesso direto ao Supabase).
+
 ## Arquivos
-`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `abertura.js` animação (cópia do Health Search v10.6)
+`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `abertura.js` animação (cópia do Health Search v10.6)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)
 
 ## Publicar

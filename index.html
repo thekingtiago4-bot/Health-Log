@@ -23,6 +23,8 @@
       <div class="nav-grupo">Operação</div>
       <button data-tela="mural"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M9 9v11"/></svg><span class="lbl">Mural do dia</span></button>
       <button data-tela="rotas" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="lbl">Montar rotas</span><span class="qt lar" id="qt-pend" hidden>0</span></button>
+      <button data-tela="agenda"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span class="lbl">Agendamentos</span><span class="qt lar" id="qt-ag" hidden>0</span></button>
+      <button data-tela="diverg"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17.5v.1"/></svg><span class="lbl">Divergências</span><span class="qt" id="qt-dv" hidden>0</span></button>
       <button data-tela="notas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg><span class="lbl">Notas</span><span class="qt" id="qt-notas" hidden>0</span></button>
       <button data-tela="folha"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M3.5 14.5h17M9.5 9v11"/></svg><span class="lbl">Folha de rotas</span></button>
       <button data-tela="geo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 4 5.3 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.3-4-8.5s1.4-6.1 4-8.5z"/></svg><span class="lbl">Geolocalização</span></button>
@@ -51,6 +53,7 @@
         <button class="btn mini pri" id="bt-novo-caminhao" type="button">+ Caminhão</button>
         <span class="sep"></span>
         <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
+        <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem">Buscar nota</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a janela de veículos e rotas" aria-pressed="false">Veículos</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
@@ -81,6 +84,11 @@
             <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar"><option value="nome">A–Z</option><option value="valor">Maior valor</option><option value="paradas">Mais paradas</option></select></div>
             <ul class="pend-lista" id="pend-lista"></ul>
           </div>
+        </div>
+        <!-- janela flutuante: buscar nota (presente / agendamento / divergência) -->
+        <div class="jan jan-busca" id="jan-busca" role="dialog" aria-label="Buscar nota" hidden>
+          <div class="jan-cab"><b>Buscar nota</b><button type="button" class="jan-x" id="busca-x" aria-label="Fechar">✕</button></div>
+          <div class="jan-corpo"><div class="pend-filtros"><input id="busca-q" class="filtro" placeholder="NF, cliente, cidade, endereço, origem…" autocomplete="off" aria-label="Buscar nota"></div><div id="busca-res" class="busca-res"></div></div>
         </div>
         <!-- janela flutuante: veículos, ordem das paradas e mover notas -->
         <div class="jan jan-carros" id="jan-carros" role="dialog" aria-label="Veículos e rotas" hidden>
@@ -138,6 +146,12 @@
       </div>
     </section>
 
+    <!-- AGENDAMENTOS -->
+    <section class="tela" id="t-agenda" aria-labelledby="h-ag" hidden><h1 id="h-ag">Agendamentos</h1><p class="sub">Notas que saem da rota porque o cliente tem horário marcado. As do romaneio MESA continuam na rota.</p><div id="ag-box"></div></section>
+
+    <!-- DIVERGÊNCIAS -->
+    <section class="tela" id="t-diverg" aria-labelledby="h-dv" hidden><h1 id="h-dv">Divergências</h1><p class="sub">Notas sem volumes ou com volumes parciais. Elas saem da rota até serem resolvidas.</p><div id="dv-box"></div></section>
+
     <!-- NOTAS -->
     <section class="tela" id="t-notas" aria-labelledby="h-notas" hidden>
       <h1 id="h-notas">Notas</h1>
@@ -188,6 +202,7 @@
 <script src="mapa.js"></script>
 <script src="relatorios.js"></script>
 <script src="bipagem.js"></script>
+<script src="situacao.js"></script>
 <script src="app.js"></script>
 <script>if(!/[?&]mapa=1/.test(location.search)){var s=document.createElement("script");s.src="abertura.js";document.body.appendChild(s);}</script>
 </body>

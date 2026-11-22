@@ -474,3 +474,19 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .cfg-card{border:1px solid var(--linha);background:var(--sup);border-radius:10px;padding:18px 20px;max-width:720px;margin-bottom:16px}
 .cfg-campo{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--tinta2)}
 .cfg-campo input{border:1.5px solid var(--linha);border-radius:var(--r);padding:9px 12px;background:var(--sup);font-size:1rem;max-width:520px}
+
+/* ---------- busca de nota e situação ---------- */
+.jan-busca{width:470px;left:330px;top:12px;max-height:min(70%,560px)}
+.busca-res{overflow:auto;min-height:0}
+.bn{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;padding:8px 12px;border-bottom:1px solid var(--linha2);align-items:start}
+.bq{display:flex;gap:4px;padding-top:2px}
+.q{all:unset;cursor:pointer;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-weight:800;font-size:.85rem;border:2px solid;box-sizing:border-box}
+.q.v{border-color:var(--ok);color:var(--ok)}.q.v.on{background:var(--ok);color:#fff}
+.q.a{border-color:var(--amar);color:var(--amarTxt)}.q.a.on{background:var(--amar);color:var(--amarIco)}
+.q.r{border-color:var(--no);color:var(--no)}.q.r.on{background:var(--no);color:#fff}
+.q:hover{filter:brightness(.92)}
+.bi{min-width:0;font-size:.86rem}.bi small{display:block;color:var(--mudo);font-size:.76rem;margin-top:1px}
+.bf{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:var(--sup2);border-radius:8px;padding:8px 10px}
+.bf label{display:flex;flex-direction:column;gap:2px;font-size:.72rem;color:var(--tinta2)}
+.bf label.grande{flex:1;min-width:160px}
+.bf input,.bf select{border:1.5px solid var(--linha);border-radius:var(--r);padding:4px 7px;background:var(--sup);min-height:30px;min-width:0}

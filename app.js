@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.6.0';
+  const VERSAO = '0.7.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -26,7 +26,7 @@
   const corDe = id => { const c = carroPorId(id); return c ? c.cor : '#888'; };
 
   function empurrarHist(rotulo) {
-    S.hist.push({ rotulo, snap: JSON.stringify({ atrib: S.op.atrib, carros: S.op.carros, proxCarro: S.op.proxCarro }) });
+    S.hist.push({ rotulo, snap: JSON.stringify({ atrib: S.op.atrib, carros: S.op.carros, proxCarro: S.op.proxCarro, status: S.op.status || {}, agIgnorar: S.op.agIgnorar || {} }) });
     if (S.hist.length > 60) S.hist.shift();
   }
   function mutar(rotulo, fn) {
@@ -38,7 +38,7 @@
     const h = S.hist.pop();
     if (!h) { toast('Não há nada para desfazer.'); return; }
     const s = JSON.parse(h.snap);
-    S.op.atrib = s.atrib; S.op.carros = s.carros; S.op.proxCarro = s.proxCarro; S.op.rev++;
+    S.op.atrib = s.atrib; S.op.carros = s.carros; S.op.proxCarro = s.proxCarro; S.op.status = s.status || {}; S.op.agIgnorar = s.agIgnorar || {}; S.op.rev++;
     if (!carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros.length ? S.op.carros[0].id : null;
     reindexar(); resetDraft(); salvar(); atualizarTudo();
     toast('Desfeito: ' + h.rotulo);
@@ -90,6 +90,7 @@
     for (const sec of $$('.tela')) sec.hidden = sec.id !== 't-' + t;
     for (const b of $$('.nav button')) { if (b.dataset.tela === 'mural') continue; if (b.dataset.tela === t) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
     $('#principal').classList.toggle('cheio', t === 'rotas');
+    if (t === 'rotas' && RT.pronto) setTimeout(() => RT.sit && RT.sit.popup(), 60);
     if (t === 'rotas') requestAnimationFrame(() => { S.mapa.redimensionar(); if (S.precisaEnquadrar && S.op) { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; } S.mapa.marcar(); });
     else fecharCidade(true);
     renderTelaAtual();
@@ -100,10 +101,11 @@
     else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'relatorios') RT.relatorios.render();
     else if (tela === 'config') renderConfig();
+    else if (tela === 'agenda' || tela === 'diverg') RT.sit.render(tela);
     else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
-    renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros();
+    renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
     if (tela !== 'rotas') renderTelaAtual();
     if (!$('#mural').hidden) renderMural();
   }
@@ -397,12 +399,12 @@
     lista.sort((a, b) => { const x = kf(a), y = kf(b); return (typeof x === 'number' ? x - y : cmp(x, y)) * f.dir; });
     const t = N.somar(lista), MAX = 1500, ver = lista.slice(0, MAX);
     const th = (k, rot, dir) => '<th data-ord="' + k + '" class="' + (dir ? 'dir' : '') + '">' + rot + (f.ord === k ? (f.dir > 0 ? ' ▲' : ' ▼') : '') + '</th>';
-    $('#n-tabela').innerHTML = '<thead><tr>' + th('nf', 'NF') + th('origem', 'Origem') + th('cliente', 'Cliente') + th('cidade', 'Cidade') + th('vol', 'Vol', 1) + th('peso', 'Peso kg', 1) + th('valor', 'Valor', 1) + th('carro', 'Carro') + '<th>Bipada</th></tr></thead><tbody>' +
+    $('#n-tabela').innerHTML = '<thead><tr>' + th('nf', 'NF') + th('origem', 'Origem') + th('cliente', 'Cliente') + th('cidade', 'Cidade') + th('vol', 'Vol', 1) + th('peso', 'Peso kg', 1) + th('valor', 'Valor', 1) + th('carro', 'Carro') + '<th>Situação</th><th>Bipada</th></tr></thead><tbody>' +
       ver.map(n => {
         const a = op.atrib[n.id], c = a != null ? carroPorId(a) : null;
         return '<tr><td>' + esc(n.nf) + '</td><td>' + esc(n.origem.replace(/\.xml$/i, '')) + '</td><td title="' + esc(n.cliente) + '">' + esc(n.cliente) + '</td><td>' + esc(n.cidade) + '/' + esc(n.uf) + '</td><td class="dir">' + n.vol + '</td><td class="dir">' + N.fmtPeso(n.peso) + '</td><td class="dir">' + m$(n.valor) + '</td><td>' +
-          (c ? '<span class="carro-tag" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + '</span>' : '<span class="livre-tag">livre</span>') + '</td><td>' + ((op.bipes || {})[n.id] ? '<span style="color:var(--ok);font-weight:700" title="Bipada às ' + new Date(op.bipes[n.id].em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '">✓</span>' : '') + '</td></tr>';
-      }).join('') + '</tbody><tfoot><tr><td colspan="4">' + i$(t.notas) + ' nota(s)</td><td class="dir">' + i$(t.vol) + '</td><td class="dir">' + N.fmtPeso(t.peso) + '</td><td class="dir">' + m$(t.valor) + '</td><td></td><td></td></tr></tfoot>';
+          (c ? '<span class="carro-tag" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + '</span>' : '<span class="livre-tag">livre</span>') + '</td><td>' + ({ presente: 'Presente', agendamento: '<b style="color:var(--amarTxt)">Agendamento</b>', divergencia: '<b style="color:var(--no)">Divergência</b>' }[N.estadoNota(op, n)]) + '</td><td>' + ((op.bipes || {})[n.id] ? '<span style="color:var(--ok);font-weight:700" title="Bipada às ' + new Date(op.bipes[n.id].em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '">✓</span>' : '') + '</td></tr>';
+      }).join('') + '</tbody><tfoot><tr><td colspan="4">' + i$(t.notas) + ' nota(s)</td><td class="dir">' + i$(t.vol) + '</td><td class="dir">' + N.fmtPeso(t.peso) + '</td><td class="dir">' + m$(t.valor) + '</td><td></td><td></td><td></td></tr></tfoot>';
     $('#n-rodape').textContent = lista.length > MAX ? 'Mostrando as primeiras ' + MAX + ' de ' + lista.length + '. Use a busca para afunilar. Os totais acima valem para todas as ' + lista.length + '.' : 'Peso ausente no XML conta como zero.';
   }
 
@@ -481,12 +483,13 @@
       op = N.novaOperacao(nome, data); S.hist = [];
     }
     for (const n of rel.novas) op.notas.push(n);
+    const ap = N.aplicarAgenda(op, RT.agenda.itens);
     for (const r of L.lidos) if (!r.erro && !r.duplicadoNoLote) op.arquivos.push({ nome: r.arquivo, hash: r.hash || null, notas: r.notas.length, em: new Date().toISOString() });
     op.rev++;
     S.op = op; S.lote = null; S.precisaEnquadrar = true;
     if (!op.carros.some(c => c.id === S.carroAtivo)) S.carroAtivo = op.carros.length ? op.carros[0].id : null;
     reindexar(); await salvar();
-    toast('Importei ' + rel.novas.length + ' nota(s) em ' + op.nome + '.');
+    toast('Importei ' + rel.novas.length + ' nota(s) em ' + op.nome + '.' + (ap.auto.length ? ' ' + ap.auto.length + ' saíram da rota por serem agendamento' + (ap.mesa.length ? ' (' + ap.mesa.length + ' da MESA ficaram na rota)' : '') + '.' : ''));
     atualizarTudo(); irPara('rotas');
   }
   async function renderOps() {
@@ -524,7 +527,7 @@
 
   /* ================= mural do dia ================= */
   function muralAbrir() { $('#mural').hidden = false; renderMural(); $('#mural').focus(); }
-  function muralFechar() { $('#mural').hidden = true; }
+  function muralFechar() { $('#mural').hidden = true; if (tela === 'rotas' && RT.pronto) setTimeout(() => RT.sit && RT.sit.popup(), 60); }
   function renderMural() {
     const m = $('#mural'), r = S.res, op = S.op;
     const dt = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
@@ -537,6 +540,7 @@
       (op ? '<div class="mural-c"><h3>Cidades</h3><b class="big">' + i$(r.cidades.length) + '</b> na operação<ul><li><span class="ok">✓ completas (tudo em carro)</span><b>' + r.cont.completa + '</b></li><li><span class="aten">! faltam notas</span><b>' + r.cont.parcial + '</b></li><li><span>sem carro ainda</span><b>' + r.cont.pendente + '</b></li></ul><button class="btn mini" data-ir="rotas" type="button">Montar rotas</button></div>' +
         '<div class="mural-c"><h3>Alocação nos carros</h3><b class="big ' + (r.pctAloc === 100 ? 'ok' : '') + '">' + r.pctAloc + '%</b> das notas<div class="barra"><i style="width:' + r.pctAloc + '%"></i></div><p class="sub" style="margin:0;font-size:var(--fs-sm)">' + i$(r.alocRota.notas) + ' de ' + i$(r.rota.notas) + ' notas em rota · ' + m$(r.alocRota.valor) + ' de ' + m$(r.rota.valor) + '. “Alocada” = está num veículo; não é entregue nem conferida.' + (r.fora.notas ? ' Fora de rota (' + r.fora.cidades + ' cidade(s)): ' + r.fora.notas + ' notas, ' + m$(r.fora.valor) + ' — não entram nesta conta.' : '') + '</p></div>' +
         '<div class="mural-c"><h3>Carros</h3><b class="big">' + car.length + '</b> com rota' + (car.length ? '<ul>' + car.slice(0, 6).map(c => '<li><span><i class="chip-pos" style="--cor:' + c.carro.cor + '">' + c.carro.numero + '</i> ' + esc(c.carro.motorista || '') + '</span><b>' + i$(c.vol) + ' vol · ' + m$(c.valor) + '</b></li>').join('') + (car.length > 6 ? '<li><span>+ ' + (car.length - 6) + ' carro(s)</span></li>' : '') + '</ul>' : '<p class="sub" style="margin:4px 0 0">Nenhum carro com notas.</p>') + '</div>' +
+        ((r.ret.agendamento || r.ret.divergencia) ? '<div class="mural-c"><h3>Fora da rota</h3><ul><li><span>agendamentos</span><b>' + r.ret.agendamento + '</b></li><li><span>divergências</span><b>' + r.ret.divergencia + '</b></li></ul><button class="btn mini" data-ir="agenda" type="button">Ver agendamentos</button></div>' : '') +
         (Object.keys(op.bipes || {}).length || (op.extras || []).length ? '<div class="mural-c"><h3>Bipagem</h3><b class="big">' + Object.keys(op.bipes || {}).length + '</b> de ' + i$(r.tot.notas) + ' notas bipadas<ul><li><span>fora do romaneio</span><b>' + (op.extras || []).length + '</b></li></ul><button class="btn mini" data-ir="importar" type="button">Bipar notas</button></div>' : '') +
         '<div class="mural-c"><h3>Origens (arquivos)</h3><b class="big">' + r.origens.size + '</b> origem(ns)<ul>' + [...r.origens.entries()].sort((a, b) => b[1].notas - a[1].notas).slice(0, 8).map(([o, x]) => '<li><span class="base">' + esc(o.replace(/\.xml$/i, '')) + '</span><b>' + x.notas + ' notas</b></li>').join('') + '</ul></div>' : '') +
       '<div class="mural-c' + (op && r.cidadesSemPosicao ? ' aviso' : '') + '"><h3>Avisos</h3>' + (op && r.cidadesSemPosicao ? '<p class="aten" style="margin:0 0 6px"><b>' + r.cidadesSemPosicao + '</b> cidade(s) sem posição no mapa (nome não achado no IBGE). Elas continuam na lista de pendentes.</p>' : '<p class="sub" style="margin:0">Sem avisos.</p>') + '</div>' +
@@ -566,7 +570,7 @@
   }
 
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
-  const JANS = { pend: '#jan-pend', carros: '#jan-carros', cid: '#jan-cid' };
+  const JANS = { pend: '#jan-pend', carros: '#jan-carros', cid: '#jan-cid', busca: '#jan-busca' };
   const posJan = id => { const p = U.pref.ler('pos:' + id, null) || (id === 'pend' ? U.pref.ler('pendPos', null) : null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
   function restaurarPos(id) { const j = $(JANS[id]), p = posJan(id); if (j && p) U.posicionar(j, $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
@@ -874,8 +878,8 @@
     $('#bt-ver-pend').onclick = () => janVer('pend', $('#jan-pend').hidden);
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
     $('#pend-x').onclick = () => janVer('pend', false);
-    ligarJanCarros(); ligarGeo(); ligarConfig();
-    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
+    ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar();
+    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 
@@ -1026,8 +1030,8 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); await carregarReg(); await carregarApiKey(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
-    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); }
+    await carregarCfg(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
+    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');
     await malha; S.mapa.marcar();
@@ -1037,6 +1041,6 @@
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
-  RT.A = { salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara };
+  RT.A = { salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();
