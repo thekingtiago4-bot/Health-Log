@@ -20,6 +20,8 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 - Bipagem: bipada (conferida) ≠ alocada ≠ entregue. Bipe repetido não soma. Nota fora de todos os XMLs vai para o ROMANEIO EXTRA e só entra nos totais depois de completar cliente/cidade/UF/volumes/valor (a chave só dá NF, CNPJ do emitente e série — nada de inventar).
 - Relatórios: só leem operações guardadas; cada dia importado precisa ser uma operação com a data certa.
 
+- Api-Key do Meu Danfe: fica SÓ no navegador (IndexedDB meta `meudanfe`), nunca na operação, nas cópias, nos arquivos baixados nem no Git. A consulta só acontece para nota fora dos XMLs carregados (cada consulta é cobrada). API v2: GET /fd/get/xml/{chave}; só 404 autoriza PUT /fd/add/{chave}.
+
 ## Arquivos
 `nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `abertura.js` animação (cópia do Health Search v10.6)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)

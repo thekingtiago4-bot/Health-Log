@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.5.0';
+  const VERSAO = '0.6.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -99,6 +99,7 @@
     else if (tela === 'folha') renderFolha();
     else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'relatorios') RT.relatorios.render();
+    else if (tela === 'config') renderConfig();
     else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
@@ -833,6 +834,27 @@
   }
   function aplicarTemaAtual() { document.documentElement.setAttribute('data-tema', U.pref.ler('tema', 'claro') === 'escuro' ? 'escuro' : 'claro'); S.mapa && S.mapa.temaMudou(); }
 
+  /* ================= configurações (só deste aparelho) ================= */
+  async function carregarApiKey() { try { const r = await DB.get('meta', 'meudanfe'); S.apiKey = (r && r.v) || ''; } catch (e) { S.apiKey = ''; } }
+  function renderConfig() {
+    $('#cfg-md').value = '';
+    $('#cfg-md').placeholder = S.apiKey ? '••••••••••••••••  (chave guardada — cole outra para trocar)' : 'Cole a Api-Key aqui';
+    $('#cfg-md-st').textContent = S.apiKey ? '✓ Há uma Api-Key guardada neste aparelho.' : 'Nenhuma Api-Key guardada. A bipagem funciona sem ela, mas as notas fora dos XMLs vão para o Romaneio Extra para você preencher à mão.';
+  }
+  function ligarConfig() {
+    $('#cfg-md-ok').onclick = async () => {
+      const v = $('#cfg-md').value.trim();
+      if (!v) { toast('Cole a Api-Key primeiro.'); return; }
+      if (v.length > 1024 || /[\u0000-\u001f\u007f\s]/.test(v)) { toast('Essa Api-Key tem caracteres que não podem existir numa chave. Cole de novo.'); return; }
+      try { await DB.put('meta', { k: 'meudanfe', v }); S.apiKey = v; renderConfig(); toast('Api-Key guardada neste aparelho.'); } catch (e) { toast('⚠ Não consegui guardar a chave: ' + ((e && e.message) || e)); }
+    };
+    $('#cfg-md-rm').onclick = async () => {
+      if (!S.apiKey) { toast('Não há chave guardada.'); return; }
+      if (!(await U.confirmar('Remover a Api-Key?', 'A bipagem deixa de buscar no Meu Danfe neste aparelho. Você pode colar a chave de novo quando quiser.', 'Remover', true))) return;
+      try { await DB.apagar('meta', 'meudanfe'); S.apiKey = ''; renderConfig(); toast('Api-Key removida.'); } catch (e) { toast('⚠ ' + ((e && e.message) || e)); }
+    };
+  }
+
   /* ================= eventos ================= */
   function ligar() {
     for (const b of $$('.nav button')) b.addEventListener('click', () => irPara(b.dataset.tela));
@@ -852,7 +874,7 @@
     $('#bt-ver-pend').onclick = () => janVer('pend', $('#jan-pend').hidden);
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
     $('#pend-x').onclick = () => janVer('pend', false);
-    ligarJanCarros(); ligarGeo();
+    ligarJanCarros(); ligarGeo(); ligarConfig();
     window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
@@ -1004,7 +1026,7 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); await carregarReg(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
+    await carregarCfg(); await carregarReg(); await carregarApiKey(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');

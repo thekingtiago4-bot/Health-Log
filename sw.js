@@ -1,5 +1,5 @@
 /* Health Route · service worker. Troque o nome do cache a cada versão publicada. */
-const CACHE = 'hr-app-v005';
+const CACHE = 'hr-app-v006';
 const ARQUIVOS = ['./', 'index.html', 'app.css', 'fontes.css', 'nucleo.js', 'ui.js', 'mapa.js', 'app.js', 'relatorios.js', 'bipagem.js', 'abertura.js', 'manifest.webmanifest',
   'data/municipios.json', 'data/malha.json', 'data/regioes.json', 'icons/marca.png', 'icons/healthlog.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'fonts/Barlow-400.woff2', 'fonts/Barlow-500.woff2', 'fonts/Barlow-600.woff2', 'fonts/BarlowSemiCondensed-600.woff2', 'fonts/BarlowSemiCondensed-700.woff2'];

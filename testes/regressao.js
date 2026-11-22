@@ -6,7 +6,7 @@ const { subir } = require('./servidor.js');
 const amostra = require('./amostra.js');
 
 const PORTA = 8097, URL = 'http://localhost:' + PORTA + '/';
-let ok = 0, falhas = [];
+let ok = 0, falhas = [], ignorarRede = false;
 function igual(real, esperado, nome) {
   const a = JSON.stringify(real), b = JSON.stringify(esperado);
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
@@ -22,7 +22,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
     const ctx = await browser.newContext(Object.assign({ reducedMotion: 'reduce', viewport: { width: 1440, height: 860 }, acceptDownloads: true }, opts || {}));
     const p = await ctx.newPage();
     p.on('pageerror', e => erros.push('pageerror: ' + e.message));
-    p.on('console', m => { if (m.type() === 'error') erros.push('console: ' + m.text()); });
+    p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404)/.test(m.text()))) erros.push('console: ' + m.text()); }); // 401/404 são respostas SIMULADAS do Meu Danfe no teste
     return { ctx, p };
   };
   const abrir = async p => { await p.goto(URL); await p.waitForFunction(() => window.RT && RT.pronto, null, { timeout: 20000 }); };
@@ -336,6 +336,62 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x');
   igual(await p.evaluate(() => Object.keys(RT.S.op.bipes || {}).length), 3, 'as bipadas ficam guardadas depois de recarregar');
 
+  console.log('\nMeu Danfe (Api-Key em Configurações; API simulada, sem gastar consulta)');
+  ignorarRede = true;
+  const nfe = (chave, o) => '<?xml version="1.0" encoding="UTF-8"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe Id="NFe' + chave + '" versao="4.00"><ide><nNF>' + o.nf + '</nNF><serie>1</serie></ide><emit><CNPJ>12345678000199</CNPJ><xNome>INDUSTRIA TESTE S.A.</xNome></emit><dest><CNPJ>99888777000166</CNPJ><xNome>' + o.cliente + '</xNome><enderDest><xLgr>RUA DO TESTE</xLgr><nro>77</nro><xBairro>CENTRO</xBairro><cMun>3548906</cMun><xMun>Sao Carlos</xMun><UF>SP</UF><CEP>13560000</CEP></enderDest></dest><total><ICMSTot><vNF>' + o.valor + '</vNF></ICMSTot></total><transp>' + (o.vol ? '<vol><qVol>' + o.vol + '</qVol><pesoB>12.500</pesoB></vol>' : '') + '</transp></infNFe></NFe></nfeProc>';
+  const reqs = [], CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+  const c6001 = chaveOk(6001), c6002 = chaveOk(6002), c6003 = chaveOk(6003), c6004 = chaveOk(6004);
+  const pedida = new Set();
+  await ctx.route('https://api.meudanfe.com.br/**', async route => {
+    const rq = route.request(), u = rq.url(), m = rq.method();
+    if (m === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    reqs.push({ m, u, key: rq.headers()['api-key'] });
+    const ch = u.split('/').pop(), json = (st, o) => route.fulfill({ status: st, headers: { ...CORS, 'content-type': 'application/json' }, body: JSON.stringify(o) });
+    if (ch === c6004) return json(401, {});
+    if (ch === c6003 && m === 'GET' && !pedida.has(ch)) return json(404, {});
+    if (ch === c6003 && m === 'PUT') { pedida.add(ch); return json(200, { status: 'OK' }); }
+    const dados = { [c6001]: { nf: '6001', cliente: 'CLINICA VIA API', valor: '987.65', vol: '7' }, [c6002]: { nf: '6002', cliente: 'HOSPITAL SEM VOLUME', valor: '500.00', vol: '' }, [c6003]: { nf: '6003', cliente: 'LAB PEDIDO NOVO', valor: '10.00', vol: '1' } }[ch];
+    return dados ? json(200, { type: 'NFE', format: 'XML', data: nfe(ch, dados) }) : json(404, {});
+  });
+  await p.click('.nav button[data-tela="config"]');
+  await p.fill('#cfg-md', 'CHAVE-DE-TESTE-123'); await p.click('#cfg-md-ok');
+  await p.waitForFunction(() => RT.S.apiKey === 'CHAVE-DE-TESTE-123');
+  verdade(/guardada/.test(await p.innerText('#cfg-md-st')) && (await p.inputValue('#cfg-md')) === '', 'a Api-Key fica guardada e o campo não mostra a chave de volta');
+  await p.click('.nav button[data-tela="importar"]');
+  const nGet = () => reqs.filter(r => r.m === 'GET').length;
+  await bipar('0'.repeat(40) + '1004');
+  igual(nGet(), 0, 'nota que JÁ está nos XMLs não faz consulta ao Meu Danfe');
+  const nn = await p.evaluate(() => RT.S.op.notas.length);
+  await bipar(c6001);
+  await p.waitForFunction(n => RT.S.op.notas.length === n + 1, nn);
+  const via = await p.evaluate(() => { const n = RT.S.op.notas.find(x => x.nf === '000006001'); return n && [n.cliente, n.cidade, n.uf, n.vol, n.valor, n.origem.startsWith('ROMANEIO EXTRA'), !!RT.S.op.bipes[n.id], n.viaMeuDanfe, n.end, n.peso]; });
+  igual(via, ['CLINICA VIA API', 'SAO CARLOS', 'SP', 7, 98765, true, true, true, 'RUA DO TESTE', 125000], 'bipar a chave traz cliente, cidade (pelo código IBGE), endereço, volumes e valor — e a nota já entra');
+  igual(reqs.find(r => r.m === 'GET').key, 'CHAVE-DE-TESTE-123', 'a consulta usa a Api-Key guardada');
+  igual(await p.evaluate(() => RT.S.res.cidades.some(c => c.cidade.key === 'SAO CARLOS|SP' && c.cidade.notas.some(n => n.nf === '000006001'))), true, 'e a nota aparece na cidade para montar a rota');
+  await bipar(c6002);
+  await p.waitForFunction(() => /SEM VOLUMES/.test((document.querySelector('.bip-aviso') || {}).innerText || ''));
+  verdade(/SEM VOLUMES/.test(await p.innerText('.bip-aviso')), 'nota que vem do Meu Danfe sem volumes avisa "SEM VOLUMES"');
+  igual(await p.inputValue('[data-ex-cliente]'), 'HOSPITAL SEM VOLUME', 'e vem com os outros dados já preenchidos');
+  igual(await p.evaluate(() => RT.S.op.notas.some(n => n.nf === '000006002')), false, 'sem volumes ela NÃO entra nos totais');
+  await p.fill('[data-ex-vol]', '2'); await p.click('[data-extra-ok]');
+  await p.waitForFunction(() => RT.S.op.notas.some(n => n.nf === '000006002' && n.vol === 2));
+  verdade(true, 'informado o volume, ela entra');
+  await bipar(c6003);
+  await p.waitForFunction(() => RT.S.op.notas.some(n => n.nf === '000006003'));
+  verdade(reqs.some(r => r.m === 'PUT' && r.u.endsWith(c6003)), 'nota ainda não no Meu Danfe (404): o app pede a consulta e depois baixa');
+  await bipar(c6004);
+  await p.waitForFunction(() => /recusou a Api-Key/.test((document.querySelector('.bip-aviso') || {}).innerText || ''));
+  verdade(true, 'chave recusada (401) é explicada');
+  igual(await p.evaluate(c => (RT.S.op.extras || []).some(e => e.chave === c), c6004), true, 'e a nota cai no Romaneio Extra para preencher à mão');
+  verdade(!JSON.stringify(await p.evaluate(() => RT.DB.todos('bk'))).includes('CHAVE-DE-TESTE') && !JSON.stringify(await p.evaluate(() => RT.S.op)).includes('CHAVE-DE-TESTE'), 'a Api-Key não vai para a operação nem para as cópias de segurança');
+  await p.click('.nav button[data-tela="config"]'); await p.click('#cfg-md-rm'); await p.click('.fundo [data-s]');
+  await p.waitForFunction(() => RT.S.apiKey === '');
+  verdade(true, 'dá para remover a chave');
+  const antesReq = reqs.length; await p.click('.nav button[data-tela="importar"]'); await bipar(chaveOk(6005));
+  igual(reqs.length, antesReq, 'sem chave guardada, não consulta nada');
+  verdade(/Configurações/.test(await p.innerText('.bip-aviso')), 'e avisa onde colocar a Api-Key');
+  ignorarRede = false;
+
   console.log('\nMapa em outra tela (segundo monitor)');
   await p.click('.nav button[data-tela="rotas"]');
   const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#bt-mapa-fora')]);
@@ -388,6 +444,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('[data-rl-modo="unico"]');
   igual(await p.$$eval('.rl-pag', x => x.length), 2, 'um período também gera 2 páginas');
   await p.fill('#rl-a-de', '2030-01-01'); await p.fill('#rl-a-ate', '2030-01-31');
+  await p.waitForFunction(() => /Sem dados/.test((document.querySelector('#rl-saida') || {}).innerText || ''));
   verdade(/Sem dados/.test(await p.innerText('#rl-saida')), 'período sem operações explica o que fazer, em vez de mostrar zeros');
 
   await ctx.close();

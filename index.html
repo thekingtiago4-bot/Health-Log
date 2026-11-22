@@ -28,6 +28,7 @@
       <button data-tela="geo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 4 5.3 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.3-4-8.5s1.4-6.1 4-8.5z"/></svg><span class="lbl">Geolocalização</span></button>
       <button data-tela="relatorios"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="lbl">Relatórios</span></button>
       <div class="nav-grupo">Dados</div>
+      <button data-tela="config"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Configurações</span></button>
       <button data-tela="importar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Importar XML</span></button>
     </nav>
     <div class="resumo">
@@ -122,6 +123,19 @@
       <div class="folha-topo"><div><h1 id="h-rel">Relatórios</h1><p class="sub" style="margin:0">Escolha um período, ou compare dois. Notas repetidas entre operações entram uma vez só.</p></div><button class="btn pri" id="bt-imprimir-rel" type="button">Imprimir / salvar PDF</button></div>
       <div class="rl-ctrl" id="rl-ctrl"></div><p class="dica" id="rl-fonte"></p>
       <div id="rl-saida"></div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section class="tela" id="t-config" aria-labelledby="h-config" hidden>
+      <h1 id="h-config">Configurações</h1>
+      <p class="sub">Ajustes deste aparelho. Nada daqui vai para o GitHub, para as cópias de segurança nem para os arquivos que você baixa.</p>
+      <div class="cfg-card">
+        <h2>Meu Danfe (API)</h2>
+        <p class="sub" style="margin-bottom:10px">Com a Api-Key, ao bipar uma nota que <b>não está em nenhum XML</b>, o Health Route busca os dados dela no Meu Danfe (cliente, cidade, endereço, volumes e valor) e ela entra na operação como ROMANEIO EXTRA. Nota que já está nos XMLs não faz consulta.</p>
+        <label class="cfg-campo">Api-Key do Meu Danfe<input type="password" id="cfg-md" autocomplete="off" spellcheck="false" placeholder="Cole a Api-Key aqui" aria-label="Api-Key do Meu Danfe"></label>
+        <div class="botoes-linha"><button class="btn pri" id="cfg-md-ok" type="button">Salvar chave</button><button class="btn perigo" id="cfg-md-rm" type="button">Remover chave</button></div>
+        <p class="dica" id="cfg-md-st"></p>
+      </div>
     </section>
 
     <!-- NOTAS -->

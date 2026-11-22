@@ -416,6 +416,25 @@
     return op.notas.filter(x => String(+x.nf) === num);
   };
 
+
+  /* ---------- NF-e completa (XML do Meu Danfe): tudo que o fisco informou, sem inventar nada ---------- */
+  N.lerNFe = function (xml) {
+    let doc;
+    try { doc = new DOMParser().parseFromString(String(xml || ''), 'application/xml'); if (doc.getElementsByTagName('parsererror').length) throw new Error('x'); } catch (e) { return { erro: 'XML da NF-e inválido.' }; }
+    const el = (ctx, tag) => (ctx ? ctx.getElementsByTagNameNS('*', tag)[0] : null) || null;
+    const q = (ctx, tag) => { const e = el(ctx, tag); return e ? (e.textContent || '').trim() : ''; };
+    const inf = el(doc, 'infNFe'); if (!inf) return { erro: 'O arquivo não é uma NF-e.' };
+    const ide = el(inf, 'ide'), emit = el(inf, 'emit'), dest = el(inf, 'dest'), end = el(dest, 'enderDest'), tot = el(inf, 'ICMSTot');
+    let volMil = 0, peso = 0, temVol = false;
+    for (const v of Array.from(inf.getElementsByTagNameNS('*', 'vol'))) { const d = N.dec(q(v, 'qVol'), 3); if (d.ok && d.v > 0) { volMil += d.v; temVol = true; } const p = N.dec(q(v, 'pesoB'), 4); if (p.ok) peso += p.v; }
+    const valor = N.dec(q(tot, 'vNF'), 2);
+    return {
+      chave: (inf.getAttribute('Id') || '').replace(/^NFe/, ''), nf: q(ide, 'nNF'), serie: q(ide, 'serie'), emitCnpj: q(emit, 'CNPJ'), emitNome: q(emit, 'xNome'),
+      doc: q(dest, 'CNPJ') || q(dest, 'CPF'), cliente: q(dest, 'xNome'), end: q(end, 'xLgr'), num: q(end, 'nro'), compl: q(end, 'xCpl'), bairro: q(end, 'xBairro'),
+      cMun: q(end, 'cMun'), cidade: q(end, 'xMun'), uf: q(end, 'UF'), cep: q(end, 'CEP'), valor: valor.ok ? valor.v : null, volMil: temVol ? volMil : null, peso
+    };
+  };
+
   /* ---------- relatórios por período (mesmas definições do PDF "Comparativo de Entregas") ----------
      • Nota fiscal ÚNICA: a mesma identidade fiscal em operações diferentes entra UMA vez (a primeira por data).
      • Parada prevista = um ENDEREÇO por DIA. • Ticket por parada = valor das notas ÷ paradas previstas.

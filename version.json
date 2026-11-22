@@ -1,1 +1,1 @@
-{"versao":"0.5.0","data":"2026-11-22","novidades":"Bipar notas em Importar XML: a nota bipada entra na conferencia na hora; nota fora dos XMLs vai para o Romaneio Extra."}
+{"versao":"0.6.0","data":"2026-11-22","novidades":"Configuracoes com a Api-Key do Meu Danfe: ao bipar uma nota que nao esta nos XMLs, os dados vem do Meu Danfe e a nota entra na operacao."}

@@ -30,19 +30,63 @@
     });
   }
 
-  function processar(txt) {
+
+  /* ---------- Meu Danfe (API v2): só para nota que NÃO está nos XMLs carregados ---------- */
+  const MD = 'https://api.meudanfe.com.br/v2';
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  function erroHttp(status) {
+    return status === 401 || status === 403 ? 'O Meu Danfe recusou a Api-Key (confira em Configurações).' : status === 402 ? 'O Meu Danfe disse que a consulta não foi liberada (saldo ou plano).' :
+      status === 429 ? 'Muitas consultas seguidas no Meu Danfe. Espere alguns segundos e bipe de novo.' : status === 400 ? 'O Meu Danfe recusou a chave (confira se foi bipada inteira).' : 'O Meu Danfe respondeu erro ' + status + '.';
+  }
+  async function consultarMeuDanfe(chave) {
+    const key = S().apiKey; if (!key) return { semChave: true };
+    const h = { 'Api-Key': key, Accept: 'application/json' };
+    const chamar = async (metodo, caminho) => { try { return await fetch(MD + caminho, { method: metodo, headers: h, redirect: 'error' }); } catch (e) { return { falhaRede: true }; } };
+    let r = await chamar('GET', '/fd/get/xml/' + chave);
+    if (r.falhaRede) return { erro: navigator.onLine === false ? 'Sem internet agora — não dá para consultar o Meu Danfe.' : 'Não consegui falar com o Meu Danfe (api.meudanfe.com.br). Pode ser a internet ou a rede bloqueando o endereço.' };
+    if (r.status === 404) { // só 404 autoriza pedir a nota ao Meu Danfe; depois consulta o andamento sem pressa (>1 s)
+      let ok = false;
+      for (let i = 0; i < 10 && !ok; i++) {
+        const p = await chamar('PUT', '/fd/add/' + chave);
+        if (p.falhaRede) return { erro: 'Falha de conexão com o Meu Danfe.' };
+        if (!p.ok) return { erro: erroHttp(p.status) };
+        let st = ''; try { st = String((await p.json()).status || '').toUpperCase(); } catch (e) { /* segue */ }
+        if (st === 'OK') ok = true; else if (st === 'WAITING' || st === 'SEARCHING' || st === '') await espera(1600); else return { erro: 'O Meu Danfe respondeu "' + st + '" para essa nota.' };
+      }
+      if (!ok) return { erro: 'O Meu Danfe ainda está buscando essa nota. Bipe de novo em instantes.' };
+      r = await chamar('GET', '/fd/get/xml/' + chave);
+      if (r.falhaRede) return { erro: 'Falha de conexão com o Meu Danfe.' };
+    }
+    if (!r.ok) return { erro: r.status === 404 ? 'Nota não encontrada no Meu Danfe.' : erroHttp(r.status) };
+    let j; try { j = await r.json(); } catch (e) { return { erro: 'Resposta do Meu Danfe ilegível.' }; }
+    if (!j || j.type !== 'NFE' || j.format !== 'XML' || typeof j.data !== 'string') return { erro: 'O Meu Danfe não devolveu o XML da NF-e.' };
+    const d = N.lerNFe(j.data);
+    if (d.erro) return { erro: d.erro };
+    if (d.chave !== chave) return { erro: 'O XML recebido é de outra nota (a chave não confere). Não foi usado.' };
+    return { dados: d };
+  }
+  function notaDeNFe(d, volMil) {
+    const mun = d.cMun ? N.municipioPorCodigo(d.cMun) : null, cidade = mun ? mun.nome : d.cidade, uf = mun ? mun.uf : N.norm(d.uf);
+    const n = { id: '', nf: d.nf.padStart(9, '0'), remetente: d.emitNome ? d.emitNome : 'EMITENTE ' + d.emitCnpj, doc: N.soDigitos(d.doc), cliente: d.cliente || '(sem nome no XML)', cep: N.soDigitos(d.cep),
+      end: d.end + (d.compl ? ' ' + d.compl : ''), num: d.num, bairro: d.bairro, cidade: N.norm(cidade), uf, vol: Math.round(volMil / 1000), volMil, peso: d.peso, valor: d.valor, chave: d.chave, origem: 'ROMANEIO EXTRA ' + dd(), linha: 0, extra: true, viaMeuDanfe: true };
+    n.id = N.idNota(n); return n;
+  }
+
+  let fila = Promise.resolve();
+  const processar = txt => (fila = fila.then(() => processarUm(txt)).catch(e => { aviso = { t: 'er', m: 'Erro ao bipar: ' + ((e && e.message) || e) }; render(); }));
+  async function processarUm(txt) {
     const itens = N.lerBipe(txt); if (!itens.length) return;
-    for (const it of itens) tratar(it);
+    for (const it of itens) await tratar(it);
     render();
   }
-  function tratar(it) {
+  async function tratar(it) {
     const o = S().op;
     if (!o) { aviso = { t: 'er', m: 'Abra ou importe uma operação antes de bipar.' }; return; }
     if (it.tipo === 'invalido') { aviso = { t: 'er', m: 'Leitura não reconhecida (' + it.valor.length + ' dígitos). A chave da NF-e tem 44 dígitos e o número da NF tem até 9.' }; return; }
     const achados = N.acharBipe(o, it);
     if (achados.length === 1) return marcar(achados[0], true);
     if (achados.length > 1) { ambig = { notas: achados }; aviso = { t: 'am', m: 'O número ' + Number(it.valor) + ' existe em ' + achados.length + ' notas (remetentes diferentes). Escolha qual é a que você bipou.' }; return; }
-    fora(it);
+    await fora(it);
   }
   function marcar(n, semRender) {
     const o = S().op; o.bipes = o.bipes || {};
@@ -51,15 +95,36 @@
     aviso = { t: 'ok', m: '✓ NF ' + n.nf + ' · ' + n.cliente + ' · ' + n.cidade + '/' + n.uf + ' · ' + i$(n.vol) + ' vol · ' + m$(n.valor) };
     if (!semRender) render();
   }
-  function fora(it) {
+  async function fora(it) {
     const o = S().op; o.extras = o.extras || [];
     const chave = it.tipo === 'chave' ? it.valor : '';
     if (chave && !N.chaveValida(chave)) { aviso = { t: 'er', m: 'Chave inválida (o dígito verificador não confere). Bipe de novo ou confira a etiqueta.' }; return; }
     const info = chave ? N.lerChave(chave) : null, nf = info ? info.nf : String(+it.valor);
     if (o.extras.some(e => (chave ? e.chave === chave : (!e.chave && e.nf === nf)))) { aviso = { t: 'am', m: 'NF ' + nf + ' já está no romaneio extra.' }; return; }
+    let motivo = '';
+    if (chave && S().apiKey) { // o Meu Danfe traz os dados da nota
+      aviso = { t: 'am', m: '🔎 NF ' + nf + ' não está nos XMLs — buscando no Meu Danfe…' }; render();
+      const r = await consultarMeuDanfe(chave);
+      if (r.dados) {
+        const d = r.dados;
+        if (d.valor != null && d.valor > 0 && d.volMil && d.cidade) {
+          const nota = notaDeNFe(d, d.volMil);
+          if (o.notas.some(x => x.id === nota.id)) { aviso = { t: 'am', m: 'NF ' + nota.nf + ' já existe na operação.' }; return; }
+          o.notas.push(nota); o.bipes = o.bipes || {}; o.bipes[nota.id] = { em: new Date().toISOString() }; o.rev++;
+          A().reindexar(); A().salvar(); A().atualizarTudo();
+          aviso = { t: 'ok', m: '✓ NF ' + nota.nf + ' veio do Meu Danfe e entrou na operação (ROMANEIO EXTRA): ' + nota.cliente + ' · ' + nota.cidade + '/' + nota.uf + ' · ' + i$(nota.vol) + ' vol · ' + m$(nota.valor) };
+          return;
+        }
+        /* o XML veio, mas sem volumes (ou sem algo essencial): guarda o que veio e pede só o que falta */
+        o.extras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), chave, nf, cnpj: info ? info.cnpj : '', serie: info ? info.serie : '', em: new Date().toISOString(), dados: d });
+        o.rev++; A().salvar();
+        aviso = { t: 'am', m: 'NF ' + nf + ' veio do Meu Danfe' + (d.volMil ? '' : ' SEM VOLUMES no XML') + '. Complete o que falta abaixo para ela entrar nos totais.' }; return;
+      }
+      motivo = r.erro || '';
+    }
     o.extras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), chave, nf, cnpj: info ? info.cnpj : '', serie: info ? info.serie : '', em: new Date().toISOString() });
     o.rev++; A().salvar();
-    aviso = { t: 'am', m: 'NF ' + nf + ' NÃO está em nenhum XML carregado → foi para o ROMANEIO EXTRA. Complete os dados abaixo para ela entrar nos totais.' };
+    aviso = { t: 'am', m: 'NF ' + nf + ' NÃO está em nenhum XML carregado → foi para o ROMANEIO EXTRA. ' + (motivo ? motivo + ' ' : (chave && !S().apiKey ? 'Para os dados virem sozinhos, coloque a Api-Key do Meu Danfe em Configurações. ' : '')) + 'Complete os dados abaixo para ela entrar nos totais.' };
   }
   async function removerExtra(id) {
     const o = S().op, e = o.extras.find(x => x.id === id); if (!e) return;
@@ -101,9 +166,9 @@
     /* romaneio extra */
     if (extras.length) {
       h += '<div class="bip-sec"><h3><span>ROMANEIO EXTRA · ' + dd() + ' <small style="font-weight:500;color:var(--mudo)">(notas bipadas que não estão em nenhum XML)</small></span><span class="tag">' + extras.length + '</span></h3>' +
-        extras.map(e => '<div class="bip-extra" data-extra="' + esc(e.id) + '"><div><b>NF ' + esc(e.nf) + '</b>' + (e.cnpj ? ' · emitente CNPJ ' + esc(e.cnpj) + (e.serie ? ' · série ' + esc(e.serie) : '') : '') + ' · bipada às ' + hora(e.em) + ' <small style="color:var(--amarTxt)">sem dados: não entra nos totais até completar</small></div>' +
-          '<div class="linha"><label>Cliente<input data-ex-cliente style="min-width:230px"></label><label>Cidade<input data-ex-cidade list="bip-cidades" style="width:170px"></label><label>UF<input data-ex-uf maxlength="2" style="width:48px;text-transform:uppercase"></label><label>Endereço<input data-ex-end style="min-width:200px"></label><label>Nº<input data-ex-num style="width:64px"></label><label>Bairro<input data-ex-bairro style="width:130px"></label><label>CEP<input data-ex-cep style="width:92px" inputmode="numeric"></label></div>' +
-          '<div class="linha"><label>Volumes<input data-ex-vol inputmode="decimal" style="width:76px"></label><label>Valor da NF (R$)<input data-ex-valor inputmode="decimal" style="width:120px"></label><label>Peso (kg, opcional)<input data-ex-peso inputmode="decimal" style="width:110px"></label><button class="btn mini pri" data-extra-ok="' + esc(e.id) + '" type="button">Incluir na operação</button><button class="btn mini" data-extra-rm="' + esc(e.id) + '" type="button">Tirar da lista</button></div></div>').join('') +
+        extras.map(e => '<div class="bip-extra" data-extra="' + esc(e.id) + '"><div><b>NF ' + esc(e.nf) + '</b>' + (e.dados ? ' <span class="tag">dados do Meu Danfe</span>' : '') + (e.cnpj ? ' · emitente CNPJ ' + esc(e.cnpj) + (e.serie ? ' · série ' + esc(e.serie) : '') : '') + ' · bipada às ' + hora(e.em) + ' <small style="color:var(--amarTxt)">' + (e.dados ? (e.dados.volMil ? 'confira e inclua' : 'sem volumes no XML: informe os volumes') : 'sem dados') + ' — não entra nos totais até completar</small></div>' +
+          '<div class="linha"><label>Cliente<input data-ex-cliente style="min-width:230px" value="' + esc((e.dados || {}).cliente || '') + '"></label><label>Cidade<input data-ex-cidade list="bip-cidades" style="width:170px" value="' + esc((e.dados || {}).cidade || '') + '"></label><label>UF<input data-ex-uf maxlength="2" style="width:48px;text-transform:uppercase" value="' + esc((e.dados || {}).uf || '') + '"></label><label>Endereço<input data-ex-end style="min-width:200px" value="' + esc((e.dados || {}).end || '') + '"></label><label>Nº<input data-ex-num style="width:64px" value="' + esc((e.dados || {}).num || '') + '"></label><label>Bairro<input data-ex-bairro style="width:130px" value="' + esc((e.dados || {}).bairro || '') + '"></label><label>CEP<input data-ex-cep style="width:92px" inputmode="numeric" value="' + esc((e.dados || {}).cep || '') + '"></label></div>' +
+          '<div class="linha"><label>Volumes<input data-ex-vol inputmode="decimal" style="width:76px" value="' + ((e.dados || {}).volMil ? (e.dados.volMil / 1000) : '') + '"></label><label>Valor da NF (R$)<input data-ex-valor inputmode="decimal" style="width:120px" value="' + ((e.dados || {}).valor != null ? (e.dados.valor / 100).toFixed(2).replace('.', ',') : '') + '"></label><label>Peso (kg, opcional)<input data-ex-peso inputmode="decimal" style="width:110px"></label><button class="btn mini pri" data-extra-ok="' + esc(e.id) + '" type="button">Incluir na operação</button><button class="btn mini" data-extra-rm="' + esc(e.id) + '" type="button">Tirar da lista</button></div></div>').join('') +
         '<datalist id="bip-cidades">' + (s.idx ? s.idx.lista.map(c => '<option value="' + esc(c.nome) + '">').join('') : '') + '</datalist></div>';
     }
     /* últimas bipadas */
@@ -120,5 +185,5 @@
     box.innerHTML = h;
     if (emFoco || (!document.activeElement || document.activeElement === document.body)) { const i = $('#bip-in'); if (i && $('#t-importar') && !$('#t-importar').hidden) i.focus(); }
   }
-  RT.bip = { render, processar };
+  RT.bip = { render, processar, consultarMeuDanfe };
 })(typeof window !== 'undefined' ? window : globalThis);
