@@ -92,7 +92,7 @@
     }
     setSelecionada(k) { this.sel = k; this._bgSujo = this.sujo = true; }
     /* rotas: [{id, cor, pontos:[{key, n}]}] — linhas tracejadas na ordem das paradas */
-    setRotas(r) { this.rotas = r || []; this.sujo = true; }
+    setRotas(r) { this.rotas = r || []; this._lanesSujo = true; this.sujo = true; }
     /* municípios sem entrega (só para mostrar o nome): [{code, nome, lat, lon}] */
     setTodas(t) { this.todas = t || []; this.todasPorCod = new Map(this.todas.map(x => [x.code, x])); this.sujo = true; }
     /* modo geolocalização: pinta os municípios por região. g = {cor: Map(código -> cor css), sel: código} */
@@ -103,12 +103,12 @@
       if (!p || !p.coords) { this.pernas.delete(chave); return; }
       const n = p.coords.length, w = new Float64Array(n * 2); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (let i = 0; i < n; i++) { const x = X(p.coords[i][0]), y = Y(p.coords[i][1]); w[2 * i] = x; w[2 * i + 1] = y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-      this.pernas.set(chave, { w, b: [x0, y0, x1, y1], km: p.km, min: p.min }); this.sujo = true;
+      this.pernas.set(chave, { w, b: [x0, y0, x1, y1], km: p.km, min: p.min }); this._lanesSujo = true; this.sujo = true;
     }
-    setVias(v) { this.viasLigadas = !!v; this.sujo = true; }
+    setVias(v) { this.viasLigadas = !!v; this._lanesSujo = true; this.sujo = true; }
     setAtivo(id) { if (id !== this.ativo) { this.ativo = id; this.sujo = true; } }
-    setBase(b) { this.base = b && b.lat != null ? b : null; this.sujo = true; }
-    setMostrarBase(v) { this.mostrarBase = !!v; this.sujo = true; }
+    setBase(b) { this.base = b && b.lat != null ? b : null; this._lanesSujo = true; this.sujo = true; }
+    setMostrarBase(v) { this.mostrarBase = !!v; this._lanesSujo = true; this.sujo = true; }
     setEstradas(v) { this.estradas = !!v; this._bgSujo = this.sujo = true; }
     setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }
@@ -397,48 +397,54 @@
         vis.push({ c, p });
       }
       /* rotas: seguem as RODOVIAS (trecho a trecho, de cidade em cidade); enquanto o trecho não chega, uma curva fina.
-         O veículo escolhido fica em destaque. */
+         Quando vários veículos usam a MESMA estrada, cada um vai na sua faixa (lado a lado), para uma linha não cobrir a outra. */
+      if (this._lanesSujo || !this._lanes) this._calcularLanes();
       const temAtivo = this.ativo != null && this.rotas.some(r => r.id === this.ativo);
       const baseP = this.base && this.mostrarBase ? this.para(this.base) : null;
       const vx0 = cx - W / 2 / k, vx1 = cx + W / 2 / k, vy0 = cy - H / 2 / k, vy1 = cy + H / 2 / k;
-      const chavePerna = (a, b) => a.lon.toFixed(4) + ',' + a.lat.toFixed(4) + ';' + b.lon.toFixed(4) + ',' + b.lat.toFixed(4);
-      const mesmo = (a, b) => Math.abs(a.lon - b.lon) < 1e-4 && Math.abs(a.lat - b.lat) < 1e-4;
-      ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const gap = Math.max(4.5, Math.min(8, 3 + k * 0.03)); // distância entre as faixas, em pixels
+      const dados = [];
       this.rotas.forEach((r, ri) => {
-        const cids = r.pontos.map(q => this.porChave.get(q.key)).filter(Boolean);
-        const seq = this.base && this.mostrarBase ? [this.base, ...cids] : cids; if (seq.length < 2) return;
-        const forte = !temAtivo || r.id === this.ativo, sinal = ri % 2 ? -1 : 1, pesado = forte ? 1 : 0;
-        const trechos = [];
-        for (let i = 1; i < seq.length; i++) { if (mesmo(seq[i - 1], seq[i])) continue; trechos.push({ a: seq[i - 1], b: seq[i], per: this.viasLigadas ? this.pernas.get(chavePerna(seq[i - 1], seq[i])) : null }); }
-        if (!trechos.length) return;
-        ctx.globalAlpha = forte ? 1 : 0.26;
-        const pista = trechos.filter(t => t.per), reta = trechos.filter(t => !t.per);
-        const pts = t => { const w = t.per.w, n = w.length / 2, o = new Array(n); for (let j = 0; j < n; j++) o[j] = { x: (w[2 * j] - cx) * k + W / 2, y: (w[2 * j + 1] - cy) * k + H / 2 }; return o; };
-        const curva = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, off = Math.min(70, d * 0.17) * sinal; return { x: (a.x + b.x) / 2 - dy / d * off, y: (a.y + b.y) / 2 + dx / d * off }; };
-        const visivel = t => !t.per || !(t.per.b[2] < vx0 || t.per.b[0] > vx1 || t.per.b[3] < vy0 || t.per.b[1] > vy1);
-        const traco = (lista, halo, larg, cor, dash) => {
-          ctx.beginPath();
-          for (const t of lista) {
-            if (!visivel(t)) continue;
-            if (t.per) { const q = pts(t); ctx.moveTo(q[0].x, q[0].y); for (let j = 1; j < q.length; j++) ctx.lineTo(q[j].x, q[j].y); }
-            else { const a = this.para(t.a), b = this.para(t.b), c1 = curva(a, b); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(c1.x, c1.y, b.x, b.y); }
-          }
-          ctx.setLineDash(dash); ctx.lineDashOffset = this.animarRotas && !halo ? -((this._t * 0.035) % 20) : 0; ctx.lineWidth = larg; ctx.strokeStyle = cor; ctx.stroke();
-        };
-        const claro = P.escuro ? 'rgba(4,16,20,.82)' : 'rgba(255,255,255,.92)';
-        if (pista.length) { traco(pista, true, pesado ? 8 : 5.5, claro, []); traco(pista, false, pesado ? 4.2 : 2.6, r.cor, pesado ? [11, 9] : [8, 8]); }
-        if (reta.length) { ctx.globalAlpha *= 0.65; traco(reta, true, pesado ? 5 : 3.5, claro, []); traco(reta, false, pesado ? 2.6 : 1.8, r.cor, [2, 8]); ctx.globalAlpha = forte ? 1 : 0.26; }
-        ctx.setLineDash([]); ctx.lineDashOffset = 0;
-        for (const t of trechos) { // seta no meio de cada trecho: mostra o sentido
-          if (!visivel(t)) continue;
-          let mx, my, ang;
-          if (t.per) { const q = pts(t), i = Math.max(0, Math.floor(q.length / 2) - 1), a = q[i], b = q[Math.min(q.length - 1, i + 1)]; mx = (a.x + b.x) / 2; my = (a.y + b.y) / 2; ang = Math.atan2(b.y - a.y, b.x - a.x); }
-          else { const a = this.para(t.a), b = this.para(t.b), c1 = curva(a, b); if (Math.hypot(b.x - a.x, b.y - a.y) < 52) continue; mx = 0.25 * a.x + 0.5 * c1.x + 0.25 * b.x; my = 0.25 * a.y + 0.5 * c1.y + 0.25 * b.y; ang = Math.atan2(b.y - a.y, b.x - a.x); }
-          const sz = forte ? 8.5 : 6;
-          ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(sz, 0); ctx.lineTo(-sz * 0.75, -sz * 0.85); ctx.lineTo(-sz * 0.35, 0); ctx.lineTo(-sz * 0.75, sz * 0.85); ctx.closePath();
-          ctx.fillStyle = r.cor; ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fill(); ctx.restore();
-        }
+        const trechos = this._trechosDe(r); if (!trechos.length) return;
+        const forte = !temAtivo || r.id === this.ativo;
+        dados.push({ r, trechos, forte, sinal: ri % 2 ? -1 : 1, alfa: forte ? 1 : 0.26, pista: trechos.filter(t => t.per), reta: trechos.filter(t => !t.per) });
       });
+      const visivel = t => !t.per || !(t.per.b[2] < vx0 || t.per.b[0] > vx1 || t.per.b[3] < vy0 || t.per.b[1] > vy1);
+      const pts = (t, rid) => {
+        const w = t.per.w, n = w.length / 2, base = new Array(n); for (let j = 0; j < n; j++) base[j] = { x: (w[2 * j] - cx) * k + W / 2, y: (w[2 * j + 1] - cy) * k + H / 2 };
+        const U = this._lanes.get(rid + '|' + t.key); if (!U) return base;
+        const o = new Array(n);
+        for (let j = 0; j < n; j++) { const u = U[j]; if (!u) { o[j] = base[j]; continue; } const a = base[Math.max(0, j - 1)], c = base[Math.min(n - 1, j + 1)], dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy) || 1; o[j] = { x: base[j].x + dy / d * u * gap, y: base[j].y - dx / d * u * gap }; }
+        return o;
+      };
+      const curva = (a, b, sinal) => { const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, off = Math.min(70, d * 0.17) * sinal; return { x: (a.x + b.x) / 2 - dy / d * off, y: (a.y + b.y) / 2 + dx / d * off }; };
+      const claro = P.escuro ? 'rgba(4,16,20,.82)' : 'rgba(255,255,255,.92)';
+      const traco = (d, lista, halo, larg, cor, dash) => {
+        ctx.beginPath();
+        for (const t of lista) {
+          if (!visivel(t)) continue;
+          if (t.per) { const q = pts(t, d.r.id); ctx.moveTo(q[0].x, q[0].y); for (let j = 1; j < q.length; j++) ctx.lineTo(q[j].x, q[j].y); }
+          else { const a = this.para(t.a), b = this.para(t.b), c1 = curva(a, b, d.sinal); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(c1.x, c1.y, b.x, b.y); }
+        }
+        ctx.setLineDash(dash); ctx.lineDashOffset = this.animarRotas && !halo ? -((this._t * 0.035) % 20) : 0; ctx.lineWidth = larg; ctx.strokeStyle = cor; ctx.stroke();
+      };
+      ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      /* 1) o contorno claro de todas as linhas; 2) as linhas tracejadas por cima — assim nenhuma faixa apaga a vizinha */
+      for (const d of dados) { ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, true, d.forte ? 7 : 5, claro, []); if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, true, d.forte ? 5 : 3.5, claro, []); } }
+      for (const d of dados.slice().sort((a, b) => (a.forte ? 1 : 0) - (b.forte ? 1 : 0))) { // o veículo em destaque por cima
+        ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, false, d.forte ? 3.8 : 2.4, d.r.cor, d.forte ? [11, 9] : [8, 8]);
+        if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, false, d.forte ? 2.6 : 1.8, d.r.cor, [2, 8]); }
+      }
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      for (const d of dados) for (const t of d.trechos) { // seta no meio de cada trecho: mostra o sentido
+        if (!visivel(t)) continue;
+        let mx, my, ang;
+        if (t.per) { const q = pts(t, d.r.id), i = Math.max(0, Math.floor(q.length / 2) - 1), a = q[i], b = q[Math.min(q.length - 1, i + 1)]; mx = (a.x + b.x) / 2; my = (a.y + b.y) / 2; ang = Math.atan2(b.y - a.y, b.x - a.x); }
+        else { const a = this.para(t.a), b = this.para(t.b), c1 = curva(a, b, d.sinal); if (Math.hypot(b.x - a.x, b.y - a.y) < 52) continue; mx = 0.25 * a.x + 0.5 * c1.x + 0.25 * b.x; my = 0.25 * a.y + 0.5 * c1.y + 0.25 * b.y; ang = Math.atan2(b.y - a.y, b.x - a.x); }
+        const sz = d.forte ? 8 : 5.5; ctx.globalAlpha = d.alfa;
+        ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(sz, 0); ctx.lineTo(-sz * 0.75, -sz * 0.85); ctx.lineTo(-sz * 0.35, 0); ctx.lineTo(-sz * 0.75, sz * 0.85); ctx.closePath();
+        ctx.fillStyle = d.r.cor; ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fill(); ctx.restore();
+      }
       ctx.restore();
       if (baseP && this.rotas.some(r => r.pontos.length)) { // a base de saída
         ctx.beginPath(); ctx.arc(baseP.x, baseP.y, 13, 0, 6.2832); ctx.fillStyle = '#0B2545'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = P.escuro ? '#6EE1DC' : '#fff'; ctx.stroke();
@@ -495,6 +501,45 @@
       ctx.textAlign = 'start';
     }
 
+
+    /* os trechos (de uma parada à outra) de uma rota, já com a pista quando ela chegou */
+    _trechosDe(r) {
+      const chave = (a, b) => a.lon.toFixed(4) + ',' + a.lat.toFixed(4) + ';' + b.lon.toFixed(4) + ',' + b.lat.toFixed(4);
+      const mesmo = (a, b) => Math.abs(a.lon - b.lon) < 1e-4 && Math.abs(a.lat - b.lat) < 1e-4;
+      const cids = r.pontos.map(q => this.porChave.get(q.key)).filter(Boolean);
+      const seq = this.base && this.mostrarBase ? [this.base, ...cids] : cids, out = [];
+      for (let i = 1; i < seq.length; i++) { if (mesmo(seq[i - 1], seq[i])) continue; const key = chave(seq[i - 1], seq[i]); out.push({ a: seq[i - 1], b: seq[i], key, per: this.viasLigadas ? this.pernas.get(key) || null : null }); }
+      return out;
+    }
+    /* Faixas: onde mais de uma rota passa pelo MESMO pedaço de estrada, cada uma ganha um deslocamento lateral
+       (em "unidades de faixa": -0,5 e +0,5 para duas; -1, 0 e +1 para três...). A ordem é sempre a mesma ao longo do
+       trecho compartilhado e a transição é suavizada, então as linhas se afastam e voltam a se juntar sem pulo. */
+    _calcularLanes() {
+      this._lanesSujo = false; this._lanes = new Map();
+      if (!this.viasLigadas) return;
+      const Q = 0.0025, cel = (x, y) => Math.round(x / Q) + ',' + Math.round(y / Q);
+      const celulas = new Map(), pernas = [];
+      for (const r of this.rotas) for (const t of this._trechosDe(r)) {
+        if (!t.per) continue; pernas.push({ rid: r.id, t });
+        const w = t.per.w, n = w.length / 2;
+        for (let j = 0; j < n; j++) {
+          const reg = (x, y) => { const c = cel(x, y); let s = celulas.get(c); if (!s) { s = new Set(); celulas.set(c, s); } s.add(r.id); };
+          reg(w[2 * j], w[2 * j + 1]);
+          if (j + 1 < n) { const dx = w[2 * j + 2] - w[2 * j], dy = w[2 * j + 3] - w[2 * j + 1], d = Math.hypot(dx, dy), passos = Math.floor(d / (Q * 0.7)); for (let s = 1; s <= passos; s++) reg(w[2 * j] + dx * s / (passos + 1), w[2 * j + 1] + dy * s / (passos + 1)); }
+        }
+      }
+      for (const { rid, t } of pernas) {
+        const w = t.per.w, n = w.length / 2, u = new Float32Array(n); let algum = false;
+        for (let j = 0; j < n; j++) { const s = celulas.get(cel(w[2 * j], w[2 * j + 1])); if (s && s.size > 1) { const ids = [...s].sort((a, b) => a - b); u[j] = ids.indexOf(rid) - (ids.length - 1) / 2; algum = true; } }
+        if (!algum) continue;
+        const J = Math.min(14, Math.max(2, Math.floor(n / 8))), acc = new Float32Array(n + 1); // média móvel: transição suave
+        for (let j = 0; j < n; j++) acc[j + 1] = acc[j] + u[j];
+        const lis = new Float32Array(n);
+        for (let j = 0; j < n; j++) { const a = Math.max(0, j - J), b = Math.min(n, j + J + 1); lis[j] = (acc[b] - acc[a]) / (b - a); }
+        this._lanes.set(rid + '|' + t.key, lis);
+      }
+    }
+    lanesDe(rid, key) { if (this._lanesSujo || !this._lanes) this._calcularLanes(); return this._lanes.get(rid + '|' + key) || null; }
     _pilula(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
     /* ---------- fundo de estradas (peças do OpenStreetMap), com o que já chegou enquanto as outras carregam ---------- */
     _pedirTile(z, x, y) {

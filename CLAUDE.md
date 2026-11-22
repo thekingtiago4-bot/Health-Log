@@ -33,6 +33,8 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 
 - Rodovias/KM: `vias.js` pede ao OSRM público do FOSSGIS (routing.openstreetmap.de) um trecho por vez, de sede de cidade a sede de cidade (coordenadas IBGE; nunca endereço de cliente), 1 pedido a cada 1,1 s, com tentativas e espera; cada trecho fica guardado no aparelho (IndexedDB meta `via:`, validade 30 dias). KM = soma dos trechos da base até a última parada: IDA, sem trânsito, sem o percurso dentro das cidades e sem a volta. É estimativa e deve ser tratada assim. Se o serviço falha, o app avisa e desenha curvas; nunca inventa KM.
 
+- Faixas: onde mais de uma rota usa o mesmo trecho de estrada, as linhas são deslocadas lateralmente (mapa.js `_calcularLanes`: células de ~250 m, ordem fixa pelo id do veículo, média móvel para transição suave) para nenhuma cobrir a outra. Contorno claro de todas primeiro, tracejados depois.
+
 ## Arquivos
 `nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `romaneio.js` · `vias.js` · `vendor/` (pdf.js e Tesseract, cópia do Health Search) · `abertura.js` animação (cópia do Health Search v10.6)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)

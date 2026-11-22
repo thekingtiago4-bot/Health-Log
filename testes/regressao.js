@@ -203,6 +203,26 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 20000 });
   await p.evaluate(() => { const o = RT.S.op, ids = o.notas.filter(n => /^(JAU|SAO CARLOS)$/.test(RT.N.normCidade(n.cidade))).map(n => n.id); RT.N.alocar(o, RT.S.idx, ids, null); o.rev++; RT.A.reindexar(); RT.A.salvar(); RT.A.atualizarTudo(); }); // devolve o estado para os próximos blocos
 
+  console.log('\nVeículos na mesma estrada: faixas lado a lado');
+  const faixas = await p.evaluate(() => {
+    const m = RT.S.mapa, A = m.cidades[0], B = m.cidades[1], chave = (a, b) => a.lon.toFixed(4) + ',' + a.lat.toFixed(4) + ';' + b.lon.toFixed(4) + ',' + b.lat.toFixed(4), k = chave(A, B);
+    const salvoRotas = m.rotas, salvoBase = m.base;
+    m.setBase(null);
+    m.setPerna(k, { coords: [[A.lon, A.lat], [(A.lon + B.lon) / 2, (A.lat + B.lat) / 2], [B.lon, B.lat]], km: 10, min: 10 });
+    const rota = id => ({ id, cor: '#888', pontos: [{ key: A.key, n: 1 }, { key: B.key, n: 2 }] });
+    m.setRotas([rota(101), rota(102)]);
+    const dois = [m.lanesDe(101, k), m.lanesDe(102, k)].map(u => u && Math.round(u[1] * 100) / 100);
+    m.setRotas([rota(101), rota(102), rota(103)]);
+    const tres = [101, 102, 103].map(id => Math.round(m.lanesDe(id, k)[1] * 100) / 100);
+    m.setRotas([rota(101)]);
+    const sozinha = m.lanesDe(101, k);
+    m.setRotas(salvoRotas); m.setBase(salvoBase); m.pernas.delete(k); m._lanesSujo = true;
+    return { dois, tres, sozinha };
+  });
+  igual(faixas.dois, [-0.5, 0.5], 'duas rotas na mesma estrada ficam em faixas separadas (esquerda e direita)');
+  igual(faixas.tres, [-1, 0, 1], 'três rotas: esquerda, meio e direita');
+  igual(faixas.sozinha, null, 'rota sozinha na estrada não é deslocada');
+
   console.log('\nNotas e folha');
   await p.click('.nav button[data-tela="notas"]');
   await p.fill('#n-busca', 'acai');
