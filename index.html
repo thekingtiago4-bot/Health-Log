@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!-- Health Route (módulo de rotas do Health Search) · © 2026 Tiago — Health Log / AQA. Uso interno. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F4B55">
+<title>Health Route</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="fontes.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="rail">
+    <div class="marca" id="marca" title="Ver o Mural do dia" role="button" tabindex="0">
+      <img src="icons/marca.png" width="38" height="38" alt="" style="border-radius:9px;flex:none">
+      <div><b>Health Search</b><span>Rotas</span></div>
+    </div>
+    <nav class="nav" aria-label="Seções">
+      <div class="nav-grupo">Operação</div>
+      <button data-tela="mural"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M9 9v11"/></svg><span class="lbl">Mural do dia</span></button>
+      <button data-tela="rotas" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="lbl">Montar rotas</span><span class="qt lar" id="qt-pend" hidden>0</span></button>
+      <button data-tela="notas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg><span class="lbl">Notas</span><span class="qt" id="qt-notas" hidden>0</span></button>
+      <button data-tela="folha"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M3.5 14.5h17M9.5 9v11"/></svg><span class="lbl">Folha de rotas</span></button>
+      <div class="nav-grupo">Dados</div>
+      <button data-tela="importar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Importar XML</span></button>
+    </nav>
+    <div class="resumo">
+      <dl><dt>Operação</dt><dd id="r-op">—</dd><dt>Notas</dt><dd id="r-nf">0</dd><dt>Volumes</dt><dd id="r-vol">0</dd><dt>Alocadas</dt><dd id="r-aloc">0%</dd><dt>Carros</dt><dd id="r-car">0</dd></dl>
+      <div class="salvo"><i id="r-salvo-i"></i><span id="r-salvo">Abrindo…</span></div>
+      <button class="tema" id="bt-tema" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="tema-lbl">Tema escuro</span></button>
+      <div class="autoria">Desenvolvido por <b>Tiago</b><br>© 2026 Health Search · uso interno<br><span id="versao"></span></div>
+    </div>
+  </aside>
+
+  <main id="principal">
+    <div class="faixa-erro" id="faixa-erro" role="alert" hidden></div>
+
+    <!-- MONTAR ROTAS -->
+    <section class="tela rotas" id="t-rotas" aria-label="Montar rotas">
+      <div class="barra-carros">
+        <div class="chips-carros" id="chips-carros" role="tablist" aria-label="Carros"></div>
+        <button class="btn mini pri" id="bt-novo-carro" type="button">+ Carro</button>
+        <span class="sep"></span>
+        <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
+        <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
+        <button class="btn mini" id="bt-enquadrar" type="button" title="Enquadra as cidades da operação (Shift: inclui as muito isoladas)">Enquadrar mapa</button>
+      </div>
+      <div class="faixa-carro" id="faixa-carro"></div>
+      <div class="mapa-area" id="mapa-area">
+        <div class="zoom-bt"><button type="button" id="z-mais" aria-label="Aproximar">+</button><button type="button" id="z-menos" aria-label="Afastar">−</button></div>
+        <div class="legenda" id="legenda">
+          <span><i class="lg-b"></i>Sem carro</span>
+          <span><i class="lg-cor"></i>Em carro</span>
+          <span><i class="lg-am">!</i>Falta nota</span>
+          <span><i class="lg-vd"></i>Completa</span>
+        </div>
+        <button type="button" class="aviso-fora" id="aviso-fora" hidden title="Clique para enquadrar todas as cidades"></button>
+        <div class="dica-mapa" id="tip" hidden></div>
+        <div class="vazio-mapa" id="vazio-mapa" hidden>
+          <h2>Nenhuma operação aberta</h2>
+          <p>Importe os XMLs do dia para ver as cidades no mapa e montar as rotas.</p>
+          <button class="btn pri" type="button" data-ir="importar">Importar XMLs</button>
+        </div>
+        <!-- janela flutuante: cidades pendentes -->
+        <div class="jan" id="jan-pend" role="dialog" aria-label="Cidades pendentes">
+          <div class="jan-cab" id="jan-pend-cab"><b>Cidades pendentes</b><span class="jan-qt" id="pend-qt">0</span><button type="button" class="jan-x" id="pend-min" aria-label="Recolher" title="Recolher">–</button></div>
+          <div class="jan-corpo" id="pend-corpo">
+            <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar"><option value="nome">A–Z</option><option value="valor">Maior valor</option><option value="paradas">Mais paradas</option></select></div>
+            <ul class="pend-lista" id="pend-lista"></ul>
+          </div>
+        </div>
+        <!-- janela flutuante: clientes da cidade -->
+        <div class="jan jan-cid" id="jan-cid" role="dialog" aria-label="Clientes da cidade" hidden></div>
+      </div>
+    </section>
+
+    <!-- NOTAS -->
+    <section class="tela" id="t-notas" aria-labelledby="h-notas" hidden>
+      <h1 id="h-notas">Notas</h1>
+      <p class="sub" id="notas-sub"></p>
+      <div class="tb-filtros">
+        <input id="n-busca" class="filtro" placeholder="Buscar NF, cliente, cidade, chave…" aria-label="Buscar nota">
+        <select id="n-carro" class="filtro" aria-label="Filtrar por carro"></select>
+        <select id="n-origem" class="filtro" aria-label="Filtrar por origem"></select>
+      </div>
+      <div class="tabela-wrap"><table class="tabela" id="n-tabela"></table></div>
+      <p class="dica" id="n-rodape"></p>
+    </section>
+
+    <!-- FOLHA -->
+    <section class="tela folha-tela" id="t-folha" aria-labelledby="h-folha" hidden>
+      <div class="folha-topo"><div><h1 id="h-folha">Folha de rotas</h1><p class="sub" style="margin:0">Prévia da folha. Valores e volumes vêm das notas alocadas em cada carro.</p></div><button class="btn pri" id="bt-imprimir" type="button">Imprimir / salvar PDF</button></div>
+      <div id="folha"></div>
+    </section>
+
+    <!-- IMPORTAR -->
+    <section class="tela" id="t-importar" aria-labelledby="h-importar" hidden>
+      <h1 id="h-importar">Importar XML</h1>
+      <p class="sub">Relatório de notas da SoftLog (XML). Você pode escolher vários arquivos de uma vez. Nada entra na operação antes de você conferir o resumo e confirmar.</p>
+      <div class="drop" id="drop" tabindex="0">
+        <b>Arraste os XMLs aqui</b><span>ou</span>
+        <label class="btn pri" for="arq">Escolher arquivos</label>
+        <input type="file" id="arq" accept=".xml,.XML,text/xml,application/xml" multiple hidden>
+      </div>
+      <div id="lote"></div>
+      <h2 style="margin-top:34px">Operações guardadas</h2>
+      <div id="lista-ops"></div>
+      <h2 style="margin-top:30px">Cópias de segurança</h2>
+      <p class="sub" style="margin-bottom:10px">O app guarda uma cópia sozinho antes de importar por cima, excluir uma operação ou excluir um carro com notas.</p>
+      <div id="lista-bk"></div>
+      <div class="botoes-linha"><label class="btn" for="arq-bk">Restaurar de um arquivo .json…</label><input type="file" id="arq-bk" accept=".json,application/json" hidden></div>
+    </section>
+  </main>
+</div>
+
+<!-- MURAL DO DIA (igual ao do Health Search: aparece ao abrir, atrás da animação) -->
+<div id="mural" class="mural" role="dialog" aria-label="Mural do dia" tabindex="-1" hidden></div>
+<div id="toast" role="status" hidden></div>
+
+<script src="nucleo.js"></script>
+<script src="ui.js"></script>
+<script src="mapa.js"></script>
+<script src="app.js"></script>
+<script src="abertura.js"></script>
+</body>
+</html>

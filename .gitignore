@@ -1,0 +1,10 @@
+node_modules/
+*.log
+# NUNCA versionar XML, PDF ou planilhas reais da operação (têm clientes, CNPJ/CPF e valores)
+*.xml
+*.XML
+*.xlsm
+*.xlsx
+*.pdf
+operacao*/
+OPERA*/
