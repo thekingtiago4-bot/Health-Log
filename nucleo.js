@@ -135,7 +135,7 @@
       const nota = {
         id: '', nf, remetente: g('remetente'), doc: N.soDigitos(g('doc')), cliente: g('cliente'),
         cep: N.soDigitos(g('cep')), end: g('end'), num: g('num'), bairro: g('bairro'),
-        cidade: g('cidade'), uf: N.norm(g('uf')), vol: Math.round(vol.v / 1000),
+        cidade: g('cidade'), uf: N.norm(g('uf')), vol: Math.round(vol.v / 1000), volMil: vol.v,
         peso: peso.ok ? peso.v : 0, valor: valor.v, chave: N.soDigitos(g('chave')),
         origem: arquivo, linha: l.n
       };
@@ -190,18 +190,32 @@
   N.corDoCarro = function (numero) {
     if (numero <= CORES.length) return CORES[numero - 1];
     const h = [190, 215, 240, 265, 290, 315, 340, 5, 20][(numero - 1) % 9];
-    const l = 36 + (Math.floor((numero - CORES.length - 1) / 9) % 3) * 8;
+    const l = 34 + (Math.floor((numero - CORES.length - 1) / 9) % 3) * 9;
     return 'hsl(' + h + ',62%,' + l + '%)';
   };
 
-  N.novoCarro = function (op, motorista) {
-    const numero = op.proxCarro++;
-    const c = { id: numero, numero, motorista: motorista || '', cor: N.corDoCarro(numero), cidades: [] };
+  /* Veículos: carro, van e caminhão. Van e caminhão diferem do carro só pelo NOME (o galpão sabe que cabe
+     mais volume); nenhuma regra de distribuição muda. */
+  N.TIPOS = { carro: { nome: 'Carro', plural: 'Carros' }, van: { nome: 'Van', plural: 'Vans' }, caminhao: { nome: 'Caminhão', plural: 'Caminhões' } };
+  N.nomeCarro = c => (N.TIPOS[c.tipo || 'carro'] || N.TIPOS.carro).nome + ' ' + c.numero;
+  N.rotuloCarro = c => N.nomeCarro(c) + (c.motorista ? ' · ' + c.motorista : '');
+  N.novoCarro = function (op, motorista, tipo) {
+    tipo = N.TIPOS[tipo] ? tipo : 'carro';
+    const id = op.proxCarro++;
+    const numero = Math.max(0, ...op.carros.filter(c => (c.tipo || 'carro') === tipo).map(c => c.numero)) + 1;
+    const c = { id, tipo, numero, motorista: motorista || '', cor: N.corDoCarro(id), cidades: [], rastreio: null };
     op.carros.push(c);
     op.rev++;
     return c;
   };
-  N.rotuloCarro = c => 'Carro ' + c.numero + (c.motorista ? ' · ' + c.motorista : '');
+  N.contarTipo = (op, tipo) => op.carros.filter(c => (c.tipo || 'carro') === tipo).length;
+  /* ordem das paradas: move a cidade de `de` para `para` dentro da rota do veículo */
+  N.moverCidade = function (op, carroId, de, para) {
+    const c = op.carros.find(x => x.id === carroId);
+    if (!c || de === para || de < 0 || para < 0 || de >= c.cidades.length || para >= c.cidades.length) return false;
+    const [k] = c.cidades.splice(de, 1); c.cidades.splice(para, 0, k); op.rev++;
+    return true;
+  };
 
   /* Move/aloca notas para um carro (id) — ou libera (carroId = null). Mantém a lista de cidades do carro. */
   N.alocar = function (op, idx, notaIds, carroId) {
@@ -235,8 +249,16 @@
 
   /* ---------- municípios (IBGE) ---------- */
   let MUN = null, MUNIDX = null;
+  let MUNNOME = null;
+  /* todos os municípios com esse nome (e UF, se vier) — para listas coladas */
+  N.achaMunicipios = function (nome, uf) {
+    const l = (MUNNOME && MUNNOME.get(N.normCidade(nome))) || [];
+    const u = uf ? N.norm(uf) : '';
+    return l.filter(c => !u || MUN[c][1] === u).map(c => ({ code: c, nome: MUN[c][0], uf: MUN[c][1] }));
+  };
   N.setMunicipios = function (obj) {
-    MUN = obj; MUNIDX = new Map();
+    MUN = obj; MUNIDX = new Map(); MUNNOME = new Map();
+    for (const code in obj) { const k = N.normCidade(obj[code][0]); if (!MUNNOME.has(k)) MUNNOME.set(k, []); MUNNOME.get(k).push(code); }
     for (const code in obj) {
       const m = obj[code];
       const k = N.normCidade(m[0]) + '|' + m[1];
@@ -252,6 +274,25 @@
   };
   N.municipioPorCodigo = code => (MUN && MUN[code]) ? { code, nome: MUN[code][0], uf: MUN[code][1], lat: MUN[code][2], lon: MUN[code][3] } : null;
 
+  /* ---------- fora de rota ---------- */
+  /* Regras: está FORA se só aparece nas listas de LKR/BH/Cajamar do Health Search (ou é do DF) e em nenhuma
+     região atendida. Cidade que não aparece em lista nenhuma conta como EM ROTA (o mapa embutido é incompleto:
+     perder uma cidade atendida seria pior que mostrar uma a mais). O usuário corrige cidade a cidade (`ajustes`). */
+  let REG = null, AJ = {};
+  N.setRegioes = function (dados) {
+    REG = { rota: new Set(), fora: new Set(), nomes: new Map() };
+    for (const r of (dados && dados.regioes) || []) for (const c of r.cidades) { (r.grupo === 'fora' ? REG.fora : REG.rota).add(String(c)); if (!REG.nomes.has(String(c))) REG.nomes.set(String(c), []); REG.nomes.get(String(c)).push(r.nome); }
+  };
+  N.setAjustesRota = o => { AJ = o || {}; };
+  N.foraDeRota = function (code, uf) {
+    const k = code || ('x:' + uf);
+    if (code && AJ[code] === 'fora') return true;
+    if (code && AJ[code] === 'rota') return false;
+    if (uf === 'DF') return true;
+    return !!(code && REG && REG.fora.has(String(code)) && !REG.rota.has(String(code)));
+  };
+  N.regioesDaCidade = code => (REG && code && REG.nomes.get(String(code))) || [];
+
   /* ---------- índice derivado: cidades -> clientes -> notas ---------- */
   N.chaveCliente = n => (n.doc || N.norm(n.cliente)) + '|' + n.cep + '|' + N.norm(n.end) + '|' + N.norm(n.num);
 
@@ -263,7 +304,7 @@
       if (!c) {
         const m = N.municipio(n.cidade, n.uf);
         c = { key: k, nome: m ? m.nome : n.cidade, uf: n.uf, code: m ? m.code : null, lat: m ? m.lat : null, lon: m ? m.lon : null,
-          semPosicao: !m, clientes: new Map(), notas: [] };
+          semPosicao: !m, clientes: new Map(), notas: [], fora: N.foraDeRota(m ? m.code : null, n.uf) };
         cidades.set(k, c);
       }
       const ck = N.chaveCliente(n);
@@ -301,12 +342,15 @@
   };
 
   /* resumo completo da operação (alimenta Mural, mapa, barra de carros e Folha) */
+  N.volMil = n => (n.volMil != null ? n.volMil : n.vol * 1000);
   N.resumo = function (op, idx) {
     const atrib = op.atrib;
     const tot = N.somar(op.notas);
     const aloc = N.somar(op.notas.filter(n => atrib[n.id] != null));
     const cidades = [];
     const cont = { pendente: 0, parcial: 0, completa: 0 };
+    const fora = { cidades: 0, notas: 0, vol: 0, peso: 0, valor: 0 };
+    const rota = zero(), alocRota = zero();
     for (const c of idx.lista) {
       const e = N.estadoCidade(c, atrib);
       const porCarro = new Map();
@@ -317,8 +361,12 @@
         let p = porCarro.get(car); if (!p) { p = zero(); porCarro.set(car, p); }
         p.notas++; p.vol += n.vol; p.peso += n.peso; p.valor += n.valor;
       }
-      cont[e.estado]++;
-      cidades.push({ cidade: c, estado: e.estado, alocadas: e.alocadas, total: e.total, porCarro, livres, paradasLivres: clientesLivres.size });
+      if (c.fora) { fora.cidades++; for (const n of c.notas) { fora.notas++; fora.vol += n.vol; fora.peso += n.peso; fora.valor += n.valor; } }
+      else {
+        cont[e.estado]++;
+        for (const n of c.notas) { rota.notas++; rota.vol += n.vol; rota.peso += n.peso; rota.valor += n.valor; if (atrib[n.id] != null) { alocRota.notas++; alocRota.vol += n.vol; alocRota.peso += n.peso; alocRota.valor += n.valor; } }
+      }
+      cidades.push({ cidade: c, estado: e.estado, alocadas: e.alocadas, total: e.total, porCarro, livres, paradasLivres: clientesLivres.size, fora: !!c.fora });
     }
     const carros = op.carros.map(car => {
       const notas = op.notas.filter(n => atrib[n.id] === car.id);
@@ -329,9 +377,9 @@
     });
     const origens = new Map();
     for (const n of op.notas) { const o = origens.get(n.origem) || zero(); o.notas++; o.vol += n.vol; o.valor += n.valor; origens.set(n.origem, o); }
-    return { tot, aloc, cidades, cont, carros, origens,
+    return { tot, aloc, rota, alocRota, fora, cidades, cont, carros, origens,
       cidadesSemPosicao: idx.lista.filter(c => c.semPosicao).length,
-      pctAloc: tot.notas ? Math.round((aloc.notas / tot.notas) * 100) : 0 };
+      pctAloc: rota.notas ? Math.round((alocRota.notas / rota.notas) * 100) : 0 };
   };
 
   N.paradasTotais = function (op, idx) {

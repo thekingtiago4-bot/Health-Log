@@ -25,6 +25,7 @@
       <button data-tela="rotas" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="lbl">Montar rotas</span><span class="qt lar" id="qt-pend" hidden>0</span></button>
       <button data-tela="notas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg><span class="lbl">Notas</span><span class="qt" id="qt-notas" hidden>0</span></button>
       <button data-tela="folha"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M3.5 14.5h17M9.5 9v11"/></svg><span class="lbl">Folha de rotas</span></button>
+      <button data-tela="geo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 4 5.3 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.3-4-8.5s1.4-6.1 4-8.5z"/></svg><span class="lbl">Geolocalização</span></button>
       <div class="nav-grupo">Dados</div>
       <button data-tela="importar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Importar XML</span></button>
     </nav>
@@ -44,8 +45,12 @@
       <div class="barra-carros">
         <div class="chips-carros" id="chips-carros" role="tablist" aria-label="Carros"></div>
         <button class="btn mini pri" id="bt-novo-carro" type="button">+ Carro</button>
+        <button class="btn mini pri" id="bt-novo-van" type="button">+ Van</button>
+        <button class="btn mini pri" id="bt-novo-caminhao" type="button">+ Caminhão</button>
         <span class="sep"></span>
         <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
+        <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
+        <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a janela de veículos e rotas" aria-pressed="false">Veículos</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
         <button class="btn mini" id="bt-enquadrar" type="button" title="Enquadra as cidades da operação (Shift: inclui as muito isoladas)">Enquadrar mapa</button>
       </div>
@@ -67,15 +72,46 @@
         </div>
         <!-- janela flutuante: cidades pendentes -->
         <div class="jan" id="jan-pend" role="dialog" aria-label="Cidades pendentes">
-          <div class="jan-cab" id="jan-pend-cab"><b>Cidades pendentes</b><span class="jan-qt" id="pend-qt">0</span><button type="button" class="jan-x" id="pend-min" aria-label="Recolher" title="Recolher">–</button></div>
+          <div class="jan-cab" id="jan-pend-cab"><b>Cidades pendentes</b><span class="jan-qt" id="pend-qt">0</span><button type="button" class="jan-x" id="pend-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="pend-x" aria-label="Fechar" title="Fechar (reabre em Pendentes)">✕</button></div>
           <div class="jan-corpo" id="pend-corpo">
             <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar"><option value="nome">A–Z</option><option value="valor">Maior valor</option><option value="paradas">Mais paradas</option></select></div>
             <ul class="pend-lista" id="pend-lista"></ul>
           </div>
         </div>
+        <!-- janela flutuante: veículos, ordem das paradas e mover notas -->
+        <div class="jan jan-carros" id="jan-carros" role="dialog" aria-label="Veículos e rotas" hidden>
+          <div class="jan-cab"><b>Veículos e rotas</b><span class="jan-qt" id="car-qt" style="background:var(--tealBg);color:var(--acento)">0</span><button type="button" class="jan-x" id="car-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="car-x" aria-label="Fechar" title="Fechar">✕</button></div>
+          <div class="jan-corpo" id="car-corpo"></div>
+        </div>
         <!-- janela flutuante: clientes da cidade -->
         <div class="jan jan-cid" id="jan-cid" role="dialog" aria-label="Clientes da cidade" hidden></div>
       </div>
+    </section>
+
+    <!-- GEOLOCALIZAÇÃO (mesma ideia do Health Search) -->
+    <section class="tela" id="t-geo" aria-labelledby="h-geo" hidden>
+      <h1 id="h-geo">Geolocalização</h1>
+      <p class="sub">Veja a região (rota) e a base de cada cidade. Clique numa cidade do mapa ou digite o nome. O que for "Fora de rota" aparece no mapa da montagem, mas fica separado na lista de pendentes. Dá para mudar as listas aqui.</p>
+      <div class="geo-topo"><div class="campo-cidade"><input id="geo-q" class="filtro" style="width:min(420px,100%);min-height:44px;font-size:1.05rem" placeholder="Cidade (ex.: Presidente Prudente)" autocomplete="off" aria-label="Cidade"><ul class="sug" id="geo-sug" hidden></ul></div></div>
+      <div class="geo-grid">
+        <div class="geo-card" id="geo-res" aria-live="polite"></div>
+        <div class="geo-mapa">
+          <div class="ferr"><span class="seg" role="group" aria-label="Camada"><button type="button" data-geo-tipo="regiao" aria-pressed="true">Regiões</button><button type="button" data-geo-tipo="base" aria-pressed="false">Bases</button></span><span style="flex:1"></span>
+            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button></div>
+          <div class="geo-box" id="geo-box"><div class="dica-mapa" id="geo-tip" hidden></div></div>
+          <div class="geo-leg" id="geo-leg"></div>
+        </div>
+      </div>
+      <div class="barra-geo"><h2>Listas cadastradas</h2><button class="btn mini" id="geo-orig" type="button" title="Volta às listas que vieram do Health Search, descartando suas edições">Restaurar listas originais</button></div>
+      <div id="geo-listas"></div>
+      <details class="geo-colar"><summary>Colar uma lista de cidades</summary>
+        <div class="geo-col-grid"><label>Nome da lista<input id="geo-c-nome" class="filtro" placeholder="Ex.: Triângulo Mineiro" autocomplete="off"></label>
+          <label>Tipo<select id="geo-c-tipo" class="filtro"><option value="regiao">Região (rota)</option><option value="base">Base</option></select></label>
+          <label>Conta como<select id="geo-c-grupo" class="filtro"><option value="rota">Em rota</option><option value="fora">Fora de rota</option></select></label>
+          <button class="btn pri" id="geo-c-ok" type="button">Ler lista</button></div>
+        <textarea id="geo-c-txt" class="filtro" style="width:100%;min-height:110px;margin-top:8px" placeholder="Uma cidade por linha. Pode ter /UF no fim (ex.: Passos/MG)"></textarea>
+        <p class="dica" id="geo-c-res"></p>
+      </details>
     </section>
 
     <!-- NOTAS -->

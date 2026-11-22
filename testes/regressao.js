@@ -177,7 +177,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(() => RT.S.op.carros.length === 1);
   igual((await estado(p)).cont.completa, 0, 'excluir o carro devolve as notas dele (nenhuma cidade completa)');
   const bks = await p.evaluate(() => RT.DB.todos('bk').then(x => x.map(b => b.motivo)));
-  verdade(bks.some(m => /excluir o Carro 2/.test(m)), 'cópia de segurança guardada ANTES de excluir o carro');
+  verdade(bks.some(m => /excluir Carro 2/.test(m)), 'cópia de segurança guardada ANTES de excluir o carro');
   await p.click('#bt-desfazer');
   igual((await estado(p)).carros, [1, 2], 'desfazer traz o carro de volta');
 
@@ -195,6 +195,102 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('[data-op-baixar]');
   const arqBk = await dl.then(d => d.suggestedFilename());
   verdade(/^health-route-.*\.json$/.test(arqBk), 'baixar cópia gera arquivo .json (' + arqBk + ')');
+
+
+  console.log('\nVeículos: carro, van e caminhão');
+  await p.click('.nav button[data-tela="rotas"]');
+  await p.click('#bt-novo-van');
+  await p.click('#bt-novo-caminhao');
+  igual(await p.evaluate(() => RT.S.op.carros.map(c => RT.N.nomeCarro(c))), ['Carro 1', 'Carro 2', 'Van 1', 'Caminhão 1'], 'Carro, Van e Caminhão têm numeração própria');
+  await p.click('#bt-novo-caminhao');
+  verdade(/não possui mais de um caminhão/i.test(await p.innerText('.fundo .modal')), 'segundo caminhão pergunta "Você não possui mais de um caminhão. Tem certeza?"');
+  await p.click('.fundo [data-n]');
+  igual(await p.evaluate(() => RT.N.contarTipo(RT.S.op, 'caminhao')), 1, 'respondendo Não, não cria o segundo caminhão');
+  await p.click('#bt-novo-caminhao'); await p.click('.fundo [data-s]');
+  await p.waitForFunction(() => RT.N.contarTipo(RT.S.op, 'caminhao') === 2);
+  verdade(true, 'respondendo Sim, cria (Caminhão 2)');
+
+  console.log('\nRota da Van: ordem das paradas, linhas no mapa, rastreio e mover notas');
+  for (const cid of ['sao carlos', 'jau']) {
+    await p.fill('#busca-cidade', cid); await p.keyboard.press('Enter');
+    await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+    await p.click('.mini-car[data-car="3"]'); await p.click('#jc-todos'); await p.click('[data-a=concluir]');
+  }
+  const ordem = () => p.evaluate(() => RT.S.op.carros.find(c => c.id === 3).cidades);
+  igual(await ordem(), ['SAO CARLOS|SP', 'JAU|SP'], 'a ordem das paradas é a ordem em que as cidades entraram');
+  await p.click('.vei[data-car="3"] .vei-cab b');
+  igual(await p.$$eval('.vei[data-car="3"] li.cid', l => l.length), 2, 'janela de veículos lista as cidades da Van 1');
+  await p.click('[data-dn="3|0"]');
+  igual(await ordem(), ['JAU|SP', 'SAO CARLOS|SP'], '▼ troca a ordem das paradas');
+  igual(await p.evaluate(() => RT.S.mapa.rotas.find(r => r.id === 3).pontos.map(x => x.key + ':' + x.n)), ['JAU|SP:1', 'SAO CARLOS|SP:2'], 'o mapa recebe a nova ordem (linha tracejada e números 1, 2)');
+  await p.locator('.vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('.vei[data-car="3"] li.cid').nth(1));
+  igual(await ordem(), ['SAO CARLOS|SP', 'JAU|SP'], 'arrastar e soltar também muda a ordem');
+  await p.click('[data-rast="3"]'); igual(await p.innerText('[data-rast="3"]'), 'Rastreio: SIM', 'rastreio: sim');
+  await p.click('[data-rast="3"]'); igual(await p.innerText('[data-rast="3"]'), 'Rastreio: NÃO', 'rastreio: não');
+  await p.click('[data-rast="3"]'); igual(await p.innerText('[data-rast="3"]'), 'Rastreio: —', 'rastreio: sem marca');
+  const totVan = await p.evaluate(() => RT.S.res.carros.find(c => c.carro.id === 3).valor);
+  await p.fill('#car-lim', '100'); await p.press('#car-lim', 'Tab');
+  verdade(await p.locator('.vei[data-car="3"] .vei-alerta').count() === 1, 'alerta de valor aparece quando o veículo passa do limite que VOCÊ definiu (' + totVan + ' > 10000)');
+  await p.fill('#car-lim', ''); await p.press('#car-lim', 'Tab');
+  await p.click('[data-ex="3|SAO CARLOS|SP"]');
+  const idNota = 'k:' + '1006'.padStart(44, '0');
+  await p.check('.mv-chk[data-n="' + idNota + '"]');
+  await p.selectOption('#mv-dest', '1');
+  const antes2 = await p.evaluate(id => RT.S.op.atrib[id], idNota);
+  await p.click('[data-mv="mover"]');
+  igual([antes2, await p.evaluate(id => RT.S.op.atrib[id], idNota)], [3, 1], 'selecionar uma nota e "mover para" o Carro 1 muda o veículo da nota');
+  verdade(await p.evaluate(() => RT.S.res.carros.find(c => c.carro.id === 1).cidades.some(c => c.key === 'SAO CARLOS|SP')), 'e o Carro 1 passa a ter São Carlos na rota (tudo atualiza junto)');
+  await p.click('#bt-desfazer');
+  igual(await p.evaluate(id => RT.S.op.atrib[id], idNota), 3, 'desfazer devolve a nota');
+
+  console.log('\nJanelas flutuantes ficam onde você deixou');
+  const posCid = () => p.$eval('#jan-cid', e => [Math.round(parseFloat(e.style.left)), Math.round(parseFloat(e.style.top))]);
+  await p.fill('#busca-cidade', 'sao carlos'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  const cab = await p.locator('#jan-cid .jan-cab').boundingBox();
+  await p.mouse.move(cab.x + 40, cab.y + 14); await p.mouse.down(); await p.mouse.move(cab.x - 160, cab.y + 70, { steps: 6 }); await p.mouse.up();
+  const arrastada = await posCid();
+  await p.click('#jan-cid [data-a=fechar]');
+  await p.fill('#busca-cidade', 'jau'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  igual(await posCid(), arrastada, 'abrir outra cidade NÃO reposiciona a janela (ficou em ' + arrastada + ')');
+  await p.click('#jan-cid [data-a=fechar]');
+  const posPend = await p.$eval('#jan-pend', e => [e.style.left, e.style.top]);
+  await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x');
+  igual(await p.$eval('#jan-pend', e => [e.style.left, e.style.top]), posPend, 'a janela de pendentes também lembra a posição depois de recarregar');
+
+  console.log('\nFora de rota');
+  await p.fill('#busca-cidade', 'jau'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  const pendAntes = await p.innerText('#pend-qt');
+  await p.click('[data-a=forarota]');
+  igual(await p.evaluate(() => RT.S.idx.cidades.get('JAU|SP').fora), true, 'marcar a cidade como fora de rota');
+  verdade(Number(await p.innerText('#pend-qt')) <= Number(pendAntes), 'ela deixa de contar nas pendentes em rota');
+  await p.click('#jan-cid [data-a=fechar]');
+  await p.click('#pend-fora-cab');
+  verdade(/Jaú/.test(await p.innerText('#pend-lista li.fora')), 'aparece na seção "Fora de rota" da janela de pendentes');
+  igual(await p.evaluate(() => RT.S.mapa.cidades.some(c => c.key === 'JAU|SP' && c.fora)), true, 'e continua no mapa (bolinha cinza)');
+  await p.hover('#pend-lista li.fora'); await p.click('#pend-lista li.fora .bt-fora');
+  igual(await p.evaluate(() => RT.S.idx.cidades.get('JAU|SP').fora), false, '"trazer para a rota" desfaz');
+
+  console.log('\nGeolocalização (regiões e bases)');
+  await p.click('.nav button[data-tela="geo"]');
+  await p.fill('#geo-q', 'presidente prud'); await p.keyboard.press('Enter');
+  verdade(/PRESIDENTE PRUDENTE E REGIÃO/.test(await p.innerText('#geo-res')), 'Presidente Prudente faz parte de "Presidente Prudente e região"');
+  verdade(/EM ROTA/.test(await p.innerText('#geo-res')), 'e conta como em rota');
+  await p.selectOption('#geo-add-sel', 'interior'); await p.click('[data-geo-add]');
+  verdade(/INTERIOR/.test(await p.innerText('#geo-res')), 'dá para adicionar a cidade a outra lista');
+  await p.waitForFunction(() => RT.DB.get('meta', 'regioes').then(r => !!(r && r.v)));
+  await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x');
+  igual(await p.evaluate(() => RT.S.reg.regioes.find(r => r.id === 'interior').cidades.includes('3541406')), true, 'a edição das regiões fica guardada');
+  await p.click('.nav button[data-tela="geo"]');
+  await p.click('#geo-listas summary, details.geo-colar summary');
+  await p.fill('#geo-c-nome', 'Lista de teste'); await p.fill('#geo-c-txt', 'Jaú\nPassos/MG\nCidade que nao existe');
+  await p.click('#geo-c-ok');
+  verdade(/Não achei/.test(await p.innerText('#geo-c-res')), 'lista colada: cidade que não existe é avisada, não inventada');
+  igual(await p.evaluate(() => RT.S.reg.regioes.find(r => r.nome === 'Lista de teste').cidades.length), 2, 'e as 2 cidades válidas entram');
+  await p.click('[data-geo-del]:near(:text("Lista de teste"))').catch(() => { });
+  await p.evaluate(() => { const r = RT.S.reg.regioes.find(x => x.nome === 'Lista de teste'); RT.S.reg.regioes = RT.S.reg.regioes.filter(x => x !== r); });
+  await p.click('#geo-orig'); await p.click('.fundo [data-s]');
+  await p.waitForFunction(() => !RT.S.reg.regioes.find(r => r.id === 'interior').cidades.includes('3541406'));
+  verdade(true, '"Restaurar listas originais" desfaz as edições');
 
   await ctx.close();
 

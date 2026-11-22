@@ -13,7 +13,9 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 - Estados diferentes: **alocada** (está num carro) ≠ conferida ≠ entregue. Hoje só existe "alocada".
 - Identidade fiscal: chave de 44 dígitos prevalece; sem ela NF+remetente+destinatário. Número isolado não prova duplicidade.
 - Parada = cliente (doc + CEP + endereço + número) dentro de uma cidade.
-- Van = carga ≥ 15 volumes por parada (só classificação de folha; ainda não implementada aqui).
+- Veículos: Carro, Van e Caminhão. Van e Caminhão diferem do carro **só pelo nome** (cabe mais volume); nenhuma regra de distribuição muda. Só se espera 1 caminhão: o 2º pede confirmação. Frota atual (informada pelo Tiago): 15 carros, 5 vans, 1 caminhão.
+- Parada nos RELATÓRIOS = um endereço por dia (como no PDF do Tiago). Ticket por parada = valor das notas ÷ paradas.
+- Fora de rota = só em listas LKR/BH/Cajamar do Health Search (ou DF) e em nenhuma região atendida; editável na Geolocalização. Cidade em nenhuma lista conta como EM ROTA (o mapa embutido é incompleto).
 
 ## Arquivos
 `nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `abertura.js` animação (cópia do Health Search v10.6)

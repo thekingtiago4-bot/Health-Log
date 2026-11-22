@@ -44,8 +44,8 @@
       onMontar(f, fechar);
     });
   }
-  U.confirmar = function (titulo, texto, rotulo, perigo) {
-    return modal('<h2>' + U.esc(titulo) + '</h2><p>' + U.esc(texto) + '</p><div class="botoes"><button class="btn" data-n>Cancelar</button><button class="btn ' + (perigo ? 'perigo' : 'pri') + '" data-s>' + U.esc(rotulo || 'Confirmar') + '</button></div>',
+  U.confirmar = function (titulo, texto, rotulo, perigo, rotuloNao) {
+    return modal('<h2>' + U.esc(titulo) + '</h2><p>' + U.esc(texto) + '</p><div class="botoes"><button class="btn" data-n>' + U.esc(rotuloNao || 'Cancelar') + '</button><button class="btn ' + (perigo ? 'perigo' : 'pri') + '" data-s>' + U.esc(rotulo || 'Confirmar') + '</button></div>',
       (f, fechar) => { f.querySelector('[data-n]').onclick = () => fechar(false); f.querySelector('[data-s]').onclick = () => fechar(true); f.querySelector('[data-s]').focus(); }).then(v => !!v);
   };
   U.perguntar = function (titulo, texto, valor, rotulo) {

@@ -7,7 +7,7 @@
   'use strict';
   const RT = (g.RT = g.RT || {});
   const COS = 0.9272; // cos(22°): achata a longitude para o desenho não ficar esticado
-  const KMIN = 8, KMAX = 9000, K_PONTOS = 240, R_MARC = 9;
+  const KMIN = 8, KMAX = 9000, K_PONTOS = 240, R_MARC = 12;
 
   const X = lon => lon * COS, Y = lat => -lat;
 
@@ -22,7 +22,7 @@
       this.ctx = this.cv.getContext('2d');
       this.v = { cx: X(-47), cy: Y(-22), k: 80 };
       this.W = 0; this.H = 0; this.dpr = 1;
-      this.cidades = []; this.porChave = new Map();
+      this.cidades = []; this.porChave = new Map(); this.rotas = []; this.todas = []; this.pausado = false;
       this.sel = null; this.hover = null;
       this.poli = new Map(); this.estados = []; this.malhaOk = false;
       this.sujo = true; this.anim = null;
@@ -84,6 +84,14 @@
       this.sujo = true;
     }
     setSelecionada(k) { this.sel = k; this.sujo = true; }
+    /* rotas: [{id, cor, pontos:[{key, n}]}] — linhas tracejadas na ordem das paradas */
+    setRotas(r) { this.rotas = r || []; this.sujo = true; }
+    /* municípios sem entrega (só para mostrar o nome): [{code, nome, lat, lon}] */
+    setTodas(t) { this.todas = t || []; this.todasPorCod = new Map(this.todas.map(x => [x.code, x])); this.sujo = true; }
+    /* modo geolocalização: pinta os municípios por região. g = {cor: Map(código -> cor css), sel: código} */
+    setGeo(g) { this.geo = g; this.sujo = true; }
+    setPoligonosDe(outro) { this.poli = outro.poli; this.estados = outro.estados; this.malhaOk = outro.malhaOk; this.sujo = true; }
+    setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }
     temaMudou() { this._cores = null; this.sujo = true; }
 
@@ -119,6 +127,14 @@
       const k = Math.max(KMIN, Math.min(KMAX, Math.min((this.W - esq - pad * 2) / dx, (this.H - pad * 2) / dy)));
       /* esq = faixa à esquerda ocupada pela janela de pendentes: centraliza no espaço que sobra */
       this._ir({ cx: (x0 + x1) / 2 - (esq / 2) / k, cy: (y0 + y1) / 2, k }, false);
+    }
+    enquadrarPontos(pts) {
+      if (!pts.length || !this.W) return;
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const c of pts) { const x = X(c.lon), y = Y(c.lat); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const pad = 40, dx = Math.max(x1 - x0, 0.25), dy = Math.max(y1 - y0, 0.25);
+      const k = Math.max(KMIN, Math.min(KMAX, Math.min((this.W - pad * 2) / dx, (this.H - pad * 2) / dy)));
+      this._ir({ cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, k }, false);
     }
     centrarEm(key, kMin) {
       const c = this.porChave.get(key); if (!c) return;
@@ -206,7 +222,17 @@
     }
 
     /* cidade sob o ponto: primeiro o marcador (com folga), depois o contorno do município */
+    _acharGeo(px, py) {
+      const wx = (px - this.W / 2) / this.v.k + this.v.cx, wy = (py - this.H / 2) / this.v.k + this.v.cy;
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (const [code, pl] of this.poli) {
+        if (wx < pl.b[0] || wx > pl.b[2] || wy < pl.b[1] || wy > pl.b[3]) continue;
+        if (this.ctx.isPointInPath(pl.path, wx, wy)) { const t = this.todasPorCod && this.todasPorCod.get(code); return { key: code, code, nome: t ? t.nome : code, uf: t ? t.uf : '' }; }
+      }
+      return null;
+    }
     acharEm(px, py) {
+      if (this.geo) return this._acharGeo(px, py);
       let melhor = null, dm = 1e9;
       for (const c of this.cidades) {
         const p = this.para(c); const d = Math.hypot(p.x - px, p.y - py);
@@ -234,7 +260,7 @@
         this.sujo = true; if (f >= 1) this.anim = null;
         this.cb.onMover && this.cb.onMover();
       }
-      if (!this.sujo || !this.W || !this.H) return;
+      if (!this.sujo || !this.W || !this.H || this.pausado) return;
       this.sujo = false;
       try { this._desenhar(); } catch (e) { console.error('erro ao desenhar o mapa', e); }
     }
@@ -243,18 +269,51 @@
       const s = getComputedStyle(document.documentElement), v = n => s.getPropertyValue(n).trim();
       const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
       this._cores = {
-        fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#14474A' : '#D3EEEC',
-        linha: escuro ? '#1E4148' : '#C7D6D6', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
+        fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#0F3438' : '#E9F3F2',
+        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#5E8387' : '#8FA4A6', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
         teal: v('--teal') || '#0F4B55', sup: v('--sup') || '#fff', livre: escuro ? '#9CC3C5' : '#5B7C80', escuro
       };
       return this._cores;
     }
+    _desenharGeo() {
+      const { ctx, dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta(), G = this.geo;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
+      const x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
+      ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k));
+      ctx.lineJoin = 'round'; ctx.lineWidth = (k > 400 ? 1 : 0.7) / k; ctx.strokeStyle = P.linha;
+      for (const [code, pl] of this.poli) {
+        if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
+        const cor = G.cor.get(code);
+        ctx.fillStyle = cor || P.terra; ctx.globalAlpha = cor ? (P.escuro ? 0.7 : 0.78) : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.stroke(pl.path);
+      }
+      for (const code of [G.sel, this.hover]) {
+        const pl = code && this.poli.get(code); if (!pl) continue;
+        ctx.lineWidth = (code === G.sel ? 3 : 2) / k; ctx.strokeStyle = P.tinta; ctx.stroke(pl.path);
+      }
+      ctx.strokeStyle = P.estado; ctx.lineWidth = 1.3 / k; for (const p of this.estados) ctx.stroke(p);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.font = '600 11px "Barlow","Barlow Semi Condensed",system-ui,sans-serif';
+      const caixas = []; let n = 0;
+      const rotulos = (this.todas || []).filter(t => t.code === G.sel || t.code === this.hover || (k >= 55 && G.cor.has(t.code)));
+      rotulos.sort((a, b) => (b.code === G.sel) - (a.code === G.sel) || (b.code === this.hover) - (a.code === this.hover));
+      for (const t of rotulos) {
+        if (n > 380) break;
+        const px = (X(t.lon) - cx) * k + W / 2, py = (Y(t.lat) - cy) * k + H / 2;
+        if (px < 8 || py < 8 || px > W - 8 || py > H - 8) continue;
+        const forca = t.code === G.sel || t.code === this.hover, w = ctx.measureText(t.nome).width, r = [px - w / 2 - 2, py - 4, px + w / 2 + 2, py + 12];
+        if (!forca && caixas.some(b => !(r[2] < b[0] || r[0] > b[2] || r[3] < b[1] || r[1] > b[3]))) continue;
+        caixas.push(r); n++;
+        ctx.lineWidth = 3.4; ctx.strokeStyle = P.fundo; ctx.strokeText(t.nome, px, py + 9); ctx.fillStyle = P.tinta; ctx.fillText(t.nome, px, py + 9);
+      }
+      ctx.textAlign = 'start';
+    }
     _desenhar() {
+      if (this.geo) return this._desenharGeo();
       const { ctx, dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
       const x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
-      /* mundo */
+      /* mundo (contornos) */
       ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k));
       const com = new Map(this.cidades.filter(c => c.code).map(c => [c.code, c]));
       ctx.lineJoin = 'round';
@@ -265,12 +324,13 @@
         if (com.has(code)) continue;
         ctx.fill(pl.path); ctx.stroke(pl.path);
       }
-      /* municípios com nota (tingidos pelo estado/carro) */
+      /* municípios com nota: pendente = quase nada de cor; em carro = a cor do carro */
       for (const [code, c] of com) {
         const pl = this.poli.get(code); if (!pl) continue;
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
-        ctx.fillStyle = P.temNota; ctx.fill(pl.path);
-        if (c.cores && c.cores.length) {
+        const emCarro = c.cores && c.cores.length;
+        ctx.fillStyle = c.fora ? P.terra : P.temNota; ctx.fill(pl.path);
+        if (emCarro) {
           ctx.save(); ctx.clip(pl.path);
           const h = pl.b[3] - pl.b[1]; let y = pl.b[1];
           const total = c.cores.reduce((s, x) => s + x.frac, 0) || 1;
@@ -278,65 +338,121 @@
           for (const f of c.cores) { const hh = h * f.frac / total; ctx.fillStyle = f.cor; ctx.fillRect(pl.b[0], y, pl.b[2] - pl.b[0], hh + 1 / k); y += hh; }
           ctx.restore();
         }
-        ctx.lineWidth = (c.key === this.sel ? 2.6 : 1.1) / k;
-        ctx.strokeStyle = c.key === this.sel ? P.tinta : (c.cores && c.cores.length ? c.cores[0].cor : P.teal);
+        ctx.lineWidth = (c.key === this.sel ? 2.4 : emCarro ? 1.3 : 0.8) / k;
+        ctx.strokeStyle = c.key === this.sel ? P.tinta : (emCarro ? c.cores[0].cor : P.linha2);
         ctx.stroke(pl.path);
       }
-      ctx.strokeStyle = P.estado; ctx.lineWidth = 1.4 / k;
+      ctx.strokeStyle = P.estado; ctx.lineWidth = 1.3 / k;
       for (const p of this.estados) ctx.stroke(p);
       /* tela */
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const caixas = []; const vis = [];
+      const caixas = [], vis = [];
       for (const c of this.cidades) {
         const p = this.para(c);
-        if (p.x < -40 || p.y < -40 || p.x > W + 40 || p.y > H + 40) continue;
+        if (p.x < -60 || p.y < -60 || p.x > W + 60 || p.y > H + 60) continue;
         vis.push({ c, p });
       }
-      /* pontos de clientes (por baixo dos marcadores) */
-      for (const { c, p } of vis) if (c.clientes && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
-      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); caixas.push([p.x - R_MARC - 2, p.y - R_MARC - 2, p.x + R_MARC + 2, p.y + R_MARC + 2]); }
-      /* nomes sem sobreposição */
-      ctx.font = '600 11.5px "Barlow Semi Condensed","Barlow",system-ui,sans-serif';
-      ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-      const ordem = vis.slice().sort((a, b) => (b.c.key === this.sel) - (a.c.key === this.sel) || (b.c.key === this.hover) - (a.c.key === this.hover) || (b.c.notas || 0) - (a.c.notas || 0));
+      /* linhas tracejadas das rotas, na ordem das paradas */
+      ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const r of this.rotas) {
+        const pts = r.pontos.map(q => this.porChave.get(q.key)).filter(Boolean).map(c => this.para(c));
+        if (pts.length < 2) continue;
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.setLineDash([8, 7]); ctx.lineWidth = 5; ctx.strokeStyle = P.escuro ? 'rgba(7,30,34,.75)' : 'rgba(255,255,255,.85)'; ctx.stroke();
+        ctx.lineWidth = 2.6; ctx.strokeStyle = r.cor; ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = r.cor;
+        for (let i = 1; i < pts.length; i++) { // seta no meio de cada trecho: mostra o sentido
+          const a = pts[i - 1], b = pts[i], d = Math.hypot(b.x - a.x, b.y - a.y); if (d < 46) continue;
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, ang = Math.atan2(b.y - a.y, b.x - a.x);
+          ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-5, -5); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+      }
+      ctx.restore();
+      for (const { c, p } of vis) if (c.clientes && !c.fora && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
+      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
+      /* número da parada em cada rota (canto de cima, à esquerda) */
+      const nums = new Map();
+      for (const r of this.rotas) for (const q of r.pontos) { if (!nums.has(q.key)) nums.set(q.key, []); nums.get(q.key).push({ n: q.n, cor: r.cor }); }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '700 11px "Barlow Semi Condensed",system-ui,sans-serif';
+      for (const { c, p } of vis) {
+        const l = nums.get(c.key); if (!l) continue;
+        l.forEach((q, i) => {
+          const x = p.x - R_MARC - 2 - i * 17, y = p.y - R_MARC - 2;
+          ctx.beginPath(); ctx.arc(x, y, 8.5, 0, 6.2832); ctx.fillStyle = q.cor; ctx.fill();
+          ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#071E22' : '#fff'; ctx.stroke();
+          ctx.fillStyle = '#fff'; ctx.fillText(String(q.n), x, y + 0.5);
+        });
+      }
+      /* nomes: embaixo da bolinha, sem sobreposição. Primeiro as cidades com entrega… */
+      ctx.lineJoin = 'round'; ctx.textBaseline = 'alphabetic';
+      const ordem = vis.slice().sort((a, b) => (b.c.key === this.sel) - (a.c.key === this.sel) || (b.c.key === this.hover) - (a.c.key === this.hover) || (a.c.fora ? 1 : 0) - (b.c.fora ? 1 : 0) || (b.c.notas || 0) - (a.c.notas || 0));
+      const colide = r => caixas.some(b => !(r[2] < b[0] || r[0] > b[2] || r[3] < b[1] || r[1] > b[3]));
+      ctx.font = '700 12.5px "Barlow Semi Condensed","Barlow",system-ui,sans-serif';
       for (const { c, p } of ordem) {
         const forca = c.key === this.sel || c.key === this.hover;
-        if (!forca && k < 55) continue;
-        const nome = c.nome;
-        const w = ctx.measureText(nome).width;
-        const dx = this._mostrarPontos(c) && c.clientes ? R_MARC + 26 : R_MARC + 5;
-        const r = [p.x + dx - 2, p.y - 8, p.x + dx + w + 3, p.y + 8];
-        if (!forca && caixas.some(b => !(r[2] < b[0] || r[0] > b[2] || r[3] < b[1] || r[1] > b[3]))) continue;
+        if (!forca && k < 40) continue;
+        const w = ctx.measureText(c.nome).width, ty = p.y + R_MARC + (this._mostrarPontos(c) && !c.fora ? 20 : 18);
+        const r = [p.x - w / 2 - 3, ty - 12, p.x + w / 2 + 3, ty + 4];
+        if (!forca && colide(r)) continue;
         caixas.push(r);
-        ctx.lineWidth = 3.4; ctx.strokeStyle = P.fundo; ctx.strokeText(nome, p.x + dx, p.y);
-        ctx.fillStyle = P.tinta; ctx.fillText(nome, p.x + dx, p.y);
+        ctx.lineWidth = 4; ctx.strokeStyle = P.fundo; ctx.strokeText(c.nome, p.x, ty);
+        ctx.fillStyle = c.fora ? P.mudo : P.tinta; ctx.fillText(c.nome, p.x, ty);
       }
+      /* …depois os municípios sem entrega, em cinza claro, só para você se situar */
+      if (k >= 45 && this.todas.length) {
+        ctx.font = '500 10.5px "Barlow","Barlow Semi Condensed",system-ui,sans-serif';
+        let n = 0;
+        for (const t of this.todas) {
+          if (n > 420) break;
+          if (com.has(t.code)) continue;
+          const px = (X(t.lon) - cx) * k + W / 2, py = (Y(t.lat) - cy) * k + H / 2;
+          if (px < 10 || py < 10 || px > W - 10 || py > H - 10) continue;
+          const w = ctx.measureText(t.nome).width, r = [px - w / 2 - 2, py + 1, px + w / 2 + 2, py + 15];
+          if (colide(r)) continue;
+          caixas.push(r); n++;
+          ctx.beginPath(); ctx.arc(px, py, 2, 0, 6.2832); ctx.fillStyle = P.apagado; ctx.fill();
+          ctx.lineWidth = 3; ctx.strokeStyle = P.fundo; ctx.strokeText(t.nome, px, py + 12);
+          ctx.fillStyle = P.apagado; ctx.fillText(t.nome, px, py + 12);
+        }
+      }
+      ctx.textAlign = 'start';
     }
     _pontos(ctx, c, p, P) {
       const n = c.clientes.length, max = 60;
       const mostrar = Math.min(n, max);
       for (let i = 0; i < mostrar; i++) {
         const cl = c.clientes[i];
-        const ang = i * 2.399963, rad = R_MARC + 7 + 4.1 * Math.sqrt(i);
+        const ang = i * 2.399963, rad = R_MARC + 9 + 4.6 * Math.sqrt(i);
         const x = p.x + Math.cos(ang) * rad, y = p.y + Math.sin(ang) * rad;
-        ctx.beginPath(); ctx.arc(x, y, 3.3, 0, 6.2832);
+        ctx.beginPath(); ctx.arc(x, y, 3.8, 0, 6.2832);
         ctx.fillStyle = cl.cor || P.livre; ctx.fill();
-        ctx.lineWidth = 1.2; ctx.strokeStyle = cl.parcial ? '#F4C21F' : (P.escuro ? '#071E22' : '#fff'); ctx.stroke();
+        ctx.lineWidth = 1.3; ctx.strokeStyle = cl.parcial ? '#F4C21F' : (P.escuro ? '#071E22' : '#fff'); ctx.stroke();
       }
       if (n > max) {
         ctx.font = '700 10px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-        ctx.fillStyle = P.tinta; ctx.fillText('+' + (n - max), p.x + R_MARC + 6, p.y + R_MARC + 12);
+        ctx.fillStyle = P.tinta; ctx.fillText('+' + (n - max), p.x + R_MARC + 8, p.y + R_MARC + 14);
+        ctx.textAlign = 'center';
       }
     }
     _marcador(ctx, c, p, P) {
-      const r = R_MARC, sel = c.key === this.sel, hov = c.key === this.hover;
-      if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 6.2832); ctx.fillStyle = sel ? 'rgba(110,225,220,.55)' : 'rgba(110,225,220,.3)'; ctx.fill(); }
-      ctx.beginPath(); ctx.arc(p.x, p.y, r + 1.6, 0, 6.2832); ctx.fillStyle = P.escuro ? '#071E22' : '#fff'; ctx.fill();
+      const sel = c.key === this.sel, hov = c.key === this.hover;
+      if (c.fora) { // cidade fora de rota: bolinha cinza discreta (continua clicável)
+        const r = 8;
+        if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 6.2832); ctx.fillStyle = 'rgba(110,225,220,.4)'; ctx.fill(); }
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.fillStyle = P.escuro ? '#0C2B31' : '#fff'; ctx.fill();
+        ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.strokeStyle = P.mudo; ctx.stroke(); ctx.setLineDash([]);
+        if (c.estado === 'completa') this._selo(ctx, p.x + r + 3, p.y - r - 3, '#1B9A53', 'ok');
+        else if (c.estado === 'parcial') this._selo(ctx, p.x + r + 3, p.y - r - 3, '#F4C21F', '!');
+        return;
+      }
+      const r = R_MARC;
+      if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, 6.2832); ctx.fillStyle = sel ? 'rgba(110,225,220,.55)' : 'rgba(110,225,220,.3)'; ctx.fill(); }
+      ctx.beginPath(); ctx.arc(p.x, p.y, r + 2, 0, 6.2832); ctx.fillStyle = P.escuro ? '#071E22' : '#fff'; ctx.fill();
       const cores = c.cores || [];
       const alocFrac = c.total ? c.alocadas / c.total : 0;
       if (!cores.length) {
         ctx.beginPath(); ctx.arc(p.x, p.y, r - 1, 0, 6.2832); ctx.fillStyle = P.sup; ctx.fill();
-        ctx.lineWidth = 2.2; ctx.strokeStyle = P.teal; ctx.stroke();
+        ctx.lineWidth = 2.8; ctx.strokeStyle = P.teal; ctx.stroke();
       } else {
         const tot = cores.reduce((s, x) => s + x.frac, 0) || 1;
         let a = -Math.PI / 2;
@@ -345,24 +461,24 @@
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.arc(p.x, p.y, r - 1, a, fim >= a + 6.28 ? a + 6.2831 : fim); ctx.closePath();
           ctx.fillStyle = f.cor; ctx.fill(); a = fim;
         }
-        if (alocFrac < 0.999) { // parte que ainda falta
+        if (alocFrac < 0.999) {
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.arc(p.x, p.y, r - 1, a, -Math.PI / 2 + 6.2832); ctx.closePath();
           ctx.fillStyle = P.sup; ctx.fill();
         }
-        ctx.beginPath(); ctx.arc(p.x, p.y, r - 1, 0, 6.2832); ctx.lineWidth = 1.6; ctx.strokeStyle = cores[0].cor; ctx.stroke();
+        ctx.beginPath(); ctx.arc(p.x, p.y, r - 1, 0, 6.2832); ctx.lineWidth = 1.8; ctx.strokeStyle = cores[0].cor; ctx.stroke();
       }
-      /* selos: verde = tudo alocado · amarelo ! = ainda falta nota */
-      if (c.estado === 'completa') this._selo(ctx, p.x + r * 0.85, p.y - r * 0.85, '#1B9A53', 'ok');
-      else if (c.estado === 'parcial') this._selo(ctx, p.x + r * 0.85, p.y - r * 0.85, '#F4C21F', '!');
+      /* selos para FORA do círculo (não cobrem a cor do carro): verde = tudo em carro · amarelo ! = falta nota */
+      if (c.estado === 'completa') this._selo(ctx, p.x + r + 4, p.y - r - 4, '#1B9A53', 'ok');
+      else if (c.estado === 'parcial') this._selo(ctx, p.x + r + 4, p.y - r - 4, '#F4C21F', '!');
     }
     _selo(ctx, x, y, cor, t) {
-      ctx.beginPath(); ctx.arc(x, y, 6.6, 0, 6.2832); ctx.fillStyle = cor; ctx.fill();
-      ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, 9.5, 0, 6.2832); ctx.fillStyle = cor; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = this._cores && this._cores.escuro ? '#071E22' : '#fff'; ctx.stroke();
       if (t === 'ok') {
-        ctx.beginPath(); ctx.moveTo(x - 3, y + 0.2); ctx.lineTo(x - 0.8, y + 2.6); ctx.lineTo(x + 3.2, y - 2.4);
-        ctx.lineWidth = 1.9; ctx.strokeStyle = '#fff'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 4.4, y + 0.3); ctx.lineTo(x - 1.2, y + 3.6); ctx.lineTo(x + 4.6, y - 3.4);
+        ctx.lineWidth = 2.6; ctx.strokeStyle = '#fff'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
       } else {
-        ctx.fillStyle = '#3B2C00'; ctx.fillRect(x - 0.9, y - 3.6, 1.8, 4.4); ctx.beginPath(); ctx.arc(x, y + 3.2, 1.1, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = '#3B2C00'; ctx.fillRect(x - 1.3, y - 5.2, 2.6, 6.4); ctx.beginPath(); ctx.arc(x, y + 4.4, 1.6, 0, 6.2832); ctx.fill();
       }
     }
     destruir() { cancelAnimationFrame(this._raf); this.ro.disconnect(); this.cv.remove(); }
