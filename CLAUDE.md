@@ -31,8 +31,10 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 
 - Mapa: projeção Mercator (alinha com as peças do OpenStreetMap, fundo "Estradas" ligável; precisa de internet, cai para só contornos sem ela). Rotas = curvas tracejadas da BASE (padrão Araraquara/AQA, editável em Configurações) até as paradas, na ordem do veículo; é só desenho, sem distância nem tempo. Tema padrão: escuro.
 
+- Rodovias/KM: `vias.js` pede ao OSRM público do FOSSGIS (routing.openstreetmap.de) um trecho por vez, de sede de cidade a sede de cidade (coordenadas IBGE; nunca endereço de cliente), 1 pedido a cada 1,1 s, com tentativas e espera; cada trecho fica guardado no aparelho (IndexedDB meta `via:`, validade 30 dias). KM = soma dos trechos da base até a última parada: IDA, sem trânsito, sem o percurso dentro das cidades e sem a volta. É estimativa e deve ser tratada assim. Se o serviço falha, o app avisa e desenha curvas; nunca inventa KM.
+
 ## Arquivos
-`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `romaneio.js` · `vendor/` (pdf.js e Tesseract, cópia do Health Search) · `abertura.js` animação (cópia do Health Search v10.6)
+`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `romaneio.js` · `vias.js` · `vendor/` (pdf.js e Tesseract, cópia do Health Search) · `abertura.js` animação (cópia do Health Search v10.6)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)
 
 ## Publicar

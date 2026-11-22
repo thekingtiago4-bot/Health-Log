@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.9.0';
+  const VERSAO = '0.10.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -132,7 +132,7 @@
       const c = rc.carro;
       return '<button type="button" class="chip-carro" role="tab" data-id="' + c.id + '" aria-selected="' + (c.id === S.carroAtivo) + '" style="--cor:' + c.cor + '">' +
         '<b>' + N.nomeCarro(c) + (c.motorista ? '<span class="mot">' + esc(c.motorista) + '</span>' : '') + '</b>' +
-        '<small>' + i$(rc.vol) + ' vol · ' + rc.paradas + ' par · ' + m$(rc.valor) + '</small>' +
+        '<small>' + i$(rc.vol) + ' vol · ' + rc.paradas + ' par · ' + m$(rc.valor) + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c)) + '</span>' : '') + '</small>' +
         '<span class="acoes"><span data-ac="ren" title="Motorista / renomear" role="button" aria-label="Renomear">✎</span><span data-ac="del" title="Excluir carro" role="button" aria-label="Excluir carro">✕</span></span></button>';
     }).join('');
     const f = $('#faixa-carro'), rc = S.res.carros.find(x => x.carro.id === S.carroAtivo);
@@ -141,7 +141,7 @@
       f.style.setProperty('--cor', rc.carro.cor);
       f.innerHTML = '<span><i class="bolinha"></i><b>' + esc(N.rotuloCarro(rc.carro)) + '</b></span>' +
         '<span><b>' + rc.cidades.length + '</b> cidade(s)</span><span><b>' + rc.paradas + '</b> paradas</span><span><b>' + i$(rc.vol) + '</b> volumes</span>' +
-        '<span><b>' + m$(rc.valor) + '</b></span><span>peso <b>' + N.fmtPeso(rc.peso) + '</b> kg</span>' +
+        '<span><b>' + m$(rc.valor) + '</b></span><span>peso <b>' + N.fmtPeso(rc.peso) + '</b> kg</span>' + (kmTxt(kmDe(rc.carro)) ? '<span title="Distância pelas rodovias, de cidade em cidade, da base até a última parada. Estimativa: sem trânsito, sem o percurso dentro das cidades e sem a volta.">' + kmTxt(kmDe(rc.carro)).replace('≈ ', '≈ <b class="km">').replace(' km', ' km</b>') + '</span>' : '') +
         '<span class="rota-cad">' + (S.mapa.base && S.mapa.mostrarBase ? '<span class="no-base">' + esc((S.mapa.base.sigla || 'BASE')) + '</span>' : '') + rc.cidades.map((c, i) => (i || (S.mapa.base && S.mapa.mostrarBase) ? '<i class="seta">›</i>' : '') + '<button type="button" class="cid-chip" style="--cor:' + rc.carro.cor + '" data-cid="' + esc(c.key) + '"><b>' + (i + 1) + '</b>' + esc(c.nome) + '</button>').join('') + '</span>';
     }
     const ch = $('.chip-carro[aria-selected="true"]'); if (ch && ch.scrollIntoView) ch.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -196,6 +196,7 @@
   function ajustarPadMapa() { const j = $('#jan-pend'); S.mapa.padEsq = (j && !j.classList.contains('recolhida') && j.offsetWidth && parseFloat(j.style.left || 12) < 120) ? j.offsetWidth + 24 : 0; }
   function atualizarMapa() {
     S.mapa.setCidades(dadosMapa()); S.mapa.setAtivo(S.carroAtivo);
+    atualizarVias();
     S.mapa.setRotas(S.res ? S.res.carros.filter(rc => rc.carro.cidades.length).map(rc => ({ id: rc.carro.id, cor: rc.carro.cor, pontos: rc.carro.cidades.map((k, i) => ({ key: k, n: i + 1 })) })) : []);
     S.mapa.setSelecionada(S.cidadeAberta);
     $('#vazio-mapa').hidden = !!(S.op && S.op.notas.length);
@@ -590,7 +591,7 @@
     const rastro = c.rastreio === 'sim' ? 'Rastreio: SIM' : c.rastreio === 'nao' ? 'Rastreio: NÃO' : 'Rastreio: —';
     let h = '<div class="vei' + (c.id === S.carroAtivo ? ' ativo' : '') + '" data-car="' + c.id + '" style="--cor:' + c.cor + '"><div class="vei-cab"><b>' + esc(N.rotuloCarro(c)) + '</b>' +
       '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
-      '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)</span>' +
+      '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)' + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c)) + '</span>' : '') + '</span>' +
       (acima ? '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>' : '') + '</div>';
     if (aberto) {
       h += '<ol class="vei-cid">' + (rc.cidades.length ? '' : '<li style="padding:4px 8px;color:var(--mudo);font-size:.8rem;list-style:none">Nenhuma cidade ainda.</li>');
@@ -849,6 +850,33 @@
     const b = $('#bt-base'); if (b) b.setAttribute('aria-pressed', String(S.cfg.mostrarBase !== false));
   }
 
+  /* ================= rodovias: o traçado de cidade em cidade e o KM ================= */
+  const seqDoVeiculo = car => { const cids = car.cidades.map(k => S.idx && S.idx.cidades.get(k)).filter(c => c && c.lat != null); const b = S.mapa.base && S.mapa.mostrarBase ? [S.mapa.base] : []; return [...b, ...cids]; };
+  const pernasDe = seq => { const o = []; for (let i = 1; i < seq.length; i++) if (!RT.vias.igual(seq[i - 1], seq[i])) o.push([seq[i - 1], seq[i]]); return o; };
+  /* KM do veículo pelas rodovias (ida: da base até a última parada). Estimativa: sem trânsito, sem o percurso dentro das cidades. */
+  function kmDe(car) {
+    const ps = pernasDe(seqDoVeiculo(car)); let km = 0, min = 0, faltam = 0;
+    for (const [a, b] of ps) { const p = S.mapa.pernas.get(RT.vias.chave(a, b)); if (p) { km += p.km; min += p.min; } else faltam++; }
+    return { km, min, faltam, n: ps.length };
+  }
+  const kmTxt = k => !k.n ? '' : (k.faltam ? 'calculando km…' : '≈ ' + Math.round(k.km).toLocaleString('pt-BR') + ' km');
+  function atualizarVias() {
+    if (!S.res || !S.mapa) return;
+    for (const rc of S.res.carros) for (const [a, b] of pernasDe(seqDoVeiculo(rc.carro))) {
+      const k = RT.vias.chave(a, b); if (S.mapa.pernas.has(k)) continue;
+      RT.vias.pedir(a, b).then(p => { if (p && !S.mapa.pernas.has(k)) S.mapa.setPerna(k, p); statusVias(); });
+    }
+    statusVias();
+  }
+  function statusVias() {
+    const el = $('#vias-st'); if (!el) return; const V = RT.vias, pend = V.pendentes();
+    let falta = 0; if (S.res) for (const rc of S.res.carros) falta += kmDe(rc.carro).faltam;
+    if (!S.mapa.viasLigadas) { el.hidden = true; return; }
+    if (pend) { el.hidden = false; el.className = 'vias-st'; el.textContent = 'Traçando as rodovias… ' + pend + ' trecho(s)'; }
+    else if (falta && V.ultimoErro) { el.hidden = false; el.className = 'vias-st erro'; el.textContent = 'Sem rodovias agora (' + V.ultimoErro + '). Mostrando linhas curvas.'; }
+    else el.hidden = true;
+  }
+
   /* ================= configurações (só deste aparelho) ================= */
   async function carregarApiKey() { try { const r = await DB.get('meta', 'meudanfe'); S.apiKey = (r && r.v) || ''; } catch (e) { S.apiKey = ''; } }
   function renderConfig() {
@@ -900,6 +928,7 @@
     window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     $('#bt-estradas').onclick = () => { const v = $('#bt-estradas').getAttribute('aria-pressed') !== 'true'; $('#bt-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('estradas', v); S.mapa.setEstradas(v); };
+    $('#bt-vias').onclick = () => { const v = $('#bt-vias').getAttribute('aria-pressed') !== 'true'; $('#bt-vias').setAttribute('aria-pressed', String(v)); U.pref.gravar('vias', v); S.mapa.setVias(v); if (v) atualizarVias(); statusVias(); };
     $('#bt-base').onclick = () => { S.cfg.mostrarBase = S.cfg.mostrarBase === false; salvarCfg(); aplicarBase(); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 
@@ -1034,6 +1063,7 @@
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
       onFora: nomes => { const b = $('#aviso-fora'); b.hidden = !nomes.length; b.textContent = nomes.length ? '+' + nomes.length + ' fora do quadro: ' + nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? '…' : '') : ''; }
     });
+    RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
     ligar(); ligarCanal();
     if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Route · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
     const okDb = await DB.abrir();
@@ -1059,6 +1089,7 @@
     irPara('rotas');
     await malha; S.mapa.marcar();
     aplicarBase();
+    { const v = U.pref.ler('vias', true); S.mapa.setVias(v); $('#bt-vias').setAttribute('aria-pressed', String(v)); atualizarVias(); }
     { const e = U.pref.ler('estradas', true); S.mapa.setEstradas(e); $('#bt-estradas').setAttribute('aria-pressed', String(e)); }
     if (S.mun) S.mapa.setTodas(Object.entries(S.mun).filter(([c]) => S.mapa.poli.has(c)).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3] })));
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
@@ -1066,6 +1097,6 @@
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
-  RT.A = { salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

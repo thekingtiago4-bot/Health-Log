@@ -1,1 +1,1 @@
-{"versao":"0.9.0","data":"2026-11-22","novidades":"Visual novo do mapa: modo escuro padrao, estradas ao fundo, rotas tracejadas curvas saindo da base com fluxo e setas, veiculo selecionado em destaque."}
+{"versao":"0.10.0","data":"2026-11-22","novidades":"Rotas seguem as rodovias de cidade em cidade (a partir da base) e o cartao do veiculo mostra o KM pelas estradas."}

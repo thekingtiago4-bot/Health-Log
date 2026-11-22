@@ -518,3 +518,7 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .mapa-chip{all:unset;cursor:pointer;background:var(--sup);border:1px solid var(--linha);border-radius:8px;padding:5px 10px;font-size:.74rem;font-weight:700;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.18);color:var(--mudo)}
 .mapa-chip[aria-pressed="true"]{background:var(--teal);color:var(--priTxt);border-color:var(--teal)}
 .legenda{border-radius:10px;backdrop-filter:blur(8px)}
+
+.vias-st{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:22;background:var(--sup);border:1px solid var(--linha);border-radius:20px;padding:5px 14px;font-size:.78rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);color:var(--tinta2);pointer-events:none}
+.vias-st.erro{background:var(--amarBg);color:var(--amarTxt);border-color:var(--amar)}
+.km{font-family:"Barlow Semi Condensed";font-weight:700}

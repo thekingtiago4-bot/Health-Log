@@ -6,7 +6,8 @@ const { subir } = require('./servidor.js');
 const amostra = require('./amostra.js');
 
 const PORTA = 8097, URL = 'http://localhost:' + PORTA + '/';
-let ok = 0, falhas = [], ignorarRede = false;
+let ok = 0, falhas = [], ignorarRede = false, falhaRotas = false;
+const reqsRota = [];
 function igual(real, esperado, nome) {
   const a = JSON.stringify(real), b = JSON.stringify(esperado);
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
@@ -20,10 +21,18 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const erros = [];
   const novaPagina = async (opts) => {
     const ctx = await browser.newContext(Object.assign({ reducedMotion: 'reduce', viewport: { width: 1440, height: 860 }, acceptDownloads: true }, opts || {}));
+    await ctx.addInitScript(() => { window.__HR_TESTE = true; });
+    await ctx.route('https://routing.openstreetmap.de/**', async r => { // serviço de rotas SIMULADO: devolve uma estrada de 3 pontos entre as duas cidades
+      const u = r.request().url(), cs = decodeURIComponent(u.split('/driving/')[1].split('?')[0]).split(';').map(s => s.split(',').map(Number));
+      reqsRota.push(u);
+      if (falhaRotas) return r.fulfill({ status: 500, headers: { 'access-control-allow-origin': '*' }, body: 'erro' });
+      const [a, b] = cs, mid = [(a[0] + b[0]) / 2 + 0.02, (a[1] + b[1]) / 2 - 0.02], km = Math.round(Math.hypot((a[0] - b[0]) * 100, (a[1] - b[1]) * 111) * 1.2);
+      return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ code: 'Ok', routes: [{ distance: km * 1000, duration: km * 55, geometry: { type: 'LineString', coordinates: [a, mid, b] } }] }) });
+    });
     await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') })); // peças do mapa SIMULADAS: os testes não dependem de internet
     const p = await ctx.newPage();
     p.on('pageerror', e => erros.push('pageerror: ' + e.message));
-    p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404)/.test(m.text()))) erros.push('console: ' + m.text()); }); // 401/404 são respostas SIMULADAS do Meu Danfe no teste
+    p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404|500)/.test(m.text()))) erros.push('console: ' + m.text()); }); // 401/404/500 são respostas SIMULADAS (Meu Danfe e serviço de rotas) no teste
     return { ctx, p };
   };
   const abrir = async p => { await p.goto(URL); await p.waitForFunction(() => window.RT && RT.pronto, null, { timeout: 20000 }); };
@@ -166,6 +175,33 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.fill('#cfg-base', 'Araraquara/SP'); await p.click('#cfg-base-ok');
   igual(await p.evaluate(() => RT.S.mapa.base.sigla), 'AQA', 'e voltar para Araraquara');
   await p.click('.nav button[data-tela="rotas"]');
+
+  console.log('\nRotas pelas rodovias e KM');
+  await p.fill('#busca-cidade', 'sao carlos'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  await p.click('.mini-car[data-car="1"]'); await p.click('#jc-todos'); await p.click('[data-a=concluir]');
+  await p.waitForFunction(() => RT.S.mapa.pernas.size > 0 && RT.vias.pendentes() === 0, null, { timeout: 20000 });
+  verdade(reqsRota.length > 0 && reqsRota.every(u => u.includes('/routed-car/route/v1/driving/') && !/cliente|cnpj|doc/i.test(u)), 'o app pede rotas de estrada ao serviço (só coordenadas de cidades, nada de cliente)');
+  verdade(await p.evaluate(() => [...RT.S.mapa.pernas.values()].every(x => x.w.length >= 4 && x.km > 0)), 'cada trecho guarda a pista (vários pontos) e o KM');
+  verdade(/≈\s*[\d.]+ km/.test(await p.innerText('#chips-carros')), 'o cartão do veículo mostra o KM pelas rodovias');
+  const kmChip = await p.evaluate(() => RT.S.op.carros.map(c => RT.A.kmDe(c)).filter(k => k.n > 0).map(k => [k.faltam, Math.round(k.km) > 0]));
+  verdade(kmChip.length > 0 && kmChip.every(x => x[0] === 0 && x[1]), 'o KM soma todos os trechos da base até a última parada');
+  falhaRotas = true; ignorarRede = true;
+  await p.fill('#busca-cidade', 'jau'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  await p.click('.mini-car[data-car="1"]'); await p.click('#jc-todos'); await p.click('[data-a=concluir]');
+  await p.waitForSelector('#vias-st.erro', { timeout: 20000 });
+  verdade(/linhas curvas/.test(await p.innerText('#vias-st')), 'se o serviço de rotas falha, avisa e mostra linhas curvas em vez de quebrar');
+  verdade(await p.evaluate(() => RT.S.mapa.rotas.find(r => r.id === 1).pontos.length >= 2), 'e a rota continua desenhada');
+  verdade(/calculando km/.test(await p.innerText('#chips-carros')), 'e o KM não finge um valor que não tem');
+  falhaRotas = false; ignorarRede = false;
+  await p.click('#bt-vias');
+  igual(await p.evaluate(() => RT.S.mapa.viasLigadas), false, 'o botão Rodovias desliga o traçado por estrada');
+  await p.click('#bt-vias');
+  const nReq = reqsRota.length;
+  await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x'); await p.click('.nav button[data-tela="rotas"]');
+  await p.waitForFunction(() => RT.S.mapa.pernas.size > 0, null, { timeout: 20000 });
+  verdade(reqsRota.length - nReq <= 1, 'depois de fechar e abrir, os trechos já calculados vêm do aparelho (não pede de novo)');
+  await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 20000 });
+  await p.evaluate(() => { const o = RT.S.op, ids = o.notas.filter(n => /^(JAU|SAO CARLOS)$/.test(RT.N.normCidade(n.cidade))).map(n => n.id); RT.N.alocar(o, RT.S.idx, ids, null); o.rev++; RT.A.reindexar(); RT.A.salvar(); RT.A.atualizarTudo(); }); // devolve o estado para os próximos blocos
 
   console.log('\nNotas e folha');
   await p.click('.nav button[data-tela="notas"]');

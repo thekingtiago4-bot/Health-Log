@@ -66,7 +66,7 @@
       <div class="faixa-carro" id="faixa-carro"></div>
       <div class="mapa-area" id="mapa-area">
         <div class="zoom-bt"><button type="button" id="z-mais" aria-label="Aproximar">+</button><button type="button" id="z-menos" aria-label="Afastar">−</button></div>
-        <div class="mapa-chips"><button type="button" class="mapa-chip" id="bt-estradas" aria-pressed="true" title="Liga/desliga o fundo com estradas (precisa de internet)">Estradas</button><button type="button" class="mapa-chip" id="bt-base" aria-pressed="true" title="Mostra a saída da base no começo de cada rota">Base</button></div>
+        <div class="mapa-chips"><button type="button" class="mapa-chip" id="bt-estradas" aria-pressed="true" title="Liga/desliga o fundo com estradas (precisa de internet)">Estradas</button><button type="button" class="mapa-chip" id="bt-vias" aria-pressed="true" title="As linhas seguem as rodovias, de cidade em cidade (precisa de internet na 1ª vez; depois fica guardado)">Rodovias</button><button type="button" class="mapa-chip" id="bt-base" aria-pressed="true" title="Mostra a saída da base no começo de cada rota">Base</button></div>
         <div class="legenda" id="legenda">
           <span><i class="lg-b"></i>Sem carro</span>
           <span><i class="lg-cor"></i>Em carro</span>
@@ -75,6 +75,7 @@
         </div>
         <button type="button" class="aviso-fora" id="aviso-fora" hidden title="Clique para enquadrar todas as cidades"></button>
         <div class="msg-parede">O mapa está aberto na outra tela. Arraste as janelas para onde quiser — como post-its na parede.</div>
+        <div class="vias-st" id="vias-st" hidden></div>
         <div class="dica-mapa" id="tip" hidden></div>
         <div class="vazio-mapa" id="vazio-mapa" hidden>
           <h2>Nenhuma operação aberta</h2>
@@ -216,6 +217,7 @@
 
 <script src="nucleo.js"></script>
 <script src="ui.js"></script>
+<script src="vias.js"></script>
 <script src="mapa.js"></script>
 <script src="relatorios.js"></script>
 <script src="bipagem.js"></script>
