@@ -23,6 +23,7 @@
       <div class="nav-grupo">Operação</div>
       <button data-tela="mural"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M9 9v11"/></svg><span class="lbl">Mural do dia</span></button>
       <button data-tela="rotas" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="lbl">Montar rotas</span><span class="qt lar" id="qt-pend" hidden>0</span></button>
+      <button data-tela="xmls"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="m9.5 15 2 2 3.5-4"/></svg><span class="lbl">XMLs e romaneios</span><span class="qt lar" id="qt-xml" hidden>0</span></button>
       <button data-tela="agenda"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span class="lbl">Agendamentos</span><span class="qt lar" id="qt-ag" hidden>0</span></button>
       <button data-tela="diverg"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17.5v.1"/></svg><span class="lbl">Divergências</span><span class="qt" id="qt-dv" hidden>0</span></button>
       <button data-tela="notas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg><span class="lbl">Notas</span><span class="qt" id="qt-notas" hidden>0</span></button>
@@ -30,6 +31,7 @@
       <button data-tela="geo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 4 5.3 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.3-4-8.5s1.4-6.1 4-8.5z"/></svg><span class="lbl">Geolocalização</span></button>
       <button data-tela="relatorios"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="lbl">Relatórios</span></button>
       <div class="nav-grupo">Dados</div>
+      <button data-tela="cadastros"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg><span class="lbl">Cadastros</span></button>
       <button data-tela="config"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Configurações</span></button>
       <button data-tela="importar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Importar XML</span></button>
     </nav>
@@ -146,6 +148,12 @@
       </div>
     </section>
 
+    <!-- XMLs E ROMANEIOS -->
+    <section class="tela" id="t-xmls" aria-labelledby="h-xm" hidden><h1 id="h-xm">XMLs e romaneios</h1><p class="sub">Joga o romaneio (PDF) aqui: o app lê só o cabeçalho (motorista, placa, origem) e liga ao XML do mesmo título — ou pelas mesmas notas e volumes. <b>Verde</b>: tem romaneio e XML. <b>Amarelo</b>: só o XML. <b>Vermelho</b>: só o romaneio, o XML não entrou.</p><div id="xm-box"></div></section>
+
+    <!-- CADASTROS -->
+    <section class="tela" id="t-cadastros" aria-labelledby="h-cd" hidden><h1 id="h-cd">Cadastros</h1><div id="cd-box"></div></section>
+
     <!-- AGENDAMENTOS -->
     <section class="tela" id="t-agenda" aria-labelledby="h-ag" hidden><h1 id="h-ag">Agendamentos</h1><p class="sub">Notas que saem da rota porque o cliente tem horário marcado. As do romaneio MESA continuam na rota.</p><div id="ag-box"></div></section>
 
@@ -176,9 +184,9 @@
       <h1 id="h-importar">Importar XML</h1>
       <p class="sub">Relatório de notas da SoftLog (XML). Você pode escolher vários arquivos de uma vez. Nada entra na operação antes de você conferir o resumo e confirmar.</p>
       <div class="drop" id="drop" tabindex="0">
-        <b>Arraste os XMLs aqui</b><span>ou</span>
+        <b>Arraste os XMLs (e os romaneios em PDF) aqui</b><span>ou</span>
         <label class="btn pri" for="arq">Escolher arquivos</label>
-        <input type="file" id="arq" accept=".xml,.XML,text/xml,application/xml" multiple hidden>
+        <input type="file" id="arq" accept=".xml,.XML,.pdf,text/xml,application/xml,application/pdf" multiple hidden>
       </div>
       <div id="lote"></div>
       <h2 style="margin-top:34px">Bipar notas</h2>
@@ -203,6 +211,7 @@
 <script src="relatorios.js"></script>
 <script src="bipagem.js"></script>
 <script src="situacao.js"></script>
+<script src="romaneio.js"></script>
 <script src="app.js"></script>
 <script>if(!/[?&]mapa=1/.test(location.search)){var s=document.createElement("script");s.src="abertura.js";document.body.appendChild(s);}</script>
 </body>

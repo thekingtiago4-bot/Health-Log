@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.7.0';
+  const VERSAO = '0.8.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -101,11 +101,12 @@
     else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'relatorios') RT.relatorios.render();
     else if (tela === 'config') renderConfig();
+    else if (tela === 'xmls' || tela === 'cadastros') RT.rom.render(tela);
     else if (tela === 'agenda' || tela === 'diverg') RT.sit.render(tela);
     else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
-    renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
+    renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
     if (tela !== 'rotas') renderTelaAtual();
     if (!$('#mural').hidden) renderMural();
   }
@@ -491,6 +492,7 @@
     reindexar(); await salvar();
     toast('Importei ' + rel.novas.length + ' nota(s) em ' + op.nome + '.' + (ap.auto.length ? ' ' + ap.auto.length + ' saíram da rota por serem agendamento' + (ap.mesa.length ? ' (' + ap.mesa.length + ' da MESA ficaram na rota)' : '') + '.' : ''));
     atualizarTudo(); irPara('rotas');
+    if (S.pdfsPend) { const p = S.pdfsPend; S.pdfsPend = null; RT.rom.adicionarPdfs(p); }
   }
   async function renderOps() {
     const box = $('#lista-ops'); let ops = [];
@@ -878,7 +880,7 @@
     $('#bt-ver-pend').onclick = () => janVer('pend', $('#jan-pend').hidden);
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
     $('#pend-x').onclick = () => janVer('pend', false);
-    ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar();
+    ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
     window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
@@ -954,10 +956,11 @@
 
     /* importar */
     const arq = $('#arq'), drop = $('#drop');
-    arq.addEventListener('change', () => { if (arq.files.length) lerArquivos([...arq.files]); arq.value = ''; });
+    const separar = files => { const todos = [...files], pdfs = todos.filter(f => /\.pdf$/i.test(f.name)), xmls = todos.filter(f => /\.xml$/i.test(f.name)); if (!pdfs.length && !xmls.length) { toast('Solte arquivos .xml (e os romaneios em .pdf).'); return; } if (xmls.length) lerArquivos(xmls); if (pdfs.length) { if (xmls.length && !S.op) { S.pdfsPend = pdfs; toast('Os romaneios serão lidos assim que você confirmar a importação dos XMLs.'); } else { RT.rom.adicionarPdfs(pdfs); irPara('xmls'); } } };
+    arq.addEventListener('change', () => { if (arq.files.length) separar(arq.files); arq.value = ''; });
     ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('sobre'); }));
     ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('sobre'); }));
-    drop.addEventListener('drop', e => { const fs = [...e.dataTransfer.files].filter(f => /\.xml$/i.test(f.name)); if (fs.length) lerArquivos(fs); else toast('Solte arquivos .xml.'); });
+    drop.addEventListener('drop', e => separar(e.dataTransfer.files));
     $('#lote').addEventListener('click', e => {
       if (e.target.id === 'lote-ok') confirmarImportacao();
       if (e.target.id === 'lote-cancelar') { S.lote = null; renderLote(); }
@@ -1030,7 +1033,7 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
+    await carregarCfg(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');

@@ -490,3 +490,11 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .bf label{display:flex;flex-direction:column;gap:2px;font-size:.72rem;color:var(--tinta2)}
 .bf label.grande{flex:1;min-width:160px}
 .bf input,.bf select{border:1.5px solid var(--linha);border-radius:var(--r);padding:4px 7px;background:var(--sup);min-height:30px;min-width:0}
+
+/* ---------- XMLs e romaneios, cadastros ---------- */
+.xm-topo{display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;margin-bottom:6px}
+.xm-leg{display:flex;flex-direction:column;gap:6px;justify-content:center;font-size:.86rem}
+.xm-leg span{display:flex;gap:8px;align-items:center}
+.xm-leg i.q{width:20px;height:20px;font-style:normal;font-size:.7rem}
+.cd-novo{display:flex;gap:8px;flex-wrap:wrap}
+.cd-novo .filtro{min-width:200px}

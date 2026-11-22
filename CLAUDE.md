@@ -26,8 +26,11 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 - Regra de agendamento (Tiago): nota que consta na lista de agendamentos é ocultada automaticamente, EXCETO a do romaneio com MESA no nome (continua na rota). Pop-up ao abrir o mapa lista as ocultadas; marcar = volta; “Não mostrar mais hoje” vale até meia-noite. O que o usuário devolve não é escondido de novo.
 - A lista de agendamentos do Health Search é colada/importada aqui (não há acesso direto ao Supabase).
 
+- Romaneio (PDF do SoftLog) serve SÓ para o cabeçalho (motorista, placa, origem, notas/volumes) e para saber se o XML entrou; nunca cria nota. Sem camada de texto → OCR local (Tesseract pt, vendor/ vindo do Health Search), em duas passadas (cabeçalho e tabela). Ligação com o XML: 1) escolha manual 2) mesmo título 3) mesmas notas e volumes 4) as mesmas NFs. Verde = romaneio+XML, amarelo = só XML, vermelho = só romaneio.
+- Motoristas cadastrados (nome → origem, placa) valem para sempre; origem só é perguntada para motorista novo. Não guardar CPF/CNH (dado pessoal desnecessário).
+
 ## Arquivos
-`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `abertura.js` animação (cópia do Health Search v10.6)
+`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `romaneio.js` · `vendor/` (pdf.js e Tesseract, cópia do Health Search) · `abertura.js` animação (cópia do Health Search v10.6)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)
 
 ## Publicar

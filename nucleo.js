@@ -490,6 +490,65 @@
     };
   };
 
+
+  /* ---------- romaneio em PDF (SOMENTE cabeçalho) e ligação com os XMLs ---------- */
+  /* texto do OCR do topo da 1ª página -> campos. Só devolve o que achou; nada é inventado. */
+  N.lerCabecalhoRomaneio = function (texto, tabelaTexto) {
+    const t = String(texto || '').replace(/\r/g, ''), linhas = t.split('\n').map(l => l.replace(/\s+$/, ''));
+    const pega = (re, s) => { const m = (s || t).match(re); return m ? m[1].replace(/\s+/g, ' ').trim() : ''; };
+    const int = s => { const d = String(s || '').replace(/\./g, '').replace(/\D/g, ''); return d ? Number(d) : null; };
+    const cab = { motorista: '', placa: '', origem: '', filial: '', numero: '', data: '', notas: null, volumes: null, obs: '' };
+    cab.motorista = pega(/MOTORISTA\s*:\s*([^\n]*?)(?:\s{2,}CPF|\s+CPF\s*:|\n|$)/i).replace(/[^A-Za-zÀ-ÿ' .-]/g, '').trim();
+    const pl = pega(/VE[IÍ]CULO\s*:\s*([A-Z0-9][A-Z0-9 -]{4,9})/i).toUpperCase().replace(/\s+/g, '');
+    cab.placa = /^[A-Z]{3}-?\d[A-Z0-9]\d{2}$/.test(pl) ? pl.replace(/^([A-Z]{3})-?/, '$1-') : pl;
+    cab.origem = pega(/ORIGEM\s*:\s*([A-Za-zÀ-ÿ .'-]+?)(?:\s{2,}|\s+SEGURADORA|\n|$)/i);
+    cab.filial = pega(/FILIAL\s*:\s*([^\n]+)/i);
+    cab.numero = pega(/ROMANEIO\s*N[ºo°]?\s*([\d.]+)/i);
+    const dv = pega(/DATA DA VIAGEM\s*:\s*(\d{2}\/\d{2}\/\d{4})/i) || pega(/\bDATA\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (dv) cab.data = dv.slice(6, 10) + '-' + dv.slice(3, 5) + '-' + dv.slice(0, 2);
+    cab.notas = int(pega(/\bNotas\s*:\s*([\d.]+)/i)); cab.volumes = int(pega(/\bVolumes\s*:\s*([\d.]+)/i));
+    const i = linhas.findIndex(l => /OBSERVA[CÇ][OÕ]ES\s*:/i.test(l));
+    if (i >= 0) { const f = []; const p1 = linhas[i].replace(/^.*OBSERVA[CÇ][OÕ]ES\s*:\s*/i, '').trim(); if (p1) f.push(p1); for (let k = i + 1; k < linhas.length && !/^\s*REMETENTE/i.test(linhas[k]); k++) if (linhas[k].trim()) f.push(linhas[k].trim()); cab.obs = f.join(' · ').slice(0, 240); }
+    /* NFs que o OCR viu nas primeiras linhas da tabela (servem só para ligar o romaneio ao XML) */
+    const tab = String(tabelaTexto || '') + '\n' + (t.split(/\n\s*REMETENTE[^\n]*\n/i)[1] || '');
+    cab.nfs = [...new Set((tab.match(/(?<!\d)0\d{8}(?!\d)/g) || []).map(x => String(+x)))].slice(0, 40);
+    return cab;
+  };
+  N.normArquivo = nome => N.norm(String(nome || '').replace(/\.[A-Za-z0-9]{2,4}$/, '')).replace(/\b(ROMANEIO|MANIFESTO)\b/g, ' ').replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  N.mesmoMotorista = (a, b) => {
+    const x = N.norm(a).split(' ').filter(Boolean), y = N.norm(b).split(' ').filter(Boolean); if (!x.length || !y.length) return false;
+    if (x.join(' ') === y.join(' ')) return true;
+    const comum = x.filter(p => y.includes(p)).length; return comum >= Math.min(x.length, y.length) && comum >= 2 && x[0] === y[0];
+  };
+  /* arquivos XML da operação com os totais de cada um */
+  N.arquivosXml = function (op) {
+    const por = new Map();
+    for (const n of op.notas) { const x = por.get(n.origem) || { nome: n.origem, notas: 0, vol: 0, valor: 0, extra: !!n.extra }; x.notas++; x.vol += n.vol; x.valor += n.valor; por.set(n.origem, x); }
+    const nomes = new Set((op.arquivos || []).map(a => a.nome));
+    for (const a of (op.arquivos || [])) if (!por.has(a.nome)) por.set(a.nome, { nome: a.nome, notas: 0, vol: 0, valor: 0 });
+    return [...por.values()].filter(x => nomes.has(x.nome) || !x.extra);
+  };
+  /* liga cada romaneio a UM xml: 1) escolha manual  2) mesmo título  3) mesmas notas e volumes. Devolve linhas verde/amarelo/vermelho. */
+  N.quadroXml = function (op) {
+    const xmls = N.arquivosXml(op), roms = op.romaneios || [], usados = new Set(), lig = new Map();
+    const ligar = (r, x, como) => { lig.set(r.id, { x: x.nome, como }); usados.add(x.nome); };
+    for (const r of roms) if (r.xmlManual) { const x = xmls.find(y => y.nome === r.xmlManual); if (x && !usados.has(x.nome)) ligar(r, x, 'manual'); }
+    for (const r of roms) if (!lig.has(r.id)) { const k = N.normArquivo(r.arquivo), x = k && xmls.find(y => !usados.has(y.nome) && N.normArquivo(y.nome) === k); if (x) ligar(r, x, 'mesmo título'); }
+    /* por nome e por contagem já tentados; agora pelas NOTAS: em qual XML estão as NFs lidas no romaneio? */
+    const nfsPorXml = new Map(); for (const x of xmls) nfsPorXml.set(x.nome, new Set());
+    for (const nt of op.notas) { const s = nfsPorXml.get(nt.origem); if (s) s.add(String(+nt.nf)); }
+    const porContagem = r => r.notas != null && r.volumes != null;
+    for (const r of roms) if (!lig.has(r.id) && porContagem(r)) { const c = xmls.filter(y => !usados.has(y.nome) && y.notas === r.notas && y.vol === r.volumes); if (c.length === 1) ligar(r, c[0], 'mesmas notas e volumes'); }
+    for (const r of roms) if (!lig.has(r.id) && r.nfs && r.nfs.length) {
+      const pontos = xmls.filter(y => !usados.has(y.nome)).map(y => ({ y, p: r.nfs.filter(f => nfsPorXml.get(y.nome).has(f)).length })).filter(z => z.p > 0).sort((a, b) => b.p - a.p);
+      if (pontos.length && (pontos.length === 1 || pontos[0].p > pontos[1].p) && pontos[0].p >= Math.min(2, r.nfs.length)) ligar(r, pontos[0].y, 'as mesmas notas');
+    }
+    const linhas = [];
+    for (const x of xmls) { const r = roms.find(z => lig.has(z.id) && lig.get(z.id).x === x.nome) || null; linhas.push({ xml: x, rom: r, estado: r ? 'verde' : 'amarelo', como: r ? lig.get(r.id).como : '' }); }
+    for (const r of roms) if (!lig.has(r.id)) linhas.push({ xml: null, rom: r, estado: 'vermelho', como: '' });
+    return linhas;
+  };
+
   /* ---------- relatórios por período (mesmas definições do PDF "Comparativo de Entregas") ----------
      • Nota fiscal ÚNICA: a mesma identidade fiscal em operações diferentes entra UMA vez (a primeira por data).
      • Parada prevista = um ENDEREÇO por DIA. • Ticket por parada = valor das notas ÷ paradas previstas.
