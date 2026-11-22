@@ -20,6 +20,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const erros = [];
   const novaPagina = async (opts) => {
     const ctx = await browser.newContext(Object.assign({ reducedMotion: 'reduce', viewport: { width: 1440, height: 860 }, acceptDownloads: true }, opts || {}));
+    await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') })); // peças do mapa SIMULADAS: os testes não dependem de internet
     const p = await ctx.newPage();
     p.on('pageerror', e => erros.push('pageerror: ' + e.message));
     p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404)/.test(m.text()))) erros.push('console: ' + m.text()); }); // 401/404 são respostas SIMULADAS do Meu Danfe no teste
@@ -148,6 +149,23 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForSelector('#jan-cid:not([hidden]) .cli');
   verdade(true, 'e dá para abrir e alocar mesmo sem posição');
   await p.keyboard.press('Escape');
+
+  console.log('\nVisual do mapa: estradas, base, tema escuro');
+  igual(await p.evaluate(() => document.documentElement.dataset.tema), 'escuro', 'o app abre no modo escuro por padrão');
+  verdade(await p.evaluate(() => RT.S.mapa.tiles.size > 0 && RT.S.mapa.estradas), 'o fundo de estradas pede as peças do mapa');
+  igual(await p.evaluate(() => RT.S.mapa.base && RT.S.mapa.base.nome), 'Araraquara', 'a saída da base é Araraquara (AQA) por padrão');
+  verdade(await p.evaluate(() => RT.S.mapa.rotas.length > 0), 'há rotas desenhadas (curvas tracejadas)');
+  await p.click('#bt-estradas');
+  igual(await p.evaluate(() => RT.S.mapa.estradas), false, 'o botão Estradas desliga o fundo (o mapa segue só com os contornos)');
+  await p.click('#bt-estradas');
+  await p.click('.chip-carro[data-id="1"]');
+  verdade(await p.evaluate(() => { const m = RT.S.mapa, c = RT.S.op.carros.find(x => x.id === 1); return c.cidades.every(k => { const q = m.posicaoDaCidade(k); return q && q.x > 0 && q.x < m.W && q.y > 0 && q.y < m.H; }); }), 'clicar no veículo enquadra a rota dele inteira');
+  await p.click('.nav button[data-tela="config"]');
+  await p.fill('#cfg-base', 'Bauru/SP'); await p.click('#cfg-base-ok');
+  igual(await p.evaluate(() => RT.S.mapa.base.nome), 'Bauru', 'a base de saída pode ser trocada em Configurações');
+  await p.fill('#cfg-base', 'Araraquara/SP'); await p.click('#cfg-base-ok');
+  igual(await p.evaluate(() => RT.S.mapa.base.sigla), 'AQA', 'e voltar para Araraquara');
+  await p.click('.nav button[data-tela="rotas"]');
 
   console.log('\nNotas e folha');
   await p.click('.nav button[data-tela="notas"]');

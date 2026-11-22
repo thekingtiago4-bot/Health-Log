@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.8.0';
+  const VERSAO = '0.9.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -142,7 +142,7 @@
       f.innerHTML = '<span><i class="bolinha"></i><b>' + esc(N.rotuloCarro(rc.carro)) + '</b></span>' +
         '<span><b>' + rc.cidades.length + '</b> cidade(s)</span><span><b>' + rc.paradas + '</b> paradas</span><span><b>' + i$(rc.vol) + '</b> volumes</span>' +
         '<span><b>' + m$(rc.valor) + '</b></span><span>peso <b>' + N.fmtPeso(rc.peso) + '</b> kg</span>' +
-        rc.cidades.map(c => '<button type="button" class="cid-chip" style="--cor:' + rc.carro.cor + '" data-cid="' + esc(c.key) + '">' + esc(c.nome) + '</button>').join('');
+        '<span class="rota-cad">' + (S.mapa.base && S.mapa.mostrarBase ? '<span class="no-base">' + esc((S.mapa.base.sigla || 'BASE')) + '</span>' : '') + rc.cidades.map((c, i) => (i || (S.mapa.base && S.mapa.mostrarBase) ? '<i class="seta">›</i>' : '') + '<button type="button" class="cid-chip" style="--cor:' + rc.carro.cor + '" data-cid="' + esc(c.key) + '"><b>' + (i + 1) + '</b>' + esc(c.nome) + '</button>').join('') + '</span>';
     }
     const ch = $('.chip-carro[aria-selected="true"]'); if (ch && ch.scrollIntoView) ch.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
@@ -159,7 +159,7 @@
   function selecionarCarro(id) {
     if (id === S.carroAtivo) return;
     if (S.cidadeAberta && draftSujo()) toast('Marcações não concluídas foram descartadas.');
-    S.carroAtivo = id; resetDraft(); renderCarros(); renderJanCidade();
+    S.carroAtivo = id; S.mapa.setAtivo(id); resetDraft(); renderCarros(); renderJanCidade();
   }
   async function renomearCarro(id) {
     const c = carroPorId(id); if (!c) return;
@@ -195,7 +195,7 @@
   }
   function ajustarPadMapa() { const j = $('#jan-pend'); S.mapa.padEsq = (j && !j.classList.contains('recolhida') && j.offsetWidth && parseFloat(j.style.left || 12) < 120) ? j.offsetWidth + 24 : 0; }
   function atualizarMapa() {
-    S.mapa.setCidades(dadosMapa());
+    S.mapa.setCidades(dadosMapa()); S.mapa.setAtivo(S.carroAtivo);
     S.mapa.setRotas(S.res ? S.res.carros.filter(rc => rc.carro.cidades.length).map(rc => ({ id: rc.carro.id, cor: rc.carro.cor, pontos: rc.carro.cidades.map((k, i) => ({ key: k, n: i + 1 })) })) : []);
     S.mapa.setSelecionada(S.cidadeAberta);
     $('#vazio-mapa').hidden = !!(S.op && S.op.notas.length);
@@ -838,16 +838,32 @@
     };
     if (S.modoMapa) { window.addEventListener('pagehide', () => enviar({ t: 'fechou' })); }
   }
-  function aplicarTemaAtual() { document.documentElement.setAttribute('data-tema', U.pref.ler('tema', 'claro') === 'escuro' ? 'escuro' : 'claro'); S.mapa && S.mapa.temaMudou(); }
+  function aplicarTemaAtual() { document.documentElement.setAttribute('data-tema', U.pref.ler('tema', 'escuro') === 'claro' ? 'claro' : 'escuro'); S.mapa && S.mapa.temaMudou(); }
+
+  /* ================= base de saída e fundo de estradas ================= */
+  function aplicarBase() {
+    if (!S.mun) return;
+    const code = S.cfg.base || '3503208', i = munInfo(code); // Araraquara (AQA) é o padrão
+    S.mapa.setBase(i ? { lat: i.lat, lon: i.lon, nome: i.nome, sigla: code === '3503208' ? 'AQA' : i.nome.slice(0, 3).toUpperCase() } : null);
+    S.mapa.setMostrarBase(S.cfg.mostrarBase !== false);
+    const b = $('#bt-base'); if (b) b.setAttribute('aria-pressed', String(S.cfg.mostrarBase !== false));
+  }
 
   /* ================= configurações (só deste aparelho) ================= */
   async function carregarApiKey() { try { const r = await DB.get('meta', 'meudanfe'); S.apiKey = (r && r.v) || ''; } catch (e) { S.apiKey = ''; } }
   function renderConfig() {
     $('#cfg-md').value = '';
     $('#cfg-md').placeholder = S.apiKey ? '••••••••••••••••  (chave guardada — cole outra para trocar)' : 'Cole a Api-Key aqui';
+    const bi = munInfo(S.cfg.base || '3503208'); $('#cfg-base').value = bi ? bi.nome + '/' + bi.uf : ''; $('#cfg-base-st').textContent = bi ? 'Base atual: ' + bi.nome + '/' + bi.uf + '.' : '';
     $('#cfg-md-st').textContent = S.apiKey ? '✓ Há uma Api-Key guardada neste aparelho.' : 'Nenhuma Api-Key guardada. A bipagem funciona sem ela, mas as notas fora dos XMLs vão para o Romaneio Extra para você preencher à mão.';
   }
   function ligarConfig() {
+    $('#cfg-base-ok').onclick = () => {
+      const t = $('#cfg-base').value.trim(), [nome, uf] = t.split('/').map(x => x.trim()), r = N.achaMunicipios(nome, uf || '');
+      if (!r.length) { toast('Não achei essa cidade. Escreva o nome e a UF (ex.: Araraquara/SP).'); return; }
+      if (r.length > 1) { toast('Há mais de uma cidade com esse nome: escreva com a UF (ex.: ' + r[0].nome + '/' + r[0].uf + ').'); return; }
+      S.cfg.base = r[0].code; salvarCfg(); aplicarBase(); renderConfig(); toast('Base de saída: ' + r[0].nome + '/' + r[0].uf + '.');
+    };
     $('#cfg-md-ok').onclick = async () => {
       const v = $('#cfg-md').value.trim();
       if (!v) { toast('Cole a Api-Key primeiro.'); return; }
@@ -883,6 +899,8 @@
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
     window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
+    $('#bt-estradas').onclick = () => { const v = $('#bt-estradas').getAttribute('aria-pressed') !== 'true'; $('#bt-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('estradas', v); S.mapa.setEstradas(v); };
+    $('#bt-base').onclick = () => { S.cfg.mostrarBase = S.cfg.mostrarBase === false; salvarCfg(); aplicarBase(); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 
     /* chips de carro */
@@ -891,6 +909,8 @@
       const ac = e.target.closest('[data-ac]');
       if (ac) { ac.dataset.ac === 'ren' ? renomearCarro(id) : excluirCarro(id); return; }
       selecionarCarro(id);
+      const rc = S.res && S.res.carros.find(x => x.carro.id === id); // clicar no veículo enquadra a rota dele
+      if (rc && rc.carro.cidades.length) { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); }
     });
     $('#chips-carros').addEventListener('dblclick', e => { const b = e.target.closest('.chip-carro'); if (b) renomearCarro(+b.dataset.id); });
     $('#faixa-carro').addEventListener('click', e => { const b = e.target.closest('[data-cid]'); if (b) abrirCidade(b.dataset.cid, { centrar: true }); });
@@ -1000,9 +1020,9 @@
     });
 
     /* tema */
-    const aplicarTema = t => { document.documentElement.setAttribute('data-tema', t === 'escuro' ? 'escuro' : 'claro'); $('#tema-lbl').textContent = t === 'escuro' ? 'Tema claro' : 'Tema escuro'; S.mapa && S.mapa.temaMudou(); };
+    const aplicarTema = t => { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); $('#tema-lbl').textContent = t === 'claro' ? 'Tema escuro' : 'Tema claro'; S.mapa && S.mapa.temaMudou(); };
     $('#bt-tema').onclick = () => { const t = document.documentElement.getAttribute('data-tema') === 'escuro' ? 'claro' : 'escuro'; U.pref.gravar('tema', t); aplicarTema(t); enviar({ t: 'tema' }); };
-    aplicarTema(U.pref.ler('tema', 'claro'));
+    aplicarTema(U.pref.ler('tema', 'escuro'));
     window.addEventListener('pagehide', () => { /* gravações já são feitas a cada ação */ });
   }
 
@@ -1038,6 +1058,8 @@
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');
     await malha; S.mapa.marcar();
+    aplicarBase();
+    { const e = U.pref.ler('estradas', true); S.mapa.setEstradas(e); $('#bt-estradas').setAttribute('aria-pressed', String(e)); }
     if (S.mun) S.mapa.setTodas(Object.entries(S.mun).filter(([c]) => S.mapa.poli.has(c)).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3] })));
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { });

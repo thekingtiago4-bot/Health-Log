@@ -498,3 +498,23 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .xm-leg i.q{width:20px;height:20px;font-style:normal;font-size:.7rem}
 .cd-novo{display:flex;gap:8px;flex-wrap:wrap}
 .cd-novo .filtro{min-width:200px}
+
+/* ---------- polimento visual ---------- */
+.barra-carros{background:linear-gradient(180deg,var(--sup),var(--sup2));box-shadow:0 1px 0 var(--linha),0 6px 18px rgba(0,0,0,.08);position:relative;z-index:30}
+.chip-carro{border-radius:12px;min-width:132px;padding:7px 14px 8px 12px;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:transform .12s,box-shadow .12s}
+.chip-carro:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.chip-carro[aria-selected="true"]{box-shadow:0 0 0 2.5px var(--cor),0 6px 16px rgba(0,0,0,.22)}
+.chip-carro b{font-size:1.02rem}
+.faixa-carro{background:var(--sup);padding:9px 16px;gap:8px 16px}
+.rota-cad{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-left:4px}
+.rota-cad .seta{font-style:normal;color:var(--mudo);font-weight:800}
+.rota-cad .no-base{background:#0B2545;color:#fff;border-radius:20px;padding:0 10px;font-family:"Barlow Semi Condensed";font-weight:800;font-size:.76rem;line-height:1.75;border:2px solid var(--aqua)}
+.cid-chip{padding:0 11px 0 3px;line-height:1.75;font-size:.8rem;border-width:1.5px;display:inline-flex;align-items:center;gap:6px}
+.cid-chip b{background:var(--cor,var(--teal));color:#fff;border-radius:50%;width:19px;height:19px;display:grid;place-items:center;font-size:.7rem;font-family:"Barlow Semi Condensed"}
+.jan{background:color-mix(in srgb,var(--sup) 95%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.34),0 0 0 1px var(--linha)}
+.jan-cab{border-radius:14px 14px 0 0}
+.vei{border-radius:11px;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.mapa-chips{position:absolute;right:12px;top:100px;display:flex;flex-direction:column;gap:6px;z-index:20}
+.mapa-chip{all:unset;cursor:pointer;background:var(--sup);border:1px solid var(--linha);border-radius:8px;padding:5px 10px;font-size:.74rem;font-weight:700;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.18);color:var(--mudo)}
+.mapa-chip[aria-pressed="true"]{background:var(--teal);color:var(--priTxt);border-color:var(--teal)}
+.legenda{border-radius:10px;backdrop-filter:blur(8px)}

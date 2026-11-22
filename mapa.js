@@ -6,10 +6,11 @@
 (function (g) {
   'use strict';
   const RT = (g.RT = g.RT || {});
-  const COS = 0.9272; // cos(22°): achata a longitude para o desenho não ficar esticado
   const KMIN = 8, KMAX = 9000, K_PONTOS = 240, R_MARC = 12;
-
-  const X = lon => lon * COS, Y = lat => -lat;
+  /* Mercator (a mesma das peças do OpenStreetMap): x = longitude em graus; y = -mercator(latitude) em graus.
+     Assim a peça z/x/y ocupa exatamente 360/2^z em cada eixo e o fundo de estradas encaixa nos contornos. */
+  const RAD = Math.PI / 180;
+  const X = lon => lon, Y = lat => -(Math.log(Math.tan(Math.PI / 4 + lat * RAD / 2)) / RAD);
 
   class Mapa {
     constructor(el, cb) {
@@ -23,6 +24,10 @@
       this.v = { cx: X(-47), cy: Y(-22), k: 80 };
       this.W = 0; this.H = 0; this.dpr = 1;
       this.cidades = []; this.porChave = new Map(); this.rotas = []; this.todas = []; this.pausado = false;
+      this.estradas = true; this.tiles = new Map(); this.tileFila = []; this.tileAtivos = 0; this.tileTema = null; this.tilesVistos = false;
+      this.ativo = null; this.base = null; this.mostrarBase = true; this.fase = 0; this._ult = 0;
+      this.animarRotas = !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      this.bg = document.createElement('canvas'); this.bctx = this.bg.getContext('2d'); this._bgSujo = true;
       this.sel = null; this.hover = null;
       this.poli = new Map(); this.estados = []; this.malhaOk = false;
       this.sujo = true; this.anim = null;
@@ -79,11 +84,12 @@
 
     /* cidades: [{key,nome,uf,lat,lon,code,estado,cores:[{cor,frac}],clientes:[{cor,parcial}],notas}] */
     setCidades(lista) {
+      this._bgSujo = true;
       this.cidades = lista.filter(c => c.lat != null);
       this.porChave = new Map(this.cidades.map(c => [c.key, c]));
       this.sujo = true;
     }
-    setSelecionada(k) { this.sel = k; this.sujo = true; }
+    setSelecionada(k) { this.sel = k; this._bgSujo = this.sujo = true; }
     /* rotas: [{id, cor, pontos:[{key, n}]}] — linhas tracejadas na ordem das paradas */
     setRotas(r) { this.rotas = r || []; this.sujo = true; }
     /* municípios sem entrega (só para mostrar o nome): [{code, nome, lat, lon}] */
@@ -91,9 +97,13 @@
     /* modo geolocalização: pinta os municípios por região. g = {cor: Map(código -> cor css), sel: código} */
     setGeo(g) { this.geo = g; this.sujo = true; }
     setPoligonosDe(outro) { this.poli = outro.poli; this.estados = outro.estados; this.malhaOk = outro.malhaOk; this.sujo = true; }
+    setAtivo(id) { if (id !== this.ativo) { this.ativo = id; this.sujo = true; } }
+    setBase(b) { this.base = b && b.lat != null ? b : null; this.sujo = true; }
+    setMostrarBase(v) { this.mostrarBase = !!v; this.sujo = true; }
+    setEstradas(v) { this.estradas = !!v; this._bgSujo = this.sujo = true; }
     setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }
-    temaMudou() { this._cores = null; this.sujo = true; }
+    temaMudou() { this._cores = null; this.tiles.clear(); this.tileFila = []; this._bgSujo = this.sujo = true; }
 
     /* ---------- vista ---------- */
     redimensionar() {
@@ -104,6 +114,7 @@
       this.W = W; this.H = H;
       this.cv.width = Math.max(1, Math.round(W * this.dpr)); this.cv.height = Math.max(1, Math.round(H * this.dpr));
       this.cv.style.width = W + 'px'; this.cv.style.height = H + 'px';
+      this.bg.width = this.cv.width; this.bg.height = this.cv.height; this._bgSujo = true;
       this.sujo = true;
     }
     /* Enquadra as cidades. Sem `tudo`, uma ou duas cidades isoladas bem longe das demais (ex.: uma nota
@@ -190,7 +201,7 @@
         if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 4) p.moveu = true;
         if (p.moveu) {
           this.v = { ...this.v, cx: this.v.cx - dx / this.v.k, cy: this.v.cy - dy / this.v.k };
-          this.sujo = true; cv.classList.add('arrastando');
+          this.sujo = true; this._arrasto = true; cv.classList.add('arrastando');
           this.cb.onMover && this.cb.onMover();
         }
       });
@@ -198,6 +209,7 @@
         const p = this.ponteiros.get(e.pointerId);
         this.ponteiros.delete(e.pointerId);
         cv.classList.remove('arrastando');
+        if (this._arrasto) { this._arrasto = false; this._bgSujo = this.sujo = true; }
         if (p && !p.moveu && this.ponteiros.size === 0 && e.type === 'pointerup') {
           const r = cv.getBoundingClientRect();
           const h = this.acharEm(e.clientX - r.left, e.clientY - r.top);
@@ -260,8 +272,14 @@
         this.sujo = true; if (f >= 1) this.anim = null;
         this.cb.onMover && this.cb.onMover();
       }
-      if (!this.sujo || !this.W || !this.H || this.pausado) return;
+      if (!this.W || !this.H || this.pausado) return;
+      /* o fluxo das linhas tracejadas redesenha só a camada de cima (o fundo fica guardado) */
+      let soSobre = false;
+      if (!this.sujo && this.animarRotas && this.rotas.length && !this.geo && !document.hidden && t - this._ult > 45) { this.sujo = true; soSobre = true; }
+      if (!this.sujo) return;
       this.sujo = false;
+      if (!soSobre) this._bgSujo = true;
+      this._ult = t; this._t = t;
       try { this._desenhar(); } catch (e) { console.error('erro ao desenhar o mapa', e); }
     }
     _paleta() {
@@ -270,7 +288,7 @@
       const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
       this._cores = {
         fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#0F3438' : '#E9F3F2',
-        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#5E8387' : '#8FA4A6', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
+        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', linhaT: escuro ? 'rgba(130,200,205,.28)' : 'rgba(40,90,95,.30)', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#5E8387' : '#8FA4A6', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
         teal: v('--teal') || '#0F4B55', sup: v('--sup') || '#fff', livre: escuro ? '#9CC3C5' : '#5B7C80', escuro
       };
       return this._cores;
@@ -307,34 +325,37 @@
       }
       ctx.textAlign = 'start';
     }
-    _desenhar() {
-      if (this.geo) return this._desenharGeo();
-      const { ctx, dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta();
+    _fundo() {
+      const ctx = this.bctx, { dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
+      const comTiles = this.estradas && this._desenharTiles(ctx, P);
+      this._comTiles = comTiles;
       const x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
       /* mundo (contornos) */
       ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k));
       const com = new Map(this.cidades.filter(c => c.code).map(c => [c.code, c]));
       ctx.lineJoin = 'round';
       ctx.lineWidth = (k > 400 ? 1 : 0.7) / k;
-      ctx.strokeStyle = P.linha; ctx.fillStyle = P.terra;
+      ctx.strokeStyle = comTiles ? P.linhaT : P.linha; ctx.fillStyle = P.terra;
       for (const [code, pl] of this.poli) {
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
         if (com.has(code)) continue;
-        ctx.fill(pl.path); ctx.stroke(pl.path);
+        if (comTiles && k < 170) continue; // com estradas ao fundo e zoom aberto, os contornos de todos os municípios só pesam
+        if (!comTiles) ctx.fill(pl.path);
+        ctx.stroke(pl.path);
       }
       /* municípios com nota: pendente = quase nada de cor; em carro = a cor do carro */
       for (const [code, c] of com) {
         const pl = this.poli.get(code); if (!pl) continue;
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
         const emCarro = c.cores && c.cores.length;
-        ctx.fillStyle = c.fora ? P.terra : P.temNota; ctx.fill(pl.path);
+        if (!comTiles || !c.fora) { ctx.fillStyle = c.fora ? P.terra : P.temNota; ctx.globalAlpha = comTiles ? 0.5 : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; }
         if (emCarro) {
           ctx.save(); ctx.clip(pl.path);
           const h = pl.b[3] - pl.b[1]; let y = pl.b[1];
           const total = c.cores.reduce((s, x) => s + x.frac, 0) || 1;
-          ctx.globalAlpha = P.escuro ? 0.62 : 0.5;
+          ctx.globalAlpha = comTiles ? (P.escuro ? 0.55 : 0.42) : (P.escuro ? 0.62 : 0.5);
           for (const f of c.cores) { const hh = h * f.frac / total; ctx.fillStyle = f.cor; ctx.fillRect(pl.b[0], y, pl.b[2] - pl.b[0], hh + 1 / k); y += hh; }
           ctx.restore();
         }
@@ -344,6 +365,20 @@
       }
       ctx.strokeStyle = P.estado; ctx.lineWidth = 1.3 / k;
       for (const p of this.estados) ctx.stroke(p);
+      this._bgSujo = false;
+    }
+
+    _desenhar() {
+      if (this.geo) return this._desenharGeo();
+      const { ctx, dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta(), t = this._t || 0;
+      /* durante o arrasto o fundo não é redesenhado: só se desloca a imagem guardada (barato). Ao soltar, redesenha. */
+      let dx = 0, dy = 0;
+      if (this._bgSujo && this._arrasto && this._bgV && this._bgV.k === this.v.k) { dx = (this._bgV.cx - cx) * k * dpr; dy = (this._bgV.cy - cy) * k * dpr; }
+      else if (this._bgSujo) { this._fundo(); this._bgV = { cx, cy, k }; }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (dx || dy) { ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height); }
+      ctx.drawImage(this.bg, Math.round(dx), Math.round(dy));
+      const com = new Map(this.cidades.filter(c => c.code).map(c => [c.code, c]));
       /* tela */
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const caixas = [], vis = [];
@@ -352,22 +387,35 @@
         if (p.x < -60 || p.y < -60 || p.x > W + 60 || p.y > H + 60) continue;
         vis.push({ c, p });
       }
-      /* linhas tracejadas das rotas, na ordem das paradas */
+      /* rotas: curvas tracejadas saindo da base, com fluxo e setas; o veículo escolhido fica em destaque */
+      const temAtivo = this.ativo != null && this.rotas.some(r => r.id === this.ativo);
+      const baseP = this.base && this.mostrarBase ? this.para(this.base) : null;
       ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      for (const r of this.rotas) {
-        const pts = r.pontos.map(q => this.porChave.get(q.key)).filter(Boolean).map(c => this.para(c));
-        if (pts.length < 2) continue;
-        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-        ctx.setLineDash([8, 7]); ctx.lineWidth = 5; ctx.strokeStyle = P.escuro ? 'rgba(7,30,34,.75)' : 'rgba(255,255,255,.85)'; ctx.stroke();
-        ctx.lineWidth = 2.6; ctx.strokeStyle = r.cor; ctx.stroke();
-        ctx.setLineDash([]); ctx.fillStyle = r.cor;
+      this.rotas.forEach((r, ri) => {
+        const cid = r.pontos.map(q => this.porChave.get(q.key)).filter(Boolean).map(c => this.para(c));
+        const pts = baseP ? [baseP, ...cid] : cid; if (pts.length < 2) return;
+        const forte = !temAtivo || r.id === this.ativo, sinal = ri % 2 ? -1 : 1;
+        ctx.globalAlpha = forte ? 1 : 0.25;
+        const curva = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, off = Math.min(70, d * 0.17) * sinal; return { x: (a.x + b.x) / 2 - dy / d * off, y: (a.y + b.y) / 2 + dx / d * off }; };
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+        const ctr = [];
+        for (let i = 1; i < pts.length; i++) { const c1 = curva(pts[i - 1], pts[i]); ctr.push(c1); ctx.quadraticCurveTo(c1.x, c1.y, pts[i].x, pts[i].y); }
+        ctx.setLineDash([]); ctx.lineWidth = forte ? 8 : 5.5; ctx.strokeStyle = P.escuro ? 'rgba(4,16,20,.82)' : 'rgba(255,255,255,.92)'; ctx.stroke();
+        ctx.setLineDash(forte ? [11, 9] : [8, 8]); ctx.lineDashOffset = this.animarRotas ? -((t * 0.035) % 20) : 0;
+        ctx.lineWidth = forte ? 4.2 : 2.6; ctx.strokeStyle = r.cor; ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
         for (let i = 1; i < pts.length; i++) { // seta no meio de cada trecho: mostra o sentido
-          const a = pts[i - 1], b = pts[i], d = Math.hypot(b.x - a.x, b.y - a.y); if (d < 46) continue;
-          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, ang = Math.atan2(b.y - a.y, b.x - a.x);
-          ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-5, -5); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); ctx.restore();
+          const a = pts[i - 1], b = pts[i], c1 = ctr[i - 1], d = Math.hypot(b.x - a.x, b.y - a.y); if (d < 52) continue;
+          const mx = 0.25 * a.x + 0.5 * c1.x + 0.25 * b.x, my = 0.25 * a.y + 0.5 * c1.y + 0.25 * b.y, ang = Math.atan2(b.y - a.y, b.x - a.x), sz = forte ? 8.5 : 6;
+          ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(sz, 0); ctx.lineTo(-sz * 0.75, -sz * 0.85); ctx.lineTo(-sz * 0.35, 0); ctx.lineTo(-sz * 0.75, sz * 0.85); ctx.closePath();
+          ctx.fillStyle = r.cor; ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fill(); ctx.restore();
         }
-      }
+      });
       ctx.restore();
+      if (baseP && this.rotas.some(r => r.pontos.length)) { // a base de saída
+        ctx.beginPath(); ctx.arc(baseP.x, baseP.y, 13, 0, 6.2832); ctx.fillStyle = '#0B2545'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = P.escuro ? '#6EE1DC' : '#fff'; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = '800 9px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((this.base.sigla || 'BASE').slice(0, 4), baseP.x, baseP.y + 0.5);
+      }
       for (const { c, p } of vis) if (c.clientes && !c.fora && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
       for (const { c, p } of vis) { this._marcador(ctx, c, p, P); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
       /* número da parada em cada rota (canto de cima, à esquerda) */
@@ -395,11 +443,11 @@
         const r = [p.x - w / 2 - 3, ty - 12, p.x + w / 2 + 3, ty + 4];
         if (!forca && colide(r)) continue;
         caixas.push(r);
-        ctx.lineWidth = 4; ctx.strokeStyle = P.fundo; ctx.strokeText(c.nome, p.x, ty);
+        ctx.fillStyle = P.escuro ? 'rgba(5,22,26,.78)' : 'rgba(255,255,255,.82)'; this._pilula(ctx, r[0] + 1, r[1] + 1, r[2] - r[0] - 2, r[3] - r[1], 7); ctx.fill();
         ctx.fillStyle = c.fora ? P.mudo : P.tinta; ctx.fillText(c.nome, p.x, ty);
       }
       /* …depois os municípios sem entrega, em cinza claro, só para você se situar */
-      if (k >= 45 && this.todas.length) {
+      if (k >= 45 && this.todas.length && !this._comTiles) {
         ctx.font = '500 10.5px "Barlow","Barlow Semi Condensed",system-ui,sans-serif';
         let n = 0;
         for (const t of this.todas) {
@@ -415,7 +463,56 @@
           ctx.fillStyle = P.apagado; ctx.fillText(t.nome, px, py + 12);
         }
       }
+      if (this._comTiles) { ctx.font = '500 10px system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = P.escuro ? 'rgba(200,225,225,.75)' : 'rgba(40,60,60,.75)'; ctx.fillText('© OpenStreetMap contributors', W - 8, H - 6); }
       ctx.textAlign = 'start';
+    }
+
+    _pilula(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+    /* ---------- fundo de estradas (peças do OpenStreetMap), com o que já chegou enquanto as outras carregam ---------- */
+    _pedirTile(z, x, y) {
+      const key = z + '/' + x + '/' + y, ex = this.tiles.get(key);
+      if (ex) return ex;
+      const t = { img: null, ok: false, falhou: 0 }; this.tiles.set(key, t);
+      this.tileFila.push({ key, z, x, y }); this._bombear();
+      return t;
+    }
+    _bombear() {
+      while (this.tileAtivos < 6 && this.tileFila.length) {
+        const q = this.tileFila.pop(), t = this.tiles.get(q.key); if (!t) continue;
+        this.tileAtivos++;
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        const tema = this._paleta().escuro;
+        img.onload = () => {
+          this.tileAtivos--;
+          if (this._paleta().escuro !== tema) { this.tiles.delete(q.key); this._bombear(); return; }
+          const c = document.createElement('canvas'); c.width = c.height = 256; const cc = c.getContext('2d');
+          cc.filter = tema ? 'invert(1) hue-rotate(195deg) brightness(.78) contrast(.92) saturate(.55)' : 'saturate(.5) brightness(1.04) contrast(.94)';
+          cc.drawImage(img, 0, 0, 256, 256); t.img = c; t.ok = true; this._bgSujo = this.sujo = true; this._bombear();
+        };
+        img.onerror = () => { this.tileAtivos--; t.falhou = Date.now(); this._bombear(); };
+        img.src = 'https://tile.openstreetmap.org/' + q.z + '/' + q.x + '/' + q.y + '.png';
+      }
+      if (this.tiles.size > 480) { let n = 0; for (const key of this.tiles.keys()) { this.tiles.delete(key); if (++n > 140) break; } }
+    }
+    /* devolve true se desenhou algo (para o resto saber que há estrada ao fundo) */
+    _desenharTiles(ctx, P) {
+      const { W, H, dpr } = this, { cx, cy, k } = this.v;
+      const z = Math.max(3, Math.min(17, Math.round(Math.log2(360 * k / 256))));
+      const n = 2 ** z, tw = 360 / n, x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
+      const tx0 = Math.max(0, Math.floor((x0 + 180) / tw)), tx1 = Math.min(n - 1, Math.floor((x1 + 180) / tw)), ty0 = Math.max(0, Math.floor((y0 + 180) / tw)), ty1 = Math.min(n - 1, Math.floor((y1 + 180) / tw));
+      if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) > 70) return false;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); let desenhou = false;
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const sx = (-180 + tx * tw - cx) * k + W / 2, sy = (-180 + ty * tw - cy) * k + H / 2, sz = tw * k;
+        const t = this._pedirTile(z, tx, ty);
+        if (t.ok) { ctx.drawImage(t.img, sx, sy, sz + 0.6, sz + 0.6); desenhou = true; continue; }
+        if (t.falhou && Date.now() - t.falhou > 30000) { t.falhou = 0; this.tileFila.push({ key: z + '/' + tx + '/' + ty, z, x: tx, y: ty }); this._bombear(); }
+        for (let up = 1; up <= 4; up++) { // enquanto a peça não chega, usa um pedaço da peça de zoom menor
+          const a = this.tiles.get((z - up) + '/' + (tx >> up) + '/' + (ty >> up));
+          if (a && a.ok) { const lado = 256 / 2 ** up; ctx.drawImage(a.img, (tx - ((tx >> up) << up)) * lado, (ty - ((ty >> up) << up)) * lado, lado, lado, sx, sy, sz + 0.6, sz + 0.6); desenhou = true; break; }
+        }
+      }
+      return desenhou;
     }
     _pontos(ctx, c, p, P) {
       const n = c.clientes.length, max = 60;
