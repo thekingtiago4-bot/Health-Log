@@ -292,6 +292,33 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(() => !RT.S.reg.regioes.find(r => r.id === 'interior').cidades.includes('3541406'));
   verdade(true, '"Restaurar listas originais" desfaz as edições');
 
+  console.log('\nMapa em outra tela (segundo monitor)');
+  await p.click('.nav button[data-tela="rotas"]');
+  const [pop] = await Promise.all([ctx.waitForEvent('page'), p.click('#bt-mapa-fora')]);
+  pop.on('pageerror', e => erros.push('pageerror(mapa): ' + e.message));
+  await pop.waitForFunction(() => window.RT && RT.pronto);
+  verdade(await pop.evaluate(() => document.body.classList.contains('modo-mapa') && RT.S.modoMapa), 'a janela nova abre só com o mapa');
+  verdade(await p.$eval('#mapa-area', e => e.classList.contains('parede')), 'a tela principal vira parede azul para as janelas flutuantes');
+  verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#mapa-area')).backgroundImage.includes('gradient')), 'com fundo azul-escuro');
+  verdade(await pop.evaluate(() => document.querySelector('.mapa-cv').getBoundingClientRect().width > 600), 'e o mapa ocupa a outra janela');
+  await p.fill('#busca-cidade', 'sao carlos'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  while (await p.locator('[data-libc]').count()) await p.locator('[data-libc]').first().click();
+  await p.click('#jc-todos'); await p.click('[data-a=concluir]');
+  const nAloc = await p.evaluate(() => Object.keys(RT.S.op.atrib).length);
+  await pop.waitForFunction(n => Object.keys(RT.S.op.atrib).length === n, nAloc);
+  verdade(true, 'o que você muda na parede aparece na janela do mapa na hora (' + nAloc + ' notas alocadas nas duas)');
+  await pop.evaluate(() => RT.S.mapa.centrarEm('JAU|SP', 300)); await pop.waitForTimeout(500);
+  const pj = await pop.evaluate(() => { const q = RT.S.mapa.posicaoDaCidade('JAU|SP'); const r = document.querySelector('.mapa-cv').getBoundingClientRect(); return { x: r.left + q.x, y: r.top + q.y }; });
+  await pop.mouse.click(pj.x, pj.y);
+  await p.waitForSelector('#jan-cid:not([hidden]) .jan-cab');
+  igual(await p.innerText('#jan-cid .jan-cab b'), 'Jaú SP', 'clicar numa cidade no mapa da outra tela abre a janela dela na parede');
+  igual(await pop.evaluate(() => RT.S.mapa.sel), 'JAU|SP', 'e o mapa destaca a cidade escolhida');
+  igual(await pop.evaluate(() => RT.S.op.rev === undefined ? 0 : 1) && await pop.evaluate(() => RT.S.modoMapa), true, 'a janela do mapa não grava nada (só a principal grava)');
+  await p.click('#jan-cid [data-a=fechar]');
+  await pop.close();
+  await p.waitForFunction(() => !RT.S.parede, null, { timeout: 6000 });
+  verdade(await p.$eval('#mapa-area', e => !e.classList.contains('parede')), 'fechar a janela do mapa traz o mapa de volta para esta tela');
+
   console.log('\nRelatórios (mesmas definições do PDF do Tiago)');
   const rel = await p.evaluate(() => {
     const N = RT.N, mk = (id, cidade, end, valor, vol, peso) => ({ id, nf: id, cidade, uf: 'SP', cep: '14800000', end, num: '1', cliente: 'CLINICA ' + end, doc: '', valor, vol: Math.round(vol), volMil: Math.round(vol * 1000), peso, origem: 'T.XML' });

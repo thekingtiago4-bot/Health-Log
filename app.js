@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.3.0';
+  const VERSAO = '0.4.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -12,6 +12,7 @@
     cidadeAberta: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
     hist: [], mapa: null, precisaEnquadrar: true, lote: null, destino: 'atual',
     nf: { q: '', carro: '', origem: '', ord: 'nf', dir: 1 },
+    canal: null, ext: null, parede: false, modoMapa: /[?&]mapa=1/.test(location.search),
     fila: Promise.resolve(), ultimoSalvo: null, ultimoBackup: null, pend: { q: '', ordem: 'nome', mostrarTodas: false }
   };
 
@@ -59,14 +60,14 @@
     }
   }
   function salvar() {
-    if (!S.op) return Promise.resolve();
+    if (!S.op || S.modoMapa) return Promise.resolve();
     if (!DB.db) { statusSalvo('erro', DB.erro || 'banco indisponível'); return Promise.resolve(); }
     statusSalvo('salvando');
     const copia = structuredClone(S.op);
     S.fila = S.fila
       .then(() => DB.put('ops', copia))
       .then(() => DB.put('meta', { k: 'ativa', id: copia.id }))
-      .then(() => { S.ultimoSalvo = new Date(); statusSalvo('ok'); })
+      .then(() => { S.ultimoSalvo = new Date(); statusSalvo('ok'); enviar({ t: 'op', id: copia.id, rev: copia.rev }); })
       .catch(e => statusSalvo('erro', (e && e.message) || String(e)));
     return S.fila;
   }
@@ -261,7 +262,7 @@
     if (!S.op.carros.length) { mutar('novo carro', () => { const c = N.novoCarro(S.op); S.carroAtivo = c.id; }); toast('Criei o Carro 1 para você começar.'); }
     if (S.carroAtivo == null || !carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros[0].id;
     S.cidadeAberta = key; S.expand = new Set(); resetDraft();
-    S.mapa.setSelecionada(key);
+    S.mapa.setSelecionada(key); enviar({ t: 'sel', key, centrar: !!o.centrar });
     const area = $('#mapa-area'), jan = $('#jan-cid');
     jan.hidden = false; renderJanCidade(); renderCarros(); renderPend();
     const W = area.clientWidth, H = area.clientHeight;
@@ -269,7 +270,7 @@
     const salvo = posJan('cid');
     if (salvo) U.posicionar(jan, area, salvo.x, salvo.y); // onde você deixou, fica
     else {
-      const anchor = o.centrar ? { x: W / 2, y: H / 2 } : (S.mapa.posicaoDaCidade(key) || { x: W * 0.55, y: H * 0.3 });
+      const anchor = (o.centrar || S.parede) ? { x: W / 2, y: H / 2 } : (S.mapa.posicaoDaCidade(key) || { x: W * 0.55, y: H * 0.3 });
       const w = jan.offsetWidth; let x = anchor.x + 28; if (x + w > W - 8) x = anchor.x - w - 28;
       U.posicionar(jan, area, x, anchor.y - 70);
     }
@@ -279,7 +280,7 @@
     if (!S.cidadeAberta) return;
     if (!silencioso && draftSujo()) toast('Marcações não concluídas foram descartadas.');
     S.cidadeAberta = null; S.draft = new Set(); S.draft0 = new Set();
-    $('#jan-cid').hidden = true; S.mapa && S.mapa.setSelecionada(null); renderPend();
+    $('#jan-cid').hidden = true; S.mapa && S.mapa.setSelecionada(null); enviar({ t: 'sel', key: null }); renderPend();
   }
 
   function chipPos(carros) {
@@ -552,7 +553,8 @@
   }
   function salvarCfg() {
     N.setAjustesRota(S.cfg.fora); reindexar(); atualizarTudo();
-    DB.put('meta', { k: 'config', v: S.cfg }).catch(e => statusSalvo('erro', 'não consegui salvar as configurações: ' + ((e && e.message) || e)));
+    enviar({ t: 'cfg' });
+    DB.put('meta', { k: 'config', v: S.cfg }).then(() => enviar({ t: 'cfg' })).catch(e => statusSalvo('erro', 'não consegui salvar as configurações: ' + ((e && e.message) || e)));
   }
   function alternarFora(key) {
     const c = S.idx && S.idx.cidades.get(key); if (!c) return;
@@ -679,7 +681,7 @@
   }
   function salvarReg() {
     N.setRegioes(S.reg);
-    DB.put('meta', { k: 'regioes', v: S.reg }).catch(e => statusSalvo('erro', 'não consegui salvar as regiões: ' + ((e && e.message) || e)));
+    DB.put('meta', { k: 'regioes', v: S.reg }).then(() => enviar({ t: 'cfg' })).catch(e => statusSalvo('erro', 'não consegui salvar as regiões: ' + ((e && e.message) || e)));
     reindexar(); atualizarTudo(); renderGeo();
   }
   const munInfo = code => (S.mun && S.mun[code]) ? { code, nome: S.mun[code][0], uf: S.mun[code][1], lat: S.mun[code][2], lon: S.mun[code][3] } : null;
@@ -784,6 +786,52 @@
     if (S.geo.mapa) S.geo.mapa.enquadrarPontos(pts.length ? pts : [{ lat: -15, lon: -55 }, { lat: -25, lon: -45 }]);
   }
 
+  /* ================= mapa em outra tela (segundo monitor) ================= */
+  const enviar = m => { try { if (S.canal) S.canal.postMessage(m); } catch (e) { /* sem canal: segue sozinho */ } };
+  function entrarParede(sim) {
+    S.parede = !!sim;
+    $('#mapa-area').classList.toggle('parede', S.parede);
+    S.mapa.setPausado(S.parede);
+    const b = $('#bt-mapa-fora'); b.textContent = S.parede ? 'Trazer o mapa de volta' : 'Mapa em outra tela'; b.setAttribute('aria-pressed', String(S.parede));
+    if (!S.parede) { requestAnimationFrame(() => { S.mapa.redimensionar(); S.mapa.marcar(); }); }
+  }
+  function abrirMapaExterno() {
+    if (S.parede && S.ext && !S.ext.closed) { try { S.ext.close(); } catch (e) { /* ok */ } entrarParede(false); S.ext = null; return; }
+    const w = window.open(location.pathname + '?mapa=1', 'hr-mapa', 'popup=yes,width=1400,height=900');
+    if (!w) { toast('O navegador bloqueou a nova janela. Libere pop-ups para este endereço e tente de novo.'); return; }
+    S.ext = w; entrarParede(true); toast('Mapa aberto em outra janela. Arraste-a para o outro monitor (a tela cheia é F11).');
+    /* melhor esforço: se o navegador deixar, leva a janela para o outro monitor */
+    (async () => { try { if (window.getScreenDetails) { const d = await window.getScreenDetails(), o = d.screens.find(s => s !== d.currentScreen); if (o) { w.moveTo(o.availLeft, o.availTop); w.resizeTo(o.availWidth, o.availHeight); } } } catch (e) { /* sem permissão: tudo bem */ } })();
+    const t = setInterval(() => { if (!S.ext || S.ext.closed) { clearInterval(t); if (S.parede) { entrarParede(false); toast('A janela do mapa foi fechada. O mapa voltou para esta tela.'); } S.ext = null; } }, 700);
+  }
+  async function recarregarDoBanco(id) {
+    try {
+      const [c, r] = [await DB.get('meta', 'config'), await DB.get('meta', 'regioes')];
+      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora);
+      if (r && r.v && Array.isArray(r.v.regioes)) { S.reg = r.v; N.setRegioes(S.reg); }
+      const op = id ? await DB.get('ops', id) : null;
+      if (op) { S.op = op; if (!carroPorId(S.carroAtivo) && op.carros.length) S.carroAtivo = op.carros[0].id; }
+      reindexar(); atualizarTudo();
+    } catch (e) { console.warn('não consegui atualizar a partir do banco', e); }
+  }
+  function ligarCanal() {
+    if (typeof BroadcastChannel === 'undefined') return;
+    S.canal = new BroadcastChannel('health-route');
+    S.canal.onmessage = ev => {
+      const m = ev.data || {};
+      if (S.modoMapa) { // janela do mapa: só recebe e desenha
+        if (m.t === 'op' || m.t === 'cfg') recarregarDoBanco(m.id || (S.op && S.op.id));
+        else if (m.t === 'sel') { S.cidadeAberta = m.key; S.mapa.setSelecionada(m.key); if (m.key && m.centrar) S.mapa.centrarEm(m.key, 140); }
+        else if (m.t === 'tema') aplicarTemaAtual();
+      } else { // janela principal
+        if (m.t === 'clique' && S.parede) abrirCidade(m.key, { centrar: false });
+        else if (m.t === 'pronto') { if (S.op) enviar({ t: 'op', id: S.op.id, rev: S.op.rev }); enviar({ t: 'sel', key: S.cidadeAberta }); }
+      }
+    };
+    if (S.modoMapa) { window.addEventListener('pagehide', () => enviar({ t: 'fechou' })); }
+  }
+  function aplicarTemaAtual() { document.documentElement.setAttribute('data-tema', U.pref.ler('tema', 'claro') === 'escuro' ? 'escuro' : 'claro'); S.mapa && S.mapa.temaMudou(); }
+
   /* ================= eventos ================= */
   function ligar() {
     for (const b of $$('.nav button')) b.addEventListener('click', () => irPara(b.dataset.tela));
@@ -794,6 +842,7 @@
       if (e.target.id === 'mural-x') muralFechar();
       if (e.target.closest('[data-mural-bk]') && S.op) baixarCopia(S.op);
     });
+    $('#bt-mapa-fora').onclick = abrirMapaExterno;
     $('#bt-novo-carro').onclick = () => novoVeiculo('carro');
     $('#bt-novo-van').onclick = () => novoVeiculo('van');
     $('#bt-novo-caminhao').onclick = () => novoVeiculo('caminhao');
@@ -922,7 +971,7 @@
 
     /* tema */
     const aplicarTema = t => { document.documentElement.setAttribute('data-tema', t === 'escuro' ? 'escuro' : 'claro'); $('#tema-lbl').textContent = t === 'escuro' ? 'Tema claro' : 'Tema escuro'; S.mapa && S.mapa.temaMudou(); };
-    $('#bt-tema').onclick = () => { const t = document.documentElement.getAttribute('data-tema') === 'escuro' ? 'claro' : 'escuro'; U.pref.gravar('tema', t); aplicarTema(t); };
+    $('#bt-tema').onclick = () => { const t = document.documentElement.getAttribute('data-tema') === 'escuro' ? 'claro' : 'escuro'; U.pref.gravar('tema', t); aplicarTema(t); enviar({ t: 'tema' }); };
     aplicarTema(U.pref.ler('tema', 'claro'));
     window.addEventListener('pagehide', () => { /* gravações já são feitas a cada ação */ });
   }
@@ -931,12 +980,12 @@
   async function boot() {
     $('#versao').textContent = 'versão ' + VERSAO;
     S.mapa = new RT.Mapa($('#mapa-area'), {
-      onClique: h => { if (h) abrirCidade(h.key, { centrar: false }); else if (S.cidadeAberta && !draftSujo()) fecharCidade(true); },
+      onClique: h => { if (S.modoMapa) { if (h) enviar({ t: 'clique', key: h.key }); return; } if (h) abrirCidade(h.key, { centrar: false }); else if (S.cidadeAberta && !draftSujo()) fecharCidade(true); },
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
       onFora: nomes => { const b = $('#aviso-fora'); b.hidden = !nomes.length; b.textContent = nomes.length ? '+' + nomes.length + ' fora do quadro: ' + nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? '…' : '') : ''; }
     });
-    ligar();
-    muralAbrir(); // aparece atrás da animação de abertura, como no Health Search
+    ligar(); ligarCanal();
+    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Route · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
     const okDb = await DB.abrir();
     if (!okDb) { statusSalvo('erro', DB.erro || 'banco indisponível'); }
     try {
@@ -955,13 +1004,14 @@
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
     await carregarCfg(); await carregarReg(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
-    janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false));
+    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');
     await malha; S.mapa.marcar();
     if (S.mun) S.mapa.setTodas(Object.entries(S.mun).filter(([c]) => S.mapa.poli.has(c)).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3] })));
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { });
+    if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });

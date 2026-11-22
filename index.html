@@ -53,6 +53,7 @@
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a janela de veículos e rotas" aria-pressed="false">Veículos</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
+        <button class="btn mini" id="bt-mapa-fora" type="button" title="Abre o mapa em outra janela (para o segundo monitor). Esta tela vira uma parede para as janelas flutuantes.">Mapa em outra tela</button>
         <button class="btn mini" id="bt-enquadrar" type="button" title="Enquadra as cidades da operação (Shift: inclui as muito isoladas)">Enquadrar mapa</button>
       </div>
       <div class="faixa-carro" id="faixa-carro"></div>
@@ -65,6 +66,7 @@
           <span><i class="lg-vd"></i>Completa</span>
         </div>
         <button type="button" class="aviso-fora" id="aviso-fora" hidden title="Clique para enquadrar todas as cidades"></button>
+        <div class="msg-parede">O mapa está aberto na outra tela. Arraste as janelas para onde quiser — como post-its na parede.</div>
         <div class="dica-mapa" id="tip" hidden></div>
         <div class="vazio-mapa" id="vazio-mapa" hidden>
           <h2>Nenhuma operação aberta</h2>
@@ -170,6 +172,6 @@
 <script src="mapa.js"></script>
 <script src="relatorios.js"></script>
 <script src="app.js"></script>
-<script src="abertura.js"></script>
+<script>if(!/[?&]mapa=1/.test(location.search)){var s=document.createElement("script");s.src="abertura.js";document.body.appendChild(s);}</script>
 </body>
 </html>

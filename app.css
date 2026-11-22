@@ -432,3 +432,13 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 .rl-rod{margin-top:auto;padding-top:6mm;font-size:9.5px}
 .rl-dia:hover i{background:#1ad9a6}
 @media screen and (max-width:860px){.rl-pag{zoom:.5}}
+
+/* ---------- mapa em outra tela: a tela principal vira parede azul para as janelas flutuantes ---------- */
+.mapa-area.parede{background:radial-gradient(circle at 1px 1px,rgba(120,170,230,.18) 1.4px,transparent 1.6px) 0 0/26px 26px,linear-gradient(160deg,#0B2545 0%,#13315C 55%,#0A1F3B 100%)}
+.mapa-area.parede .mapa-cv,.mapa-area.parede .zoom-bt,.mapa-area.parede .legenda,.mapa-area.parede .dica-mapa,.mapa-area.parede .aviso-fora,.mapa-area.parede .vazio-mapa{display:none!important}
+.mapa-area .msg-parede{display:none}
+.mapa-area.parede .msg-parede{display:block;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:#9FC1EE;font-size:.85rem;letter-spacing:.02em;pointer-events:none;text-align:center}
+body.modo-mapa .rail,body.modo-mapa .barra-carros,body.modo-mapa .faixa-carro,body.modo-mapa .jan,body.modo-mapa #mural,body.modo-mapa .faixa-erro{display:none!important}
+body.modo-mapa .app{grid-template-columns:1fr}
+body.modo-mapa .mapa-area{min-height:100vh}
+body.modo-mapa .legenda{left:14px;bottom:14px}
