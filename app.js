@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.15.0';
+  const VERSAO = '0.15.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -78,7 +78,7 @@
     if (S.sujo || !(await backup(S.op, 'Salvar'))) { toast('⚠ Não consegui salvar. Baixe uma cópia em Importar XML → Operações guardadas.'); return; }
     toast('✓ Tudo salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (com cópia de segurança).');
   }
-  window.addEventListener('beforeunload', e => { if (S.sujo || (DB.erro && S.op)) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', e => { if (window.__hsRecarregando) return; if (S.sujo || (DB.erro && S.op)) { e.preventDefault(); e.returnValue = ''; } });
   /* menu lateral que esconde, e instalar o aplicativo */
   function ligarLateral() {
     const app = $('#app'), seta = $('#bt-rail');
@@ -1191,7 +1191,9 @@
     { const e = U.pref.ler('estradas', true); S.mapa.setEstradas(e); $('#bt-estradas').setAttribute('aria-pressed', String(e)); }
     if (S.mun) { const rota = new Set(); for (const r of ((S.reg && S.reg.regioes) || [])) if (r.grupo !== 'fora') for (const c of r.cidades) rota.add(String(c)); S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3], pri: rota.has(c) ? 1 : 0 })).sort((x, y) => y.pri - x.pri || x.nome.length - y.nome.length)); }
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
-    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { });
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').then(r => { r.update().catch(() => { }); setInterval(() => r.update().catch(() => { }), 10 * 60 * 1000); }).catch(() => { });
+    /* versão nova assumiu: recarrega sozinho (o trabalho já está gravado); se houver gravação pendente, avisa */
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) { let recarregou = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (recarregou) return; const ir = () => { recarregou = true; window.__hsRecarregando = true; location.reload(); }; if (!S.sujo) ir(); else toast('Há uma versão nova do Health LOG.', { rotulo: 'Atualizar agora', fn: ir }); }); }
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }

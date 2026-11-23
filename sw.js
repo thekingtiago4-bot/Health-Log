@@ -1,5 +1,5 @@
 /* Health Route · service worker. Troque o nome do cache a cada versão publicada. */
-const CACHE = 'hr-app-v015';
+const CACHE = 'hr-app-v016';
 const ARQUIVOS = ['./', 'index.html', 'app.css', 'fontes.css', 'nucleo.js', 'ui.js', 'mapa.js', 'vias.js', 'fundo.js', 'vendor/maplibre-gl.css', 'app.js', 'relatorios.js', 'bipagem.js', 'situacao.js', 'romaneio.js', 'turno.js', 'abertura.js', 'manifest.webmanifest',
   'data/municipios.json', 'data/malha.json', 'data/regioes.json', 'icons/marca.png', 'icons/healthlog.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'fonts/Barlow-400.woff2', 'fonts/Barlow-500.woff2', 'fonts/Barlow-600.woff2', 'fonts/BarlowSemiCondensed-600.woff2', 'fonts/BarlowSemiCondensed-700.woff2'];
@@ -14,5 +14,6 @@ self.addEventListener('fetch', e => {
     e.respondWith(caches.open('hr-vendor-v1').then(c => c.match(e.request).then(r => r || fetch(e.request).then(resp => { if (resp.ok) c.put(e.request, resp.clone()); return resp; }))));
     return;
   }
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  /* rede primeiro (sempre a versão mais nova); sem internet, usa a cópia guardada */
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(resp => { if (resp.ok) { const c = resp.clone(); caches.open(CACHE).then(ch => ch.put(e.request, c)); } return resp; }).catch(() => caches.match(e.request)));
 });
