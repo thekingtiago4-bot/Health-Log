@@ -1,4 +1,4 @@
-# Health Route — instruções para o Claude
+# Health Log. — instruções para o Claude (pasta health_route)
 
 Módulo de **roteirização** que depois entra como aba dentro do Health Search (`thekingtiago4-bot/Health_Search`).
 Identidade, linguagem e cuidado com dados são os do Health Search. Dono e único usuário por enquanto: Tiago (admin).
@@ -36,7 +36,7 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 - Faixas: onde mais de uma rota usa o mesmo trecho de estrada, as linhas são deslocadas lateralmente (mapa.js `_calcularLanes`: células de ~250 m, ordem fixa pelo id do veículo, média móvel para transição suave) para nenhuma cobrir a outra. Contorno claro de todas primeiro, tracejados depois.
 
 ## Arquivos
-`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `romaneio.js` · `vias.js` · `vendor/` (pdf.js e Tesseract, cópia do Health Search) · `abertura.js` animação (cópia do Health Search v10.6)
+`nucleo.js` regras puras · `mapa.js` canvas · `ui.js` utilitários + IndexedDB · `app.js` telas · `relatorios.js` · `bipagem.js` · `situacao.js` · `romaneio.js` · `vias.js` · `vendor/` (pdf.js e Tesseract, cópia do Health Search) · `abertura.js` animação (só o que a abertura de barras usa) · `turno.js` final de turno · `tema.js` tema + gatilho da abertura (arquivo próprio: a página não tem script embutido)
 `data/municipios.json` sedes IBGE (fonte: IBGE Localidades 2022) · `data/malha.json` contornos (mesmo do Health Search)
 
 ## Publicar
@@ -64,3 +64,9 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - v0.18.1: abertura sem pins de mapa e sem a linha ao fundo.
 - v0.18.2: nome de marca = **Health Log.** (com ponto, nas telas de marca); linha 'Fixa' = contínua, sem tracejado e sem setas (`mapa.rotaFixa`).
 - v0.18.3: faixa de veículos sem barra de rolagem (roda do mouse rola).
+
+## Segurança e limpeza (v0.19)
+- `index.html` tem CSP (meta): só scripts do próprio site (+ blob/wasm para PDF/OCR/mapa), nenhum script/evento embutido (`onclick=` etc. é bloqueado — use `addEventListener`). Hosts liberados para conexão: tiles.openfreemap.org, routing.openstreetmap.de, api.meudanfe.com.br. Novo serviço externo = liberar aqui de propósito.
+- Operação importada/restaurada de arquivo passa por `N.sanearOp` (texto/números/cores/ids conferidos). Todo texto de XML/arquivo/usuário que vai para `innerHTML` passa por `esc()`.
+- Links externos abrem com `noopener,noreferrer`. Nada de segredo no Git (Api-Key só no IndexedDB).
+- Ícones PNG recomprimidos sem perda; CSS/JS mortos da bússola antiga removidos.

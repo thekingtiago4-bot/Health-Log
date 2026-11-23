@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.18.3';
+  const VERSAO = '0.19.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -605,7 +605,7 @@
   }
   async function restaurarObjeto(op, sufixo) {
     if (!op || !Array.isArray(op.notas) || !Array.isArray(op.carros) || typeof op.atrib !== 'object' || !op.atrib) throw new Error('arquivo não parece uma operação do Health Route');
-    const novo = structuredClone(op); novo.id = 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const novo = N.sanearOp(structuredClone(op)); novo.id = 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     novo.nome = (novo.nome || 'Operação') + sufixo; novo.rev = (novo.rev || 0) + 1;
     await DB.put('ops', novo); await abrirOperacao(novo); renderOps(); toast('Restaurei como "' + novo.nome + '". A original continua guardada.');
   }
@@ -662,7 +662,7 @@
 
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
   const JANS = { pend: '#jan-pend', carros: '#jan-carros', cid: '#jan-cid', busca: '#jan-busca' };
-  const posJan = id => { const p = U.pref.ler('pos:' + id, null) || (id === 'pend' ? U.pref.ler('pendPos', null) : null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
+  const posJan = id => { const p = U.pref.ler('pos:' + id, null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
   function restaurarPos(id) { const j = $(JANS[id]), p = posJan(id); if (j && p) U.posicionar(j, $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
     const j = $(JANS[id]); j.hidden = !vis; U.pref.gravar('ver:' + id, vis);
@@ -1005,7 +1005,7 @@
       for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) j.style[p] = '';
       j.classList.remove('redim', 'recolhida');
     }
-    U.pref.apagar('pendPos'); ajustarPadMapa(); S.mapa.redimensionar(); S.mapa.marcar();
+    ajustarPadMapa(); S.mapa.redimensionar(); S.mapa.marcar();
     if (S.cidadeAberta) { const k = S.cidadeAberta; abrirCidade(k, { centrar: false }); }
     toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
   }

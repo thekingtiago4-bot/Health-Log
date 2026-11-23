@@ -62,7 +62,7 @@
         const b = e.target.closest('[data-a]'); if (!b) return; const a = b.dataset.a, txt = guardou ? texto(guardou) : texto(f);
         if (a === 'x') fechar(true);
         if (a === 'c') { try { await navigator.clipboard.writeText(txt); toast('Resumo copiado.'); } catch (er) { toast('Não consegui copiar. Selecione o texto e use Ctrl+C.'); } }
-        if (a === 'w') window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+        if (a === 'w') window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank', 'noopener,noreferrer');
         if (a === 'h') {
           const l = await guardados(); fm.querySelector('#turno-txt').textContent = l.length ? l.map(x => '• ' + new Date(x.quando).toLocaleString('pt-BR') + ' · ' + x.opNome + ' · ' + i$(x.totais.notas) + ' notas · ' + m$(x.totais.valor) + ' · alocadas ' + x.pctAloc + '%').join('\n') : 'Nenhum final de turno guardado ainda.';
         }

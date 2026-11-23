@@ -194,6 +194,31 @@
     return 'hsl(' + h + ',62%,' + l + '%)';
   };
 
+  /* Operação vinda de ARQUIVO (importar/restaurar): confere e limpa os campos que vão para a tela, para um arquivo
+     adulterado não injetar HTML/estilo nem quebrar os totais. O resto da operação segue como veio. */
+  N.sanearOp = function (op) {
+    const txt = (v, max) => String(v == null ? '' : v).slice(0, max || 300), inteiro = v => Number.isFinite(+v) ? Math.trunc(+v) : 0;
+    const cor = (v, id) => /^#[0-9a-fA-F]{6}$/.test(v) ? v : N.corDoCarro(id || 1);
+    const o = Object.assign({}, op);
+    o.nome = txt(o.nome, 80) || 'Operação'; o.data = /^\d{4}-\d{2}-\d{2}$/.test(o.data) ? o.data : '';
+    o.notas = o.notas.filter(n => n && typeof n === 'object').map(n => {
+      const x = Object.assign({}, n);
+      for (const k of ['id', 'nf', 'chave', 'cliente', 'doc', 'end', 'num', 'bairro', 'cep', 'cidade', 'uf', 'cMun', 'origem', 'serie', 'emitente']) if (k in x) x[k] = txt(x[k]);
+      for (const k of ['vol', 'peso', 'valor']) x[k] = Math.max(0, inteiro(x[k]));
+      return x;
+    });
+    o.carros = o.carros.filter(c => c && typeof c === 'object').map(c => {
+      const id = inteiro(c.id), x = Object.assign({}, c);
+      x.id = id; x.numero = Math.max(1, inteiro(c.numero)); x.tipo = N.TIPOS[c.tipo] ? c.tipo : 'carro';
+      x.motorista = txt(c.motorista, 40); x.cor = cor(c.cor, id); x.rastreio = c.rastreio === 'sim' || c.rastreio === 'nao' ? c.rastreio : null;
+      x.cidades = Array.isArray(c.cidades) ? c.cidades.map(k => txt(k, 80)) : [];
+      return x;
+    });
+    const atrib = {}; for (const id in o.atrib) { const v = inteiro(o.atrib[id]); if (o.carros.some(c => c.id === v)) atrib[id] = v; }
+    o.atrib = atrib;
+    return o;
+  };
+
   /* Veículos: carro, van e caminhão. Van e caminhão diferem do carro só pelo NOME (o galpão sabe que cabe
      mais volume); nenhuma regra de distribuição muda. */
   N.TIPOS = { carro: { nome: 'Carro', plural: 'Carros' }, van: { nome: 'Van', plural: 'Vans' }, caminhao: { nome: 'Caminhão', plural: 'Caminhões' } };

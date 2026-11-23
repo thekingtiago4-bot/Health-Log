@@ -1,6 +1,6 @@
-# Health Route
+# Health Log.
 
-Montagem de rotas do dia a partir dos XMLs da SoftLog. App web instalável (PWA), sem servidor: os dados ficam no navegador (IndexedDB).
+Roteirização — Eficiência Máxima Em Roteirização: montagem de rotas do dia a partir dos XMLs da SoftLog. App web instalável (PWA), sem servidor: os dados ficam no navegador (IndexedDB).
 
 Abrir: servir a pasta por http(s) — por exemplo `python3 -m http.server 8080` — e acessar `http://localhost:8080`.
 

@@ -36,7 +36,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
     });
     const p = await ctx.newPage();
     p.on('pageerror', e => erros.push('pageerror: ' + e.message));
-    p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404|500)/.test(m.text()))) erros.push('console: ' + m.text()); }); // 401/404/500 são respostas SIMULADAS (Meu Danfe e serviço de rotas) no teste
+    p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404|500)/.test(m.text()))) erros.push('console: ' + m.text().slice(0, 160) + ' @ ' + JSON.stringify(m.location()) + ' ' + p.url().slice(0, 60)); }); // 401/404/500 são respostas SIMULADAS (Meu Danfe e serviço de rotas) no teste
     return { ctx, p };
   };
   const abrir = async p => { await p.goto(URL); await p.waitForFunction(() => window.RT && RT.pronto, null, { timeout: 20000 }); };

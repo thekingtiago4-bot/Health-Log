@@ -18,7 +18,7 @@ html,body{height:100%}
 body{margin:0;background:var(--papel);color:var(--tinta);font-family:"Barlow",system-ui,"Segoe UI",sans-serif;font-size:var(--fs);line-height:1.45;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-.num,.cond{font-family:"Barlow Semi Condensed","Barlow",sans-serif}
+.num{font-family:"Barlow Semi Condensed","Barlow",sans-serif}
 [hidden]{display:none!important}
 
 /* ---------- trilho ---------- */
@@ -355,9 +355,6 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 .geo-card{border:1px solid var(--linha);background:var(--sup);border-radius:10px;padding:16px;min-height:220px}
 .geo-card h2{margin:0 0 4px}
 .geo-card .vazio-g{color:var(--mudo)}
-.geo-chip{display:inline-flex;gap:6px;align-items:center;border-radius:20px;padding:1px 10px;font-weight:700;font-size:.78rem;color:#fff;background:var(--cor);margin:2px 4px 2px 0}
-.geo-chip button{all:unset;cursor:pointer;opacity:.8;font-size:.9rem;line-height:1}
-.geo-chip button:hover{opacity:1}
 .geo-st{display:inline-block;border-radius:6px;padding:2px 10px;font-weight:700;font-size:.8rem;margin:6px 0}
 .geo-st.rota{background:var(--okBg);color:var(--ok)}
 .geo-st.fora{background:var(--linha2);color:var(--tinta2)}

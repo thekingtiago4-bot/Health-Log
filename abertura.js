@@ -2,7 +2,6 @@
 (function(){ const st=document.createElement('style'); st.textContent=`
 #hs-cine{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vmin;background:radial-gradient(120vmax 80vmax at 50% 40%,#17656a 0%,#0f4c4c 35%,#062427 100%);overflow:hidden;cursor:pointer}
 #hs-cine.fim{animation:hcSai .7s ease-in forwards}
-.nv-cine .nv-caixa{opacity:0!important;pointer-events:none}
 #hs-cine svg{width:min(68vh,94vw,780px);height:auto;overflow:visible;flex:none}
 #hs-cine{gap:1.2vmin!important}
 #hs-cine .hc-nome{font:700 clamp(2rem,7.5vmin,4.2rem)/1 "Barlow Semi Condensed","Barlow",sans-serif;color:#fff;letter-spacing:.02em;display:flex}
@@ -16,32 +15,10 @@
 .hc-onda{fill:none;stroke:#6fe3d6;stroke-width:1.2;opacity:0;animation:hcOnda 3s ease-out infinite}
 .hc-cx{animation:hcPop .9s cubic-bezier(.2,1.5,.4,1) both}
 .hc-anel{stroke-dasharray:100;animation:hcTraco 1.5s .4s cubic-bezier(.6,0,.2,1) both}
-.hc-anel2{stroke-dasharray:100;animation:hcTraco 1.6s .9s cubic-bezier(.6,0,.2,1) both;opacity:.5}
-.hc-ticks{opacity:0;animation:hcTicks 1.4s 1.5s ease-out forwards}
-.hc-card{opacity:0;animation:hcFade .5s 2.1s forwards}
 .hc-bg{transform-box:fill-box;transform-origin:50% 100%;animation:hcBg 1.1s cubic-bezier(.2,1,.3,1) both}
 @keyframes hcBg{0%{transform:scaleY(0);opacity:0}30%{opacity:1}100%{transform:scaleY(1);opacity:1}}
-.hc-agulha{animation:hcAgulha 2.9s .9s cubic-bezier(.25,1,.35,1) both,hcBal 5s 3.9s ease-in-out infinite}
-.hc-flash{opacity:0;animation:hcFlash 1.1s 3.5s ease-out}
-.hc-rota{stroke-dasharray:100;stroke-dashoffset:100;animation:hcRota 2.2s 2.3s ease-in-out forwards}
-.hc-pin{opacity:0;transform-box:fill-box;transform-origin:center bottom;animation:hcPin .5s cubic-bezier(.2,1.6,.4,1) forwards}
-.hc-orb{animation:hcGira 3.2s linear infinite}.hc-orbr{animation:hcGira 4.6s linear infinite reverse}.hc-orbl{animation:hcGira 7s linear infinite}
-.hc-o2{animation-delay:-1.6s}.hc-orbr.hc-o2{animation-delay:-2.3s}.hc-o3{animation-direction:reverse;animation-duration:9s}
-.hc-orb,.hc-orbr,.hc-orbl{opacity:0;animation-name:hcGira,hcFade;animation-duration:3.2s,.8s;animation-delay:0s,1.6s;animation-iteration-count:infinite,1;animation-fill-mode:none,forwards;animation-timing-function:linear,ease-out}
-.hc-orbr{animation-duration:4.6s,.8s;animation-direction:reverse,normal}.hc-orbl{animation-duration:7s,.8s;animation-delay:0s,.6s}.hc-o3{animation-duration:9s,.8s;animation-direction:reverse,normal}
-#nv-tela::before{background:radial-gradient(circle at 50% 0,#d9fffa 0 3px,rgba(154,245,234,.5) 4px,transparent 9px),radial-gradient(circle at 50% 100%,#d9fffa 0 2px,transparent 7px)}
-#nv-tela::after{background:radial-gradient(circle at 0 50%,#d9fffa 0 3px,rgba(154,245,234,.5) 4px,transparent 9px),radial-gradient(circle at 100% 50%,#fff 0 2px,transparent 7px)}
-.hsl-brilho{filter:drop-shadow(0 0 3px #fff)}
 @keyframes hcPop{from{transform:scale(0) rotate(-40deg);opacity:0}to{transform:none;opacity:1}}
 @keyframes hcTraco{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
-@keyframes hcTicks{from{opacity:0;transform:rotate(-90deg) scale(.8)}to{opacity:.7;transform:none}}
-@keyframes hcFade{to{opacity:1}}
-@keyframes hcAgulha{0%{transform:rotate(-1080deg) scale(0);opacity:0}15%{opacity:1;transform:rotate(-900deg) scale(1)}70%{transform:rotate(24deg)}80%{transform:rotate(-14deg)}88%{transform:rotate(8deg)}95%{transform:rotate(-3deg)}100%{transform:rotate(0)}}
-@keyframes hcBal{0%,100%{transform:rotate(0)}30%{transform:rotate(4deg)}65%{transform:rotate(-3deg)}}
-@keyframes hcFlash{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}
-@keyframes hcRota{to{stroke-dashoffset:0}}
-@keyframes hcPin{from{opacity:0;transform:translateY(-18px) scale(.3)}to{opacity:1;transform:none}}
-@keyframes hcGira{to{transform:rotate(360deg)}}
 @keyframes hcOnda{0%{opacity:.5;transform:scale(.55)}100%{opacity:0;transform:scale(1.35)}}
 @keyframes hcLetra{from{opacity:0;transform:translateY(.6em) scale(.6) rotate(8deg)}to{opacity:1;transform:none}}
 @keyframes hcSub{from{opacity:0;letter-spacing:1.2em}to{opacity:1;letter-spacing:.5em}}
@@ -51,12 +28,9 @@
 /* v10.5.6 - abertura fluida: nenhum filtro por quadro, so transform/opacity */
 #hs-cine{contain:layout paint style;backface-visibility:hidden}
 #hs-cine svg [filter]{filter:none!important}
-#hs-cine .hc-nome i,#hs-cine .hc-barra b,#hs-cine .pt{will-change:transform,opacity}
-body.hs-cine-on #hs-splash *{animation:none!important;filter:none!important}`; document.head.appendChild(st); })();
-function hsCineHtml(){ let ticks=''; for(let i=0;i<60;i++){ const g=i%5===0; ticks+=`<line x1="200" y1="${g?52:56}" x2="200" y2="${g?66:62}" stroke="#9af5ea" stroke-width="${g?2.4:1.2}" stroke-linecap="round" transform="rotate(${i*6} 200 200)"/>`; }
-  let pts=''; const NPT=14; for(let i=0;i<NPT;i++) pts+=`<span class="pt" style="left:${Math.round(Math.random()*100)}%;--dx:${Math.round(Math.random()*120-60)}px;animation-duration:${(4+Math.random()*5).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;width:${3+Math.round(Math.random()*4)}px;height:${3+Math.round(Math.random()*4)}px"></span>`;
+#hs-cine .hc-nome i,#hs-cine .hc-barra b,#hs-cine .pt{will-change:transform,opacity}`; document.head.appendChild(st); })();
+function hsCineHtml(){ let pts=''; const NPT=14; for(let i=0;i<NPT;i++) pts+=`<span class="pt" style="left:${Math.round(Math.random()*100)}%;--dx:${Math.round(Math.random()*120-60)}px;animation-duration:${(4+Math.random()*5).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;width:${3+Math.round(Math.random()*4)}px;height:${3+Math.round(Math.random()*4)}px"></span>`;
   const nome='Health Log.'.split('').map((c,i)=>`<i style="animation-delay:${(3.2+i*0.07).toFixed(2)}s">${c===' '?'&nbsp;':c}</i>`).join('');
-  const pin=(x,y,d)=>`<g class="hc-pin" style="animation-delay:${d}s"><path d="M${x} ${y} c-9 -12 -13 -18 -13 -25 a13 13 0 0 1 26 0 c0 7 -4 13 -13 25z" fill="#d9fffa"/><circle cx="${x}" cy="${y-25}" r="5" fill="#0f4c4c"/></g>`;
   return `${pts}<svg viewBox="34 34 332 332" aria-hidden="true">
   <defs><linearGradient id="hcBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e444b"/><stop offset="1" stop-color="#061f23"/></linearGradient>
    <linearGradient id="hcA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9fffa"/><stop offset="1" stop-color="#4fd1c5"/></linearGradient>

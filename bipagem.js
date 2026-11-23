@@ -20,7 +20,7 @@
       const am = t.closest('[data-ambig]'); if (am) { const n = ambig && ambig.notas[+am.dataset.ambig]; ambig = null; if (n) marcar(n); else render(); return; }
       const ok = t.closest('[data-extra-ok]'); if (ok) return incluirExtra(ok.dataset.extraOk);
       const rm = t.closest('[data-extra-rm]'); if (rm) return removerExtra(rm.dataset.extraRm);
-      const go = t.closest('[data-go]'); if (go) { RT.A.irPara('rotas'); RT.A.abrirCidade(go.dataset.go, { centrar: true }); }
+      const go = t.closest('[data-go]'); if (go) { e.preventDefault(); RT.A.irPara('rotas'); RT.A.abrirCidade(go.dataset.go, { centrar: true }); }
     });
     box.addEventListener('change', e => {
       if (!e.target.matches('[data-ex-cidade]')) return;
@@ -175,7 +175,7 @@
     /* últimas bipadas */
     h += '<div class="bip-sec"><h3><span>Últimas bipadas</span><span class="tag">' + i$(bn.length) + ' no total</span></h3>' + (recentes.length ? '<div style="overflow:auto"><table><thead><tr><th>Hora</th><th>NF</th><th>Cliente</th><th>Cidade</th><th>Parada (endereço)</th><th class="dir">Vol</th><th class="dir">Valor</th><th>Veículo</th></tr></thead><tbody>' +
       recentes.map(id => { const n = s.idx.notaPorId.get(id), car = o.atrib[id] != null ? RT.A.carroPorId(o.atrib[id]) : null;
-        return '<tr><td>' + hora(bipes[id].em) + '</td><td>' + esc(n.nf) + '</td><td title="' + esc(n.cliente) + '">' + esc(n.cliente) + '</td><td><a href="#" data-go="' + esc(s.idx.chaveCidadeDaNota.get(id)) + '" style="color:var(--acento)" onclick="return false">' + esc(n.cidade) + '/' + esc(n.uf) + '</a></td><td title="' + esc(n.end + ', ' + n.num) + '">' + esc(n.end) + (n.num && n.num !== '0' ? ', ' + esc(n.num) : '') + '</td><td class="dir">' + i$(n.vol) + '</td><td class="dir">' + m$(n.valor) + '</td><td>' + (car ? '<span class="carro-tag" style="--cor:' + car.cor + '">' + esc(N.nomeCarro(car)) + '</span>' : '<span class="livre-tag">livre</span>') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+        return '<tr><td>' + hora(bipes[id].em) + '</td><td>' + esc(n.nf) + '</td><td title="' + esc(n.cliente) + '">' + esc(n.cliente) + '</td><td><a href="#" data-go="' + esc(s.idx.chaveCidadeDaNota.get(id)) + '" style="color:var(--acento)">' + esc(n.cidade) + '/' + esc(n.uf) + '</a></td><td title="' + esc(n.end + ', ' + n.num) + '">' + esc(n.end) + (n.num && n.num !== '0' ? ', ' + esc(n.num) : '') + '</td><td class="dir">' + i$(n.vol) + '</td><td class="dir">' + m$(n.valor) + '</td><td>' + (car ? '<span class="carro-tag" style="--cor:' + car.cor + '">' + esc(N.nomeCarro(car)) + '</span>' : '<span class="livre-tag">livre</span>') + '</td></tr>'; }).join('') + '</tbody></table></div>'
       : '<p class="dica" style="padding:12px 14px;margin:0">Nenhuma nota bipada ainda nesta operação. O valor, a cidade, a parada e os volumes aparecem aqui assim que você bipar.</p>') + '</div>';
     /* XMLs carregados e conferência por origem */
     const por = new Map();
