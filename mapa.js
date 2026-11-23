@@ -572,7 +572,7 @@
       try {
         const escuro = this._paleta().escuro;
         const map = await RT.fundo.criar(this.baseEl, escuro);
-        this.fundoMl = map; this.fundoOk = true; this._ultSync = null; this._bgSujo = this.sujo = true;
+        this.fundoMl = map; this.fundoOk = true; this._ultSync = null; try { map.resize(); } catch (e) { /* ok */ } this._bgSujo = this.sujo = true;
       } catch (e) { this.fundoOk = false; console.warn('o fundo de estradas não carregou; o mapa segue só com os contornos', e); }
       this._criandoFundo = false;
     }
@@ -580,6 +580,8 @@
     _syncFundo() {
       const mp = this.fundoMl; if (!mp || !this.estradas || !this.W) return;
       const { cx, cy, k } = this.v, key = cx.toFixed(6) + '|' + cy.toFixed(6) + '|' + k.toFixed(4) + '|' + this.W + 'x' + this.H;
+      /* o fundo pode ter nascido com o tamanho de um instante antes do layout terminar: confere e corrige */
+      try { const c = mp.getCanvas(); if (c && (Math.abs(c.clientWidth - this.W) > 1 || Math.abs(c.clientHeight - this.H) > 1)) { mp.resize(); } } catch (e) { /* ok */ }
       if (key === this._ultSync) return; this._ultSync = key;
       const merc = -cy, lat = (2 * Math.atan(Math.exp(merc * RAD)) - Math.PI / 2) / RAD;
       mp.jumpTo({ center: [cx, lat], zoom: Math.log2(360 * k / 512), bearing: 0, pitch: 0 });

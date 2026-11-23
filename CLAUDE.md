@@ -56,3 +56,4 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - 💾 Salvar / Ctrl+S: grava, espera e deixa cópia (`bk`, motivo "Salvar"); aviso ao fechar com gravação pendente/falha. "Instalar aplicativo" (beforeinstallprompt, com instruções se o navegador não oferecer).
 - Geolocalização: cartão da cidade como no Health Search (Região e Base, "na lista"/"fora das listas", Mover/Ensinar, Desfazer).
 - v0.15.1: o service worker busca da REDE primeiro (cache só offline) e o app recarrega sozinho quando sai versão nova (ou avisa se houver gravação pendente), para o nome/versão nova aparecer sem limpar cache.
+- v0.15.2: menu lateral escondido não pode zerar a tela (grid 1fr); fundo de estradas confere o tamanho do canvas ao sincronizar (evita mapa de fundo cortado).

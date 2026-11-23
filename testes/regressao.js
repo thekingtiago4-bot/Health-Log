@@ -681,6 +681,8 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(await p.evaluate(() => document.querySelector('#bt-rail').getAttribute('aria-expanded')), 'true', 'menu lateral aberto');
   await p.click('#bt-rail');
   verdade(await p.evaluate(() => document.querySelector('.rail').offsetParent === null), 'a seta esconde o menu lateral');
+  verdade(await p.evaluate(() => document.querySelector('#principal').getBoundingClientRect().width > innerWidth * 0.9), 'e o conteúdo ocupa a tela toda (não some)');
+  verdade(await p.evaluate(() => { const c = document.querySelector('#mapa-area .mapa-base canvas'); return !c || Math.abs(c.clientHeight - document.querySelector('#mapa-area').clientHeight) < 3; }), 'o fundo de estradas acompanha o tamanho do mapa');
   await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x');
   verdade(await p.evaluate(() => document.querySelector('.rail').offsetParent === null), 'e ele continua escondido depois de recarregar');
   await p.click('#bt-rail');
