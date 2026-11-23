@@ -11,6 +11,7 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="fontes.css">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -66,7 +67,7 @@
       <div class="faixa-carro" id="faixa-carro"></div>
       <div class="mapa-area" id="mapa-area">
         <div class="zoom-bt"><button type="button" id="z-mais" aria-label="Aproximar">+</button><button type="button" id="z-menos" aria-label="Afastar">−</button></div>
-        <div class="mapa-chips"><button type="button" class="mapa-chip" id="bt-estradas" aria-pressed="true" title="Liga/desliga o fundo com estradas (precisa de internet)">Estradas</button><button type="button" class="mapa-chip" id="bt-vias" aria-pressed="true" title="As linhas seguem as rodovias, de cidade em cidade (precisa de internet na 1ª vez; depois fica guardado)">Rodovias</button><button type="button" class="mapa-chip" id="bt-base" aria-pressed="true" title="Mostra a saída da base no começo de cada rota">Base</button></div>
+        <div class="mapa-chips"><button type="button" class="mapa-chip" id="bt-estradas" aria-pressed="true" title="Liga/desliga o mapa de fundo com estradas e rodovias (precisa de internet)">Estradas</button><button type="button" class="mapa-chip" id="bt-realce" title="Quanto as cidades do dia se destacam das outras: forte, suave ou nenhum">Realce: suave</button><button type="button" class="mapa-chip" id="bt-vias" aria-pressed="true" title="As linhas seguem as rodovias, de cidade em cidade (precisa de internet na 1ª vez; depois fica guardado)">Rodovias</button><button type="button" class="mapa-chip" id="bt-base" aria-pressed="true" title="Mostra a saída da base no começo de cada rota">Base</button></div>
         <div class="legenda" id="legenda">
           <span><i class="lg-b"></i>Sem carro</span>
           <span><i class="lg-cor"></i>Em carro</span>
@@ -87,7 +88,9 @@
           <div class="jan-cab" id="jan-pend-cab"><b>Cidades pendentes</b><span class="jan-qt" id="pend-qt">0</span><button type="button" class="jan-x" id="pend-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="pend-x" aria-label="Fechar" title="Fechar (reabre em Pendentes)">✕</button></div>
           <div class="jan-corpo" id="pend-corpo">
             <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar"><option value="nome">A–Z</option><option value="valor">Maior valor</option><option value="paradas">Mais paradas</option></select></div>
+            <div class="pend-colunas"><span></span><span>Cidade</span><span class="d">Notas</span><span class="d">Vol.</span><span class="d">Valor</span></div>
             <ul class="pend-lista" id="pend-lista"></ul>
+            <div class="pend-rod" id="pend-rod"></div>
           </div>
         </div>
         <!-- janela flutuante: buscar nota (presente / agendamento / divergência) -->
@@ -218,6 +221,7 @@
 <script src="nucleo.js"></script>
 <script src="ui.js"></script>
 <script src="vias.js"></script>
+<script src="fundo.js"></script>
 <script src="mapa.js"></script>
 <script src="relatorios.js"></script>
 <script src="bipagem.js"></script>

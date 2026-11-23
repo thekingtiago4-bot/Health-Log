@@ -7,7 +7,7 @@ const amostra = require('./amostra.js');
 
 const PORTA = 8097, URL = 'http://localhost:' + PORTA + '/';
 let ok = 0, falhas = [], ignorarRede = false, falhaRotas = false;
-const reqsRota = [];
+const reqsRota = [], reqsTile = [];
 function igual(real, esperado, nome) {
   const a = JSON.stringify(real), b = JSON.stringify(esperado);
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
@@ -29,7 +29,11 @@ const cents = s => Math.round(parseFloat(s) * 100);
       const [a, b] = cs, mid = [(a[0] + b[0]) / 2 + 0.02, (a[1] + b[1]) / 2 - 0.02], km = Math.round(Math.hypot((a[0] - b[0]) * 100, (a[1] - b[1]) * 111) * 1.2);
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ code: 'Ok', routes: [{ distance: km * 1000, duration: km * 55, geometry: { type: 'LineString', coordinates: [a, mid, b] } }] }) });
     });
-    await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') })); // peças do mapa SIMULADAS: os testes não dependem de internet
+    await ctx.route(/tiles\.openfreemap\.org/, r => { // mapa de fundo SIMULADO: estilo mínimo (com camadas de nomes, para provar que são tiradas) e peças vazias
+      const u = r.request().url(); reqsTile.push(u);
+      if (/\/styles\/positron/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ version: 8, name: 'teste', sources: { x: { type: 'vector', tiles: ['https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'], maxzoom: 14 } }, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#eee' } }, { id: 'label_city', type: 'symbol', source: 'x', 'source-layer': 'place' }, { id: 'highway-shield-non-us', type: 'symbol', source: 'x', 'source-layer': 'transportation_name' }] }) });
+      return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' } });
+    });
     const p = await ctx.newPage();
     p.on('pageerror', e => erros.push('pageerror: ' + e.message));
     p.on('console', m => { if (m.type() === 'error' && !(ignorarRede && /status of (401|404|500)/.test(m.text()))) erros.push('console: ' + m.text()); }); // 401/404/500 são respostas SIMULADAS (Meu Danfe e serviço de rotas) no teste
@@ -161,7 +165,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
 
   console.log('\nVisual do mapa: estradas, base, tema escuro');
   igual(await p.evaluate(() => document.documentElement.dataset.tema), 'escuro', 'o app abre no modo escuro por padrão');
-  verdade(await p.evaluate(() => RT.S.mapa.tiles.size > 0 && RT.S.mapa.estradas), 'o fundo de estradas pede as peças do mapa');
+  verdade(await p.evaluate(() => RT.S.mapa.estradas), 'o fundo de estradas está ligado por padrão');
   igual(await p.evaluate(() => RT.S.mapa.base && RT.S.mapa.base.nome), 'Araraquara', 'a saída da base é Araraquara (AQA) por padrão');
   verdade(await p.evaluate(() => RT.S.mapa.rotas.length > 0), 'há rotas desenhadas (curvas tracejadas)');
   await p.click('#bt-estradas');
@@ -196,12 +200,42 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#bt-vias');
   igual(await p.evaluate(() => RT.S.mapa.viasLigadas), false, 'o botão Rodovias desliga o traçado por estrada');
   await p.click('#bt-vias');
+  const guardados = await p.evaluate(() => RT.DB.todos('meta').then(l => l.filter(x => String(x.k).startsWith('via:')).map(x => x.k.slice(4))));
   const nReq = reqsRota.length;
   await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x'); await p.click('.nav button[data-tela="rotas"]');
   await p.waitForFunction(() => RT.S.mapa.pernas.size > 0, null, { timeout: 20000 });
-  verdade(reqsRota.length - nReq <= 1, 'depois de fechar e abrir, os trechos já calculados vêm do aparelho (não pede de novo)');
+  await p.waitForTimeout(600);
+  const chaveDe = u => { const [a, b] = decodeURIComponent(u.split('/driving/')[1].split('?')[0]).split(';').map(s => s.split(',').map(Number)); return a[0].toFixed(4) + ',' + a[1].toFixed(4) + ';' + b[0].toFixed(4) + ',' + b[1].toFixed(4); };
+  verdade(guardados.length > 0 && reqsRota.slice(nReq).every(u => !guardados.includes(chaveDe(u))), 'depois de fechar e abrir, trecho que já estava guardado não é pedido de novo (' + guardados.length + ' guardados)');
   await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 20000 });
   await p.evaluate(() => { const o = RT.S.op, ids = o.notas.filter(n => /^(JAU|SAO CARLOS)$/.test(RT.N.normCidade(n.cidade))).map(n => n.id); RT.N.alocar(o, RT.S.idx, ids, null); o.rev++; RT.A.reindexar(); RT.A.salvar(); RT.A.atualizarTudo(); }); // devolve o estado para os próximos blocos
+
+  console.log('\nMapa sem nomes duplicados, KM ida e volta, pendentes que abatem');
+  verdade(reqsTile.some(u => /\/styles\/positron/.test(u)), 'o app pede o estilo do mapa aberto (OpenFreeMap)');
+  await p.waitForFunction(() => RT.S.mapa.fundoMl && RT.S.mapa.fundoOk, null, { timeout: 20000 });
+  verdade(await p.evaluate(() => { const ids = RT.S.mapa.fundoMl.getStyle().layers.map(l => l.id); return !ids.some(i => /^label_/.test(i)) && ids.includes('highway-shield-non-us'); }), 'o mapa de fundo NÃO tem nomes de cidade, só as rodovias (número) — os nomes são os do app');
+  verdade(await p.evaluate(() => RT.S.mapa.todas.length > 5000), 'o app escreve o nome de todas as cidades (5.571 municípios), em vez de depender do fundo');
+  const kmv = await p.evaluate(() => { const c = RT.S.op.carros.find(x => x.cidades.length >= 2) || RT.S.op.carros[0], k = RT.A.kmDe(c); return { volta: k.volta, nTrechos: k.n, paradas: RT.A.kmDe ? c.cidades.length : 0 }; });
+  verdade(kmv.volta === true, 'o KM conta a volta à base (ida e volta)');
+  await p.click('#bt-realce');
+  igual(await p.evaluate(() => RT.S.mapa.realce), 'nenhum', 'botão Realce alterna forte → suave → nenhum');
+  await p.click('#bt-realce'); await p.click('#bt-realce');
+  igual(await p.evaluate(() => RT.S.mapa.realce), 'suave', 'e volta ao suave (o padrão)');
+  const notasNaFila = k => p.evaluate(k => { const li = document.querySelector('#pend-lista li[data-cid="' + k + '"]'); return li ? +li.querySelector('.n').textContent : null; }, k);
+  verdade(await p.locator('.pend-colunas').count() === 1 && /notas/i.test(await p.innerText('.pend-colunas')) && /vol/i.test(await p.innerText('.pend-colunas')) && /valor/i.test(await p.innerText('.pend-colunas')), 'a janela de pendentes tem colunas de notas, volumes e valor');
+  const nSC = await notasNaFila('SAO CARLOS|SP'), volAntes = await p.evaluate(() => RT.S.res.cidades.find(c => c.cidade.key === 'SAO CARLOS|SP').livres.vol);
+  verdade(nSC > 1, 'São Carlos aparece com ' + nSC + ' notas faltando');
+  await p.fill('#busca-cidade', 'sao carlos'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  await p.locator('#jan-cid .cli .cl-chk').first().check(); await p.click('[data-a=concluir]');
+  const dep = await notasNaFila('SAO CARLOS|SP');
+  verdade(dep != null && dep < nSC, 'saiu um cliente: as notas que faltam diminuem (' + nSC + ' → ' + dep + ')');
+  verdade(await p.evaluate(v => RT.S.res.cidades.find(c => c.cidade.key === 'SAO CARLOS|SP').livres.vol < v, volAntes), 'e os volumes também abatem');
+  const rodAntes = await p.innerText('#pend-rod');
+  await p.fill('#busca-cidade', 'sao carlos'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
+  await p.click('#jc-todos'); await p.click('[data-a=concluir]');
+  igual(await notasNaFila('SAO CARLOS|SP'), null, 'zerou a cidade: a linha dela some da janela');
+  verdade((await p.innerText('#pend-rod')) !== rodAntes && /Faltam/.test(await p.innerText('#pend-rod')), 'e o rodapé "Faltam … notas · … vol · R$" abate junto');
+  await p.evaluate(() => { const o = RT.S.op, ids = o.notas.filter(n => RT.N.normCidade(n.cidade) === 'SAO CARLOS').map(n => n.id); RT.N.alocar(o, RT.S.idx, ids, null); o.rev++; RT.A.reindexar(); RT.A.salvar(); RT.A.atualizarTudo(); });
 
   console.log('\nVeículos na mesma estrada: faixas lado a lado');
   const faixas = await p.evaluate(() => {

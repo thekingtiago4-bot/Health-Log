@@ -28,13 +28,17 @@
       V.ultimo = Date.now();
       const ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000);
       try {
-        const r = await fetch(BASE + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=full&geometries=geojson&steps=false&alternatives=false', { signal: ac.signal, redirect: 'error', headers: { Accept: 'application/json' } });
+        const r = await fetch(BASE + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=full&geometries=geojson&steps=true&alternatives=false', { signal: ac.signal, redirect: 'error', headers: { Accept: 'application/json' } });
         clearTimeout(to);
         if (r.status === 429 || r.status >= 500) { ult = 'o serviço de rotas respondeu ' + r.status; if (t < V.esperas.length) { await espera(V.esperas[t]); continue; } break; }
         if (!r.ok) { ult = 'o serviço de rotas respondeu ' + r.status; break; }
         const j = await r.json(), rt = j && j.routes && j.routes[0];
         if (j.code !== 'Ok' || !rt || !rt.geometry || !Array.isArray(rt.geometry.coordinates) || rt.geometry.coordinates.length < 2 || !isFinite(rt.distance)) { ult = j && j.code === 'NoRoute' ? 'não há estrada ligando essas duas cidades' : 'resposta do serviço de rotas inválida'; break; }
-        return { ok: { coords: rt.geometry.coordinates.map(c => [Math.round(c[0] * 1e5) / 1e5, Math.round(c[1] * 1e5) / 1e5]), km: rt.distance / 1000, min: (rt.duration || 0) / 60, em: Date.now() } };
+        /* as rodovias do trecho (ex.: SP-310, BR-050), as que mais pesam em km */
+        const porRef = new Map();
+        for (const lg of (rt.legs || [])) for (const st of (lg.steps || [])) { const ref = String(st.ref || '').split(';')[0].trim().replace(/\s+/g, '-').toUpperCase(); if (ref && /^[A-Z]{2,3}-?\d/.test(ref)) porRef.set(ref, (porRef.get(ref) || 0) + (st.distance || 0)); }
+        const refs = [...porRef.entries()].filter(x => x[1] >= 3000).sort((a, b) => b[1] - a[1]).slice(0, 2).map(x => x[0]);
+        return { ok: { coords: rt.geometry.coordinates.map(c => [Math.round(c[0] * 1e5) / 1e5, Math.round(c[1] * 1e5) / 1e5]), km: rt.distance / 1000, min: (rt.duration || 0) / 60, refs, em: Date.now() } };
       } catch (e) {
         clearTimeout(to); ult = navigator.onLine === false ? 'sem internet' : 'não consegui falar com o serviço de rotas';
         if (t < V.esperas.length) await espera(V.esperas[t]);

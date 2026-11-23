@@ -13,8 +13,9 @@
   const X = lon => lon, Y = lat => -(Math.log(Math.tan(Math.PI / 4 + lat * RAD / 2)) / RAD);
 
   class Mapa {
-    constructor(el, cb) {
-      this.el = el; this.cb = cb || {};
+    constructor(el, cb, opts) {
+      this.el = el; this.cb = cb || {}; this.semBase = !!(opts && opts.semBase);
+      this.baseEl = document.createElement('div'); this.baseEl.className = 'mapa-base'; if (this.semBase) this.baseEl.style.display = 'none'; el.insertBefore(this.baseEl, el.firstChild);
       this.cv = document.createElement('canvas');
       this.cv.className = 'mapa-cv';
       this.cv.setAttribute('role', 'img');
@@ -24,7 +25,7 @@
       this.v = { cx: X(-47), cy: Y(-22), k: 80 };
       this.W = 0; this.H = 0; this.dpr = 1;
       this.cidades = []; this.porChave = new Map(); this.rotas = []; this.todas = []; this.pausado = false;
-      this.estradas = true; this.tiles = new Map(); this.tileFila = []; this.tileAtivos = 0; this.tileTema = null; this.tilesVistos = false;
+      this.realce = 'suave'; this.estradas = !this.semBase; this.fundoMl = null; this.fundoOk = false;
       this.pernas = new Map(); this.viasLigadas = true;
       this.ativo = null; this.base = null; this.mostrarBase = true; this.fase = 0; this._ult = 0;
       this.animarRotas = !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -40,6 +41,7 @@
       this.redimensionar();
       this._loop = this._loop.bind(this);
       this._raf = requestAnimationFrame(this._loop);
+      setTimeout(() => this._iniciarFundo(), 0);
     }
 
     /* ---------- dados ---------- */
@@ -103,16 +105,17 @@
       if (!p || !p.coords) { this.pernas.delete(chave); return; }
       const n = p.coords.length, w = new Float64Array(n * 2); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (let i = 0; i < n; i++) { const x = X(p.coords[i][0]), y = Y(p.coords[i][1]); w[2 * i] = x; w[2 * i + 1] = y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-      this.pernas.set(chave, { w, b: [x0, y0, x1, y1], km: p.km, min: p.min }); this._lanesSujo = true; this.sujo = true;
+      this.pernas.set(chave, { w, b: [x0, y0, x1, y1], km: p.km, min: p.min, refs: p.refs || [] }); this._lanesSujo = true; this.sujo = true;
     }
     setVias(v) { this.viasLigadas = !!v; this._lanesSujo = true; this.sujo = true; }
     setAtivo(id) { if (id !== this.ativo) { this.ativo = id; this.sujo = true; } }
     setBase(b) { this.base = b && b.lat != null ? b : null; this._lanesSujo = true; this.sujo = true; }
     setMostrarBase(v) { this.mostrarBase = !!v; this._lanesSujo = true; this.sujo = true; }
-    setEstradas(v) { this.estradas = !!v; this._bgSujo = this.sujo = true; }
+    setRealce(v) { this.realce = v; this._bgSujo = this.sujo = true; }
+    setEstradas(v) { this.estradas = !!v && !this.semBase; this.baseEl.style.display = this.estradas ? '' : 'none'; if (this.estradas) { this._iniciarFundo(); this._ultSync = null; } this._bgSujo = this.sujo = true; }
     setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }
-    temaMudou() { this._cores = null; this.tiles.clear(); this.tileFila = []; this._bgSujo = this.sujo = true; }
+    temaMudou() { this._cores = null; if (this.fundoMl) RT.fundo.trocarTema(this.fundoMl, this._paleta().escuro).catch(e => console.warn(e)); this._bgSujo = this.sujo = true; }
 
     /* ---------- vista ---------- */
     redimensionar() {
@@ -124,6 +127,7 @@
       this.cv.width = Math.max(1, Math.round(W * this.dpr)); this.cv.height = Math.max(1, Math.round(H * this.dpr));
       this.cv.style.width = W + 'px'; this.cv.style.height = H + 'px';
       this.bg.width = this.cv.width; this.bg.height = this.cv.height; this._bgSujo = true;
+      if (this.fundoMl) { try { this.fundoMl.resize(); this._ultSync = null; } catch (e) { /* ok */ } }
       this.sujo = true;
     }
     /* Enquadra as cidades. Sem `tudo`, uma ou duas cidades isoladas bem longe das demais (ex.: uma nota
@@ -296,7 +300,7 @@
       const s = getComputedStyle(document.documentElement), v = n => s.getPropertyValue(n).trim();
       const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
       this._cores = {
-        fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#0F3438' : '#E9F3F2',
+        fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#0F3438' : '#E9F3F2', destaque: escuro ? '#2FB5AC' : '#7FCFC8',
         linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', linhaT: escuro ? 'rgba(130,200,205,.28)' : 'rgba(40,90,95,.30)', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#5E8387' : '#8FA4A6', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
         teal: v('--teal') || '#0F4B55', sup: v('--sup') || '#fff', livre: escuro ? '#9CC3C5' : '#5B7C80', escuro
       };
@@ -337,9 +341,9 @@
     _fundo() {
       const ctx = this.bctx, { dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
-      const comTiles = this.estradas && this._desenharTiles(ctx, P);
+      const comTiles = !!(this.estradas && this.fundoOk);
       this._comTiles = comTiles;
+      if (comTiles) ctx.clearRect(0, 0, this.cv.width, this.cv.height); else { ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height); }
       const x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
       /* mundo (contornos) */
       ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k));
@@ -359,7 +363,9 @@
         const pl = this.poli.get(code); if (!pl) continue;
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
         const emCarro = c.cores && c.cores.length;
-        if (!comTiles || !c.fora) { ctx.fillStyle = c.fora ? P.terra : P.temNota; ctx.globalAlpha = comTiles ? 0.5 : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; }
+        const re = this.realce; // forte | suave | nenhum: quanto as cidades do dia se destacam das demais
+        if (!c.fora && !emCarro && re !== 'nenhum') { ctx.fillStyle = P.destaque; ctx.globalAlpha = comTiles ? (re === 'forte' ? (P.escuro ? 0.34 : 0.55) : (P.escuro ? 0.12 : 0.22)) : (re === 'forte' ? 1 : 0.45); ctx.fill(pl.path); ctx.globalAlpha = 1; }
+        else if (!comTiles) { ctx.fillStyle = P.terra; ctx.fill(pl.path); }
         if (emCarro) {
           ctx.save(); ctx.clip(pl.path);
           const h = pl.b[3] - pl.b[1]; let y = pl.b[1];
@@ -368,8 +374,8 @@
           for (const f of c.cores) { const hh = h * f.frac / total; ctx.fillStyle = f.cor; ctx.fillRect(pl.b[0], y, pl.b[2] - pl.b[0], hh + 1 / k); y += hh; }
           ctx.restore();
         }
-        ctx.lineWidth = (c.key === this.sel ? 2.4 : emCarro ? 1.3 : 0.8) / k;
-        ctx.strokeStyle = c.key === this.sel ? P.tinta : (emCarro ? c.cores[0].cor : P.linha2);
+        ctx.lineWidth = (c.key === this.sel ? 2.4 : emCarro ? 1.3 : (re === 'forte' ? 1.1 : 0.7)) / k;
+        ctx.strokeStyle = c.key === this.sel ? P.tinta : (emCarro ? c.cores[0].cor : (re === 'forte' ? (comTiles ? P.destaque : P.linha2) : (comTiles ? P.linhaT : P.linha)));
         ctx.stroke(pl.path);
       }
       ctx.strokeStyle = P.estado; ctx.lineWidth = 1.3 / k;
@@ -379,13 +385,14 @@
 
     _desenhar() {
       if (this.geo) return this._desenharGeo();
+      this._syncFundo();
       const { ctx, dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta(), t = this._t || 0;
       /* durante o arrasto o fundo não é redesenhado: só se desloca a imagem guardada (barato). Ao soltar, redesenha. */
       let dx = 0, dy = 0;
       if (this._bgSujo && this._arrasto && this._bgV && this._bgV.k === this.v.k) { dx = (this._bgV.cx - cx) * k * dpr; dy = (this._bgV.cy - cy) * k * dpr; }
       else if (this._bgSujo) { this._fundo(); this._bgV = { cx, cy, k }; }
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      if (dx || dy) { ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height); }
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.cv.width, this.cv.height);
+      if (!this._comTiles && (dx || dy)) { ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height); }
       ctx.drawImage(this.bg, Math.round(dx), Math.round(dy));
       const com = new Map(this.cidades.filter(c => c.code).map(c => [c.code, c]));
       /* tela */
@@ -446,6 +453,21 @@
         ctx.fillStyle = d.r.cor; ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fill(); ctx.restore();
       }
       ctx.restore();
+      /* quilometragem (e rodovia) escrita em cada trecho do veículo escolhido */
+      if (temAtivo && k >= 55) {
+        const d = dados.find(x => x.r.id === this.ativo);
+        if (d) {
+          ctx.font = '700 11px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          for (const t of d.pista) {
+            if (!visivel(t)) continue;
+            const q = pts(t, d.r.id), i = Math.floor(q.length * 0.36), a = q[i]; if (a.x < 20 || a.y < 20 || a.x > W - 20 || a.y > H - 20) continue;
+            const txt = Math.round(t.per.km) + ' km' + (t.per.refs && t.per.refs.length ? ' · ' + t.per.refs[0] : ''), w = ctx.measureText(txt).width + 14;
+            ctx.fillStyle = d.r.cor; this._pilula(ctx, a.x - w / 2, a.y - 10, w, 20, 10); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.fillText(txt, a.x, a.y + 0.5);
+          }
+          ctx.textAlign = 'start';
+        }
+      }
       if (baseP && this.rotas.some(r => r.pontos.length)) { // a base de saída
         ctx.beginPath(); ctx.arc(baseP.x, baseP.y, 13, 0, 6.2832); ctx.fillStyle = '#0B2545'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = P.escuro ? '#6EE1DC' : '#fff'; ctx.stroke();
         ctx.fillStyle = '#fff'; ctx.font = '800 9px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((this.base.sigla || 'BASE').slice(0, 4), baseP.x, baseP.y + 0.5);
@@ -481,7 +503,7 @@
         ctx.fillStyle = c.fora ? P.mudo : P.tinta; ctx.fillText(c.nome, p.x, ty);
       }
       /* …depois os municípios sem entrega, em cinza claro, só para você se situar */
-      if (k >= 45 && this.todas.length && !this._comTiles) {
+      if (k >= 45 && this.todas.length) {
         ctx.font = '500 10.5px "Barlow","Barlow Semi Condensed",system-ui,sans-serif';
         let n = 0;
         for (const t of this.todas) {
@@ -497,7 +519,7 @@
           ctx.fillStyle = P.apagado; ctx.fillText(t.nome, px, py + 12);
         }
       }
-      if (this._comTiles) { ctx.font = '500 10px system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = P.escuro ? 'rgba(200,225,225,.75)' : 'rgba(40,60,60,.75)'; ctx.fillText('© OpenStreetMap contributors', W - 8, H - 6); }
+      if (this._comTiles) { ctx.font = '500 10px system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = P.escuro ? 'rgba(200,225,225,.75)' : 'rgba(40,60,60,.75)'; ctx.fillText('© OpenFreeMap © OpenMapTiles · dados © OpenStreetMap', W - 8, H - 6); }
       ctx.textAlign = 'start';
     }
 
@@ -541,51 +563,24 @@
     }
     lanesDe(rid, key) { if (this._lanesSujo || !this._lanes) this._calcularLanes(); return this._lanes.get(rid + '|' + key) || null; }
     _pilula(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
-    /* ---------- fundo de estradas (peças do OpenStreetMap), com o que já chegou enquanto as outras carregam ---------- */
-    _pedirTile(z, x, y) {
-      const key = z + '/' + x + '/' + y, ex = this.tiles.get(key);
-      if (ex) return ex;
-      const t = { img: null, ok: false, falhou: 0 }; this.tiles.set(key, t);
-      this.tileFila.push({ key, z, x, y }); this._bombear();
-      return t;
+    /* ---------- fundo de estradas: mapa NOSSO (MapLibre + dados abertos), por baixo do canvas ---------- */
+    async _iniciarFundo() {
+      if (this.semBase || this.fundoMl || this._criandoFundo || !this.estradas) return;
+      this._criandoFundo = true;
+      try {
+        const escuro = this._paleta().escuro;
+        const map = await RT.fundo.criar(this.baseEl, escuro);
+        this.fundoMl = map; this.fundoOk = true; this._ultSync = null; this._bgSujo = this.sujo = true;
+      } catch (e) { this.fundoOk = false; console.warn('o fundo de estradas não carregou; o mapa segue só com os contornos', e); }
+      this._criandoFundo = false;
     }
-    _bombear() {
-      while (this.tileAtivos < 6 && this.tileFila.length) {
-        const q = this.tileFila.pop(), t = this.tiles.get(q.key); if (!t) continue;
-        this.tileAtivos++;
-        const img = new Image(); img.crossOrigin = 'anonymous';
-        const tema = this._paleta().escuro;
-        img.onload = () => {
-          this.tileAtivos--;
-          if (this._paleta().escuro !== tema) { this.tiles.delete(q.key); this._bombear(); return; }
-          const c = document.createElement('canvas'); c.width = c.height = 256; const cc = c.getContext('2d');
-          cc.filter = tema ? 'invert(1) hue-rotate(195deg) brightness(.78) contrast(.92) saturate(.55)' : 'saturate(.5) brightness(1.04) contrast(.94)';
-          cc.drawImage(img, 0, 0, 256, 256); t.img = c; t.ok = true; this._bgSujo = this.sujo = true; this._bombear();
-        };
-        img.onerror = () => { this.tileAtivos--; t.falhou = Date.now(); this._bombear(); };
-        img.src = 'https://tile.openstreetmap.org/' + q.z + '/' + q.x + '/' + q.y + '.png';
-      }
-      if (this.tiles.size > 480) { let n = 0; for (const key of this.tiles.keys()) { this.tiles.delete(key); if (++n > 140) break; } }
-    }
-    /* devolve true se desenhou algo (para o resto saber que há estrada ao fundo) */
-    _desenharTiles(ctx, P) {
-      const { W, H, dpr } = this, { cx, cy, k } = this.v;
-      const z = Math.max(3, Math.min(17, Math.round(Math.log2(360 * k / 256))));
-      const n = 2 ** z, tw = 360 / n, x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
-      const tx0 = Math.max(0, Math.floor((x0 + 180) / tw)), tx1 = Math.min(n - 1, Math.floor((x1 + 180) / tw)), ty0 = Math.max(0, Math.floor((y0 + 180) / tw)), ty1 = Math.min(n - 1, Math.floor((y1 + 180) / tw));
-      if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) > 70) return false;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); let desenhou = false;
-      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-        const sx = (-180 + tx * tw - cx) * k + W / 2, sy = (-180 + ty * tw - cy) * k + H / 2, sz = tw * k;
-        const t = this._pedirTile(z, tx, ty);
-        if (t.ok) { ctx.drawImage(t.img, sx, sy, sz + 0.6, sz + 0.6); desenhou = true; continue; }
-        if (t.falhou && Date.now() - t.falhou > 30000) { t.falhou = 0; this.tileFila.push({ key: z + '/' + tx + '/' + ty, z, x: tx, y: ty }); this._bombear(); }
-        for (let up = 1; up <= 4; up++) { // enquanto a peça não chega, usa um pedaço da peça de zoom menor
-          const a = this.tiles.get((z - up) + '/' + (tx >> up) + '/' + (ty >> up));
-          if (a && a.ok) { const lado = 256 / 2 ** up; ctx.drawImage(a.img, (tx - ((tx >> up) << up)) * lado, (ty - ((ty >> up) << up)) * lado, lado, lado, sx, sy, sz + 0.6, sz + 0.6); desenhou = true; break; }
-        }
-      }
-      return desenhou;
+    /* leva o mapa de fundo para a mesma vista do canvas (centro e zoom) */
+    _syncFundo() {
+      const mp = this.fundoMl; if (!mp || !this.estradas || !this.W) return;
+      const { cx, cy, k } = this.v, key = cx.toFixed(6) + '|' + cy.toFixed(6) + '|' + k.toFixed(4) + '|' + this.W + 'x' + this.H;
+      if (key === this._ultSync) return; this._ultSync = key;
+      const merc = -cy, lat = (2 * Math.atan(Math.exp(merc * RAD)) - Math.PI / 2) / RAD;
+      mp.jumpTo({ center: [cx, lat], zoom: Math.log2(360 * k / 512), bearing: 0, pitch: 0 });
     }
     _pontos(ctx, c, p, P) {
       const n = c.clientes.length, max = 60;

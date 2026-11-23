@@ -514,7 +514,7 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .jan{background:color-mix(in srgb,var(--sup) 95%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.34),0 0 0 1px var(--linha)}
 .jan-cab{border-radius:14px 14px 0 0}
 .vei{border-radius:11px;box-shadow:0 1px 2px rgba(0,0,0,.1)}
-.mapa-chips{position:absolute;right:12px;top:100px;display:flex;flex-direction:column;gap:6px;z-index:20}
+.mapa-chips{position:absolute;right:12px;bottom:30px;display:flex;flex-direction:column;gap:6px;z-index:26}
 .mapa-chip{all:unset;cursor:pointer;background:var(--sup);border:1px solid var(--linha);border-radius:8px;padding:5px 10px;font-size:.74rem;font-weight:700;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.18);color:var(--mudo)}
 .mapa-chip[aria-pressed="true"]{background:var(--teal);color:var(--priTxt);border-color:var(--teal)}
 .legenda{border-radius:10px;backdrop-filter:blur(8px)}
@@ -522,3 +522,18 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .vias-st{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:22;background:var(--sup);border:1px solid var(--linha);border-radius:20px;padding:5px 14px;font-size:.78rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);color:var(--tinta2);pointer-events:none}
 .vias-st.erro{background:var(--amarBg);color:var(--amarTxt);border-color:var(--amar)}
 .km{font-family:"Barlow Semi Condensed";font-weight:700}
+
+/* ---------- cidades pendentes: notas, volumes e valor que vão abatendo ---------- */
+#jan-pend{width:380px}
+.pend-colunas,.pend-lista li{display:grid;grid-template-columns:14px minmax(0,1fr) 38px 52px 100px;gap:2px 8px;align-items:center}
+.pend-colunas{padding:6px 14px 4px 14px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mudo);border-bottom:1px solid var(--linha2)}
+.pend-colunas .d,.pend-lista li .n,.pend-lista li .v,.pend-lista li .vl{text-align:right}
+.pend-lista li .n,.pend-lista li .v{font-family:"Barlow Semi Condensed";font-weight:600;font-size:.88rem}
+.pend-lista li .vl{font-family:"Barlow Semi Condensed";font-weight:700;font-size:.9rem;white-space:nowrap}
+.pend-lista li small{grid-column:2/6}
+.pend-rod{border-top:1px solid var(--linha);background:var(--sup2);padding:8px 14px;font-size:.8rem;color:var(--tinta2);border-radius:0 0 14px 14px}
+.pend-rod b{font-family:"Barlow Semi Condensed";color:var(--tinta)}
+
+.mapa-base{position:absolute;inset:0;z-index:0;background:var(--papel)}
+.mapa-base .maplibregl-canvas{outline:none}
+.mapa-cv{z-index:1}
