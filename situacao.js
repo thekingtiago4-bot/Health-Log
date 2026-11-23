@@ -4,7 +4,8 @@
   const RT = (g.RT = g.RT || {});
   const { N, U } = RT; const { $, $$, esc, toast } = U;
   const S = () => RT.S, A = () => RT.A, m$ = N.fmtMoeda, i$ = N.fmtInt;
-  let consulta = '', aberta = null, pronto = false;
+  let consulta = '', aberta = null, pronto = false, ordemBusca = U.pref.ler('buscaOrdem', 'nome');
+  if (!['nome', 'volume', 'valor'].includes(ordemBusca)) ordemBusca = 'nome';
   const hoje = () => U.hoje();
   const dataBR = d => (d ? U.dataBR(d) : '');
 
@@ -14,10 +15,17 @@
   function guardar() { return RT.DB.put('meta', { k: 'agenda', v: RT.agenda }).catch(e => toast('⚠ Não consegui guardar os agendamentos: ' + ((e && e.message) || e))); }
 
   /* ---------- busca (janela flutuante) ---------- */
+  /* A–Z (cliente) · maior volume · maior valor — o mesmo ciclo do Ctrl+V das outras janelas */
+  const porOrdem = (a, b) => ordemBusca === 'volume' ? (b.vol - a.vol || N.norm(a.cliente).localeCompare(N.norm(b.cliente))) : ordemBusca === 'valor' ? (b.valor - a.valor || N.norm(a.cliente).localeCompare(N.norm(b.cliente))) : (N.norm(a.cliente).localeCompare(N.norm(b.cliente)) || String(a.nf).localeCompare(String(b.nf)));
+  function ciclarOrdem() {
+    ordemBusca = ({ nome: 'volume', volume: 'valor', valor: 'nome' })[ordemBusca]; U.pref.gravar('buscaOrdem', ordemBusca);
+    const sel = $('#busca-ordem'); if (sel) sel.value = ordemBusca; renderBusca(); const l = $('#busca-res'); if (l) l.scrollTop = 0;
+    toast('Notas da busca: ' + ({ nome: 'cliente A–Z', volume: 'maior volume', valor: 'maior valor' })[ordemBusca]);
+  }
   function achar(q) {
     const o = S().op; if (!o) return [];
     const t = N.norm(q), d = N.soDigitos(q); if (t.length < 2 && d.length < 2) return [];
-    return o.notas.filter(n => (d.length >= 2 && (String(+n.nf).includes(String(+d)) && d.length <= 9 || n.chave.includes(d) || n.doc.includes(d))) || N.norm(n.cliente + ' ' + n.cidade + ' ' + n.end + ' ' + n.origem + ' ' + n.nf).includes(t)).slice(0, 40);
+    return o.notas.filter(n => (d.length >= 2 && (String(+n.nf).includes(String(+d)) && d.length <= 9 || n.chave.includes(d) || n.doc.includes(d))) || N.norm(n.cliente + ' ' + n.cidade + ' ' + n.end + ' ' + n.origem + ' ' + n.nf).includes(t)).sort(porOrdem).slice(0, 40);
   }
   /* outras notas do mesmo cliente (mesmo documento/endereço) que estão na mesma cidade */
   function mesmoCliente(n) {
@@ -120,6 +128,7 @@
       box.innerHTML = r.length ? r.map(([, code, m]) => '<button type="button" class="sug-i" data-cid="' + code + '">' + esc(m[0]) + '<span>' + esc(m[1]) + '</span></button>').join('') : (e.target.value.trim().length >= 2 ? '<p class="dica">Nenhuma cidade com esse nome.</p>' : '');
     });
     $('#busca-res').addEventListener('keydown', e => { if (e.target.dataset && e.target.dataset.f === 'cid' && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const b = $('#sug-cid .sug-i'); if (b) b.click(); } });
+    const so = $('#busca-ordem'); so.value = ordemBusca; so.addEventListener('change', () => { ordemBusca = so.value; U.pref.gravar('buscaOrdem', ordemBusca); renderBusca(); });
     $('#busca-x').onclick = () => A().janVer('busca', false);
     /* Enter (ou ↓/↑) escolhe a nota na lista; a cidade dela é destacada e o mapa vai até lá */
     $('#busca-q').addEventListener('keydown', e => {
@@ -194,5 +203,5 @@
     if (o && o.status) for (const id in o.status) { if (o.status[id].tipo === 'agendamento') c.a++; else c.d++; }
     for (const [id, k] of [['#qt-ag', c.a], ['#qt-dv', c.d]]) { const e = $(id); if (e) { e.textContent = String(k); e.hidden = !k; } }
   }
-  RT.sit = { abrirBusca, carregar, guardar, popup, contadores, aplicar, ligar() { ligarBusca(); ligarAbas(); }, render(t) { if (t === 'agenda') renderAgenda(); else if (t === 'diverg') renderDiverg(); }, renderBusca };
+  RT.sit = { abrirBusca, ciclarOrdem, carregar, guardar, popup, contadores, aplicar, ligar() { ligarBusca(); ligarAbas(); }, render(t) { if (t === 'agenda') renderAgenda(); else if (t === 'diverg') renderDiverg(); }, renderBusca };
 })(typeof window !== 'undefined' ? window : globalThis);

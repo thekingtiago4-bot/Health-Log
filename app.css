@@ -87,18 +87,6 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 
 /* ---------- MONTAR ROTAS ---------- */
 .barra-carros{display:flex;gap:10px;align-items:center;padding:10px 14px;background:var(--sup);border-bottom:1px solid var(--linha);flex-wrap:wrap}
-.chips-carros{display:flex;gap:8px;overflow-x:auto;flex:1 1 320px;min-width:0;padding:2px 2px 4px}
-.chip-carro{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:1px;min-width:118px;padding:5px 12px 6px 10px;border:1.5px solid var(--linha);border-left:6px solid var(--cor);border-radius:8px;background:var(--sup);flex:none;position:relative}
-.chip-carro:hover{border-color:var(--cor);background:var(--sup2)}
-.chip-carro[aria-selected="true"]{background:var(--sup2);box-shadow:0 0 0 2.5px var(--cor)}
-.chip-carro:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
-.chip-carro b{font-family:"Barlow Semi Condensed";font-weight:700;font-size:.95rem;line-height:1.15;display:flex;gap:6px;align-items:center}
-.chip-carro .mot{font-weight:500;color:var(--mudo);max-width:11ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip-carro small{color:var(--mudo);font-size:.72rem;white-space:nowrap}
-.chip-carro .acoes{position:absolute;top:2px;right:3px;display:none;gap:1px}
-.chip-carro[aria-selected="true"] .acoes,.chip-carro:hover .acoes{display:flex}
-.chip-carro .acoes span{width:20px;height:20px;display:grid;place-items:center;border-radius:4px;font-size:.8rem;color:var(--mudo)}
-.chip-carro .acoes span:hover{background:var(--linha2);color:var(--tinta)}
 .sep{width:1px;height:24px;background:var(--linha)}
 .campo-cidade{position:relative}
 .campo-cidade input{width:190px}
@@ -498,10 +486,6 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 
 /* ---------- polimento visual ---------- */
 .barra-carros{background:linear-gradient(180deg,var(--sup),var(--sup2));box-shadow:0 1px 0 var(--linha),0 6px 18px rgba(0,0,0,.08);position:relative;z-index:30}
-.chip-carro{border-radius:12px;min-width:132px;padding:7px 14px 8px 12px;box-shadow:0 1px 2px rgba(0,0,0,.12);transition:transform .12s,box-shadow .12s}
-.chip-carro:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.18)}
-.chip-carro[aria-selected="true"]{box-shadow:0 0 0 2.5px var(--cor),0 6px 16px rgba(0,0,0,.22)}
-.chip-carro b{font-size:1.02rem}
 .faixa-carro{background:var(--sup);padding:9px 16px;gap:8px 16px}
 .rota-cad{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-left:4px}
 .rota-cad .seta{font-style:normal;color:var(--mudo);font-weight:800}
@@ -608,5 +592,14 @@ body.modo-mapa .hs-salvar{display:none}
 @media (max-width:860px){.jan-rz{display:none}}
 @media print{.jan-rz{display:none}}
 /* faixa dos veículos: sem barra de rolagem visível (continua rolando com a roda do mouse / arrastando) */
-.chips-carros{scrollbar-width:none;-ms-overflow-style:none}
-.chips-carros::-webkit-scrollbar{display:none;height:0}
+
+/* Ctrl+F: focar num veículo */
+#pop-focar{position:fixed;z-index:3500;left:50%;top:18%;transform:translateX(-50%);background:var(--sup);color:var(--tinta);border:1px solid var(--linha);border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.45);padding:12px 14px 10px;width:min(560px,92vw)}
+#pop-focar .pf-cab{display:flex;align-items:center;gap:8px;margin-bottom:10px}#pop-focar .pf-cab b{flex:1;font-family:"Barlow Semi Condensed";font-size:1.1rem}
+.pf-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px}
+.pf-q{all:unset;box-sizing:border-box;cursor:pointer;background:var(--cor);color:var(--txt);border-radius:12px;min-height:84px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25);border:3px solid transparent;transition:transform .1s}
+.pf-q b{font-family:"Barlow Semi Condensed";font-size:2rem;line-height:1}.pf-q small{font-size:.68rem;font-weight:700;opacity:.9;text-transform:uppercase;letter-spacing:.05em}
+.pf-q em{font-style:normal;font-size:.7rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.95}
+.pf-q:hover,.pf-q:focus-visible{transform:scale(1.06);border-color:var(--tinta)}.pf-q.ativo{border-color:var(--tinta)}.pf-q.vazio{opacity:.55}
+.pf-dica{margin:10px 0 0;font-size:.78rem;color:var(--mudo)}
+@media print{#pop-focar{display:none!important}}

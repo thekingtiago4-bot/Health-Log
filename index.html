@@ -55,7 +55,6 @@
     <!-- MONTAR ROTAS -->
     <section class="tela rotas" id="t-rotas" aria-label="Montar rotas">
       <div class="barra-carros">
-        <div class="chips-carros" id="chips-carros" role="tablist" aria-label="Carros"></div>
         <button class="btn mini pri" id="bt-novo-carro" type="button">+ Carro</button>
         <button class="btn mini pri" id="bt-novo-van" type="button">+ Van</button>
         <button class="btn mini pri" id="bt-novo-caminhao" type="button">+ Caminhão</button>
@@ -101,7 +100,7 @@
         <!-- janela flutuante: buscar nota (presente / agendamento / divergência) -->
         <div class="jan jan-busca" id="jan-busca" role="dialog" aria-label="Buscar nota" hidden>
           <div class="jan-cab"><b>Buscar nota</b><button type="button" class="jan-x" id="busca-x" aria-label="Fechar">✕</button></div>
-          <div class="jan-corpo"><div class="pend-filtros"><input id="busca-q" class="filtro" placeholder="NF, cliente, cidade, endereço, origem…" autocomplete="off" aria-label="Buscar nota"></div><div id="busca-res" class="busca-res"></div></div>
+          <div class="jan-corpo"><div class="pend-filtros"><input id="busca-q" class="filtro" placeholder="NF, cliente, cidade, endereço, origem…" autocomplete="off" aria-label="Buscar nota"><select id="busca-ordem" class="filtro" aria-label="Ordem das notas" title="Atalho: clique na janela e use Ctrl+V"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div><div id="busca-res" class="busca-res"></div></div>
         </div>
         <!-- janela flutuante: veículos, ordem das paradas e mover notas -->
         <div class="jan jan-carros" id="jan-carros" role="dialog" aria-label="Veículos e rotas" hidden>

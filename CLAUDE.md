@@ -70,3 +70,8 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - Operação importada/restaurada de arquivo passa por `N.sanearOp` (texto/números/cores/ids conferidos). Todo texto de XML/arquivo/usuário que vai para `innerHTML` passa por `esc()`.
 - Links externos abrem com `noopener,noreferrer`. Nada de segredo no Git (Api-Key só no IndexedDB).
 - Ícones PNG recomprimidos sem perda; CSS/JS mortos da bússola antiga removidos.
+
+## v0.20
+- Faixa de carros do topo RETIRADA (pedido do Tiago): escolher/editar/excluir veículo é na janela "Veículos e rotas"; clicar no cartão do veículo seleciona e dá zoom na rota dele.
+- **Ctrl+F** (`abrirFocar`/`focarVeiculo`): pop-up `#pop-focar` com um quadradinho por veículo (número + cor); clique ou digitar o número escolhe o veículo, vai ao mapa e enquadra a rota. Vale em qualquer tela/janela; Esc fecha. Substitui o "buscar na página" do navegador.
+- Buscar nota entra no Ctrl+V (A–Z cliente → maior volume → maior valor; `#busca-ordem`, pref `buscaOrdem`) quando a janela está em foco e o cursor não está no campo de texto.

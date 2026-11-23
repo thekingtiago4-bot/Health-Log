@@ -13,6 +13,8 @@ function igual(real, esperado, nome) {
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
 }
 const verdade = (c, nome) => igual(!!c, true, nome);
+/* escolhe o veículo pela janela "Veículos e rotas" (a faixa de carros do topo foi retirada) */
+async function selCarro(p, id) { await p.evaluate(() => RT.A.janVer('carros', true)); const cab = p.locator('#car-corpo .vei[data-car="' + id + '"] .vei-cab b'); await cab.click(); }
 const cents = s => Math.round(parseFloat(s) * 100);
 
 (async () => {
@@ -133,7 +135,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(Object.keys(e.atrib).length, 6, '6 notas alocadas');
 
   console.log('\nCinza = já está em outro carro; liberar e desfazer');
-  await p.click('.chip-carro[data-id="1"]');
+  await selCarro(p, 1);
   await p.fill('#busca-cidade', 'araraq'); await p.keyboard.press('Enter');
   await p.waitForSelector('#jan-cid:not([hidden]) .cli');
   const gama = p.locator('.cli', { hasText: 'HOSPITAL GAMA' });
@@ -171,7 +173,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#bt-estradas');
   igual(await p.evaluate(() => RT.S.mapa.estradas), false, 'o botão Estradas desliga o fundo (o mapa segue só com os contornos)');
   await p.click('#bt-estradas');
-  await p.click('.chip-carro[data-id="1"]');
+  await selCarro(p, 1);
   verdade(await p.evaluate(() => { const m = RT.S.mapa, c = RT.S.op.carros.find(x => x.id === 1); return c.cidades.every(k => { const q = m.posicaoDaCidade(k); return q && q.x > 0 && q.x < m.W && q.y > 0 && q.y < m.H; }); }), 'clicar no veículo enquadra a rota dele inteira');
   await p.click('.nav button[data-tela="config"]');
   await p.fill('#cfg-base', 'Bauru/SP'); await p.click('#cfg-base-ok');
@@ -186,7 +188,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(() => RT.S.mapa.pernas.size > 0 && RT.vias.pendentes() === 0, null, { timeout: 20000 });
   verdade(reqsRota.length > 0 && reqsRota.every(u => u.includes('/routed-car/route/v1/driving/') && !/cliente|cnpj|doc/i.test(u)), 'o app pede rotas de estrada ao serviço (só coordenadas de cidades, nada de cliente)');
   verdade(await p.evaluate(() => [...RT.S.mapa.pernas.values()].every(x => x.w.length >= 4 && x.km > 0)), 'cada trecho guarda a pista (vários pontos) e o KM');
-  verdade(/≈\s*[\d.]+ km/.test(await p.innerText('#chips-carros')), 'o cartão do veículo mostra o KM pelas rodovias');
+  verdade(/≈\s*[\d.]+ km/.test(await p.innerText('#car-corpo')), 'o cartão do veículo mostra o KM pelas rodovias');
   const kmChip = await p.evaluate(() => RT.S.op.carros.map(c => RT.A.kmDe(c)).filter(k => k.n > 0).map(k => [k.faltam, Math.round(k.km) > 0]));
   verdade(kmChip.length > 0 && kmChip.every(x => x[0] === 0 && x[1]), 'o KM soma todos os trechos da base até a última parada');
   falhaRotas = true; ignorarRede = true;
@@ -195,7 +197,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForSelector('#vias-st.erro', { timeout: 20000 });
   verdade(/linhas curvas/.test(await p.innerText('#vias-st')), 'se o serviço de rotas falha, avisa e mostra linhas curvas em vez de quebrar');
   verdade(await p.evaluate(() => RT.S.mapa.rotas.find(r => r.id === 1).pontos.length >= 2), 'e a rota continua desenhada');
-  verdade(/calculando km/.test(await p.innerText('#chips-carros')), 'e o KM não finge um valor que não tem');
+  verdade(/calculando km/.test(await p.innerText('#car-corpo')), 'e o KM não finge um valor que não tem');
   falhaRotas = false; ignorarRede = false;
   await p.click('#bt-vias');
   igual(await p.evaluate(() => RT.S.mapa.viasLigadas), false, 'o botão Rodovias desliga o traçado por estrada');
@@ -279,8 +281,8 @@ const cents = s => Math.round(parseFloat(s) * 100);
 
   console.log('\nExcluir carro e cópia de segurança');
   await p.click('#mural-x');
-  await p.hover('.chip-carro[data-id="2"]');
-  await p.click('.chip-carro[data-id="2"] [data-ac=del]');
+  await p.evaluate(() => RT.A.janVer('carros', true));
+  await p.click('#car-corpo .vei[data-car="2"] [data-del]');
   await p.click('.fundo [data-s]');
   await p.waitForFunction(() => RT.S.op.carros.length === 1);
   igual((await estado(p)).cont.completa, 0, 'excluir o carro devolve as notas dele (nenhuma cidade completa)');
@@ -686,13 +688,15 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => document.querySelector('#toast').hidden), 'e arrastando para cima também');
   const cid = await p.evaluate(() => RT.S.res.carros[0].carro.id);
   await p.evaluate(id => { document.querySelector('#jan-carros').hidden = false; RT.A.atualizarTudo(); }, cid);
-  await p.click('.chip-carro [data-ac="ren"]');
+  await p.evaluate(() => RT.A.janVer('carros', true));
+  await p.click('#car-corpo [data-ren]');
   await p.click('.ec-cor[data-cor="#F5B700"]'); await p.click('.modal [data-s]');
   igual(await p.evaluate(() => RT.S.op.carros[0].cor), '#F5B700', 'lápis do carro troca a cor');
   igual(await p.evaluate(() => document.querySelector('#bt-rail').getAttribute('aria-expanded')), 'true', 'menu lateral aberto');
   await p.click('#bt-rail');
   verdade(await p.evaluate(() => document.querySelector('.rail').offsetParent === null), 'a seta esconde o menu lateral');
   verdade(await p.evaluate(() => document.querySelector('#principal').getBoundingClientRect().width > innerWidth * 0.9), 'e o conteúdo ocupa a tela toda (não some)');
+  await p.waitForTimeout(400);
   verdade(await p.evaluate(() => { const c = document.querySelector('#mapa-area .mapa-base canvas'); return !c || Math.abs(c.clientHeight - document.querySelector('#mapa-area').clientHeight) < 3; }), 'o fundo de estradas acompanha o tamanho do mapa');
   await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x');
   verdade(await p.evaluate(() => document.querySelector('.rail').offsetParent === null), 'e ele continua escondido depois de recarregar');
@@ -705,6 +709,37 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => !RT.S.sujo), 'Ctrl+S salva (nada fica pendente)');
   verdade(await p.evaluate(() => !document.querySelector('#bt-instalar').hidden), 'o botão Instalar aparece (fora do app instalado)');
   await p.click('#bt-instalar'); verdade(/bússola|Instalar o Health Log/.test(await p.innerText('.modal')), 'sem o pedido do navegador, mostra como instalar'); await p.keyboard.press('Escape');
+
+  console.log('\nCtrl+V na janela Buscar');
+  await p.click('.nav button[data-tela="rotas"]'); await p.evaluate(() => { for (const id of ['jan-carros', 'jan-cid']) document.getElementById(id).hidden = true; RT.A.janVer('busca', true); });
+  await p.fill('#busca-q', 'a'); await p.fill('#busca-q', 'ar');
+  await p.locator('#jan-busca .jan-cab').click({ position: { x: 4, y: 4 } });
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  const ordB = () => p.evaluate(() => document.querySelector('#busca-ordem').value);
+  igual(await ordB(), 'nome', 'Buscar: padrão A–Z');
+  await p.keyboard.press('Control+KeyV'); igual(await ordB(), 'volume', 'Ctrl+V com o Buscar em foco: maior volume');
+  const vols = await p.evaluate(() => [...document.querySelectorAll('#busca-res .bn')].map(b => b.dataset.nota).map(id => RT.S.op.notas.find(n => n.id === id).vol));
+  verdade(vols.every((v, i) => !i || vols[i - 1] >= v), 'e a lista fica da maior para a menor volumetria');
+  await p.keyboard.press('Control+KeyV'); igual(await ordB(), 'valor', 'depois maior valor');
+  await p.keyboard.press('Control+KeyV'); igual(await ordB(), 'nome', 'depois A–Z');
+  await p.evaluate(() => RT.A.janVer('busca', false));
+
+  console.log('\nCtrl+F: focar num veículo');
+  await p.click('.nav button[data-tela="notas"]');
+  await p.keyboard.press('Control+KeyF'); await p.waitForSelector('#pop-focar');
+  verdade(await p.evaluate(() => document.querySelectorAll('#pop-focar .pf-q').length === RT.S.op.carros.length), 'Ctrl+F abre o pop-up com um quadradinho por veículo (de qualquer tela)');
+  verdade(await p.evaluate(() => [...document.querySelectorAll('#pop-focar .pf-q')].every(b => b.style.getPropertyValue('--cor') && /^\d+$/.test(b.querySelector('b').textContent))), 'cada quadradinho tem o número e a cor do veículo');
+  await p.keyboard.press('Escape'); verdade(await p.evaluate(() => !document.querySelector('#pop-focar')), 'Esc fecha');
+  await p.click('.nav button[data-tela="rotas"]'); await p.evaluate(() => { document.getElementById('jan-carros').hidden = false; });
+  await p.keyboard.press('Control+KeyF'); await p.waitForSelector('#pop-focar');
+  const alvo = await p.evaluate(() => RT.S.op.carros.find(c => c.cidades.length).id);
+  await p.evaluate(() => RT.S.mapa.zoom(0.3)); const k0 = await p.evaluate(() => RT.S.mapa.v.k);
+  await p.click('#pop-focar [data-foco="' + alvo + '"]');
+  await p.waitForFunction(() => !document.querySelector('#pop-focar'));
+  await p.waitForTimeout(900);
+  igual(await p.evaluate(() => RT.S.carroAtivo), alvo, 'clicar no quadradinho seleciona o veículo');
+  verdade(await p.evaluate(id => { const m = RT.S.mapa, c = RT.S.op.carros.find(x => x.id === id); return c.cidades.every(k => { const q = m.posicaoDaCidade(k); return q && q.x > 0 && q.x < m.W && q.y > 0 && q.y < m.H; }); }, alvo), 'e o mapa dá zoom: toda a rota dele fica na tela');
+  verdade(await p.evaluate(k => RT.S.mapa.v.k > k, k0), 'aproximando em relação à vista anterior');
 
   console.log('\nRastreio no limite e linha fixa');
   await p.click('.nav button[data-tela="rotas"]');

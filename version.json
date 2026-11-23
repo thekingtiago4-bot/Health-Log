@@ -1,1 +1,1 @@
-{"versao":"0.19.0","data":"2026-11-23","novidades":"Revisao geral: politica de seguranca (CSP), operacao importada higienizada, codigo e estilos mortos removidos, icones 6x menores."}
+{"versao":"0.20.0","data":"2026-11-23","novidades":"Ctrl+F: focar num veiculo (quadradinhos com numero e cor, zoom na rota). Buscar nota tambem obedece o Ctrl+V. Faixa de carros do topo retirada (use a janela Veiculos)."}

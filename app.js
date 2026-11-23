@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.19.0';
+  const VERSAO = '0.20.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -166,15 +166,8 @@
 
   /* ================= carros ================= */
   function renderCarros() {
-    const box = $('#chips-carros'), op = S.op;
-    if (!op) { box.innerHTML = ''; $('#faixa-carro').innerHTML = '<span>Abra uma operação para montar as rotas.</span>'; return; }
-    box.innerHTML = S.res.carros.map(rc => {
-      const c = rc.carro;
-      return '<button type="button" class="chip-carro" role="tab" data-id="' + c.id + '" aria-selected="' + (c.id === S.carroAtivo) + '" style="--cor:' + c.cor + '">' +
-        '<b>' + N.nomeCarro(c) + (c.motorista ? '<span class="mot">' + esc(c.motorista) + '</span>' : '') + '</b>' +
-        '<small>' + i$(rc.vol) + ' vol · ' + rc.paradas + ' par · ' + m$(rc.valor) + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c)) + '</span>' : '') + '</small>' +
-        '<span class="acoes"><span data-ac="ren" title="Motorista / renomear" role="button" aria-label="Renomear">✎</span><span data-ac="del" title="Excluir carro" role="button" aria-label="Excluir carro">✕</span></span></button>';
-    }).join('');
+    const op = S.op;
+    if (!op) { $('#faixa-carro').innerHTML = '<span>Abra uma operação para montar as rotas.</span>'; return; }
     const f = $('#faixa-carro'), rc = S.res.carros.find(x => x.carro.id === S.carroAtivo);
     if (!op.carros.length) f.innerHTML = '<span>Nenhum carro ainda. Clique em <b>+ Carro</b> (ou direto numa cidade) para começar.</span>';
     else if (rc) {
@@ -184,8 +177,41 @@
         '<span><b>' + m$(rc.valor) + '</b></span><span>peso <b>' + N.fmtPeso(rc.peso) + '</b> kg</span>' + (kmTxt(kmDe(rc.carro)) ? '<span title="Distância pelas rodovias, de cidade em cidade, saindo da base e voltando a ela. Estimativa: sem trânsito e sem o percurso dentro das cidades.">' + kmTxt(kmDe(rc.carro), true).replace('≈ ', '≈ <b class="km">').replace(' km', ' km</b>') + '</span>' : '') +
         '<span class="rota-cad">' + (S.mapa.base && S.mapa.mostrarBase ? '<span class="no-base">' + esc((S.mapa.base.sigla || 'BASE')) + '</span>' : '') + rc.cidades.map((c, i) => (i || (S.mapa.base && S.mapa.mostrarBase) ? '<i class="seta">›</i>' : '') + '<button type="button" class="cid-chip" style="--cor:' + rc.carro.cor + '" data-cid="' + esc(c.key) + '"><b>' + (i + 1) + '</b>' + esc(c.nome) + '</button>').join('') + '</span>';
     }
-    const ch = $('.chip-carro[aria-selected="true"]'); if (ch && ch.scrollIntoView) ch.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
+  /* ---------- Ctrl+F: "focar" num veículo ----------
+     Pop-up com um quadradinho por veículo (número e cor). Clicar (ou digitar o número) escolhe o veículo,
+     vai para o mapa e dá zoom na rota dele. Vale com qualquer janela aberta. */
+  const corTexto = c => { const m = /^#([0-9a-f]{6})$/i.exec(c); if (!m) return '#fff'; const n = parseInt(m[1], 16), l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)); return l > 165 ? '#10242a' : '#fff'; };
+  function focarVeiculo(id) {
+    const rc = S.res && S.res.carros.find(x => x.carro.id === id); if (!rc) return;
+    if (tela !== 'rotas') irPara('rotas');
+    selecionarCarro(id); S.mapa.setAtivo(id);
+    if (!rc.carro.cidades.length) { toast(N.nomeCarro(rc.carro) + ' ainda não tem cidades na rota.'); return; }
+    requestAnimationFrame(() => { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); });
+  }
+  function fecharFocar() { const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true); }
+  function teclaFocar(e) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fecharFocar(); return; }
+    if (/^\d$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { // digitar o número do veículo (1–9; 10+ por clique)
+      const b = $('#pop-focar [data-foco="' + e.key + '"]'); if (b) { e.preventDefault(); e.stopPropagation(); b.click(); }
+    }
+  }
+  function abrirFocar() {
+    if (!S.op || !S.res) { toast('Abra uma operação primeiro.'); return; }
+    if (!S.res.carros.length) { toast('Ainda não há veículos. Use + Carro, + Van ou + Caminhão.'); return; }
+    fecharFocar();
+    const p = document.createElement('div'); p.id = 'pop-focar'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Focar num veículo');
+    p.innerHTML = '<div class="pf-cab"><b>Focar na rota do veículo</b><button type="button" class="jan-x" data-fx aria-label="Fechar">✕</button></div><div class="pf-grade">' +
+      S.res.carros.map(rc => { const c = rc.carro; return '<button type="button" class="pf-q' + (c.id === S.carroAtivo ? ' ativo' : '') + (c.cidades.length ? '' : ' vazio') + '" data-foco="' + c.id + '" style="--cor:' + esc(c.cor) + ';--txt:' + corTexto(c.cor) + '" title="' + esc(N.rotuloCarro(c)) + (c.cidades.length ? '' : ' (sem rota ainda)') + '"><b>' + c.numero + '</b><small>' + esc(c.tipo === 'van' ? 'Van' : c.tipo === 'caminhao' ? 'Caminhão' : 'Carro') + '</small>' + (c.motorista ? '<em>' + esc(c.motorista) + '</em>' : '') + '</button>'; }).join('') +
+      '</div><p class="pf-dica">Clique no quadradinho (ou digite o número). Esc fecha.</p>';
+    p.addEventListener('click', e => {
+      if (e.target.closest('[data-fx]')) return fecharFocar();
+      const b = e.target.closest('[data-foco]'); if (!b) return; fecharFocar(); focarVeiculo(+b.dataset.foco);
+    });
+    document.body.appendChild(p); document.addEventListener('keydown', teclaFocar, true);
+    const at = p.querySelector('.pf-q.ativo') || p.querySelector('.pf-q'); if (at) at.focus();
+  }
+  document.addEventListener('pointerdown', e => { const p = $('#pop-focar'); if (p && !p.contains(e.target)) fecharFocar(); }, true);
   async function novoVeiculo(tipo) {
     if (!S.op) { toast('Importe os XMLs primeiro.'); return; }
     if (tipo === 'caminhao' && N.contarTipo(S.op, 'caminhao') >= 1) {
@@ -280,6 +306,7 @@
     const f = S.janFoco && $('#' + S.janFoco), vis = f && !f.hidden ? S.janFoco : null;
     if (vis === 'jan-cid' && S.cidadeAberta) { S.ordemCli = prox3(['nome', 'vol', 'maior'], S.ordemCli); renderJanCidade(); toast('Clientes: ' + ({ nome: 'A–Z', vol: 'maior volume', maior: 'maior valor' })[S.ordemCli]); return true; }
     if (vis === 'jan-carros') { S.ordemCar = prox3(['nome', 'volume', 'valor'], S.ordemCar); renderJanCarros(); toast('Veículos: ' + ({ nome: 'A–Z (ordem de criação)', volume: 'maior volume', valor: 'maior valor' })[S.ordemCar]); return true; }
+    if (vis === 'jan-busca') { RT.sit.ciclarOrdem(); return true; }
     if (vis === 'jan-pend' || (!vis && tela === 'rotas' && !$('#jan-pend').hidden)) { ciclarOrdemPend(); return true; }
     return false;
   }
@@ -749,7 +776,7 @@
       }
       if (t.closest('input,select')) return;
       const cab = t.closest('.vei-cab'), vei = t.closest('.vei');
-      if (cab && vei) { const id = +vei.dataset.car; S.carAberto.has(id) ? S.carAberto.delete(id) : S.carAberto.add(id); selecionarCarro(id); renderJanCarros(); }
+      if (cab && vei) { const id = +vei.dataset.car; S.carAberto.has(id) ? S.carAberto.delete(id) : S.carAberto.add(id); selecionarCarro(id); renderJanCarros(); const rc = S.res && S.res.carros.find(x => x.carro.id === id); if (rc && rc.carro.cidades.length) { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); } }
     });
     corpo.addEventListener('change', e => {
       const t = e.target;
@@ -1060,16 +1087,6 @@
     $('#bt-base').onclick = () => { S.cfg.mostrarBase = S.cfg.mostrarBase === false; salvarCfg(); aplicarBase(); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 
-    /* chips de carro */
-    $('#chips-carros').addEventListener('click', e => {
-      const b = e.target.closest('.chip-carro'); if (!b) return; const id = +b.dataset.id;
-      const ac = e.target.closest('[data-ac]');
-      if (ac) { ac.dataset.ac === 'ren' ? renomearCarro(id) : excluirCarro(id); return; }
-      selecionarCarro(id);
-      const rc = S.res && S.res.carros.find(x => x.carro.id === id); // clicar no veículo enquadra a rota dele
-      if (rc && rc.carro.cidades.length) { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); }
-    });
-    $('#chips-carros').addEventListener('dblclick', e => { const b = e.target.closest('.chip-carro'); if (b) renomearCarro(+b.dataset.id); });
     $('#faixa-carro').addEventListener('click', e => { const b = e.target.closest('[data-cid]'); if (b) abrirCidade(b.dataset.cid, { centrar: true }); });
 
     /* busca de cidade */
@@ -1173,7 +1190,8 @@
     document.addEventListener('keydown', e => {
       const emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
       const so = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey, tecla = e.key.toLowerCase();
-      if (so && tecla === 's') { e.preventDefault(); if (!S.modoMapa) salvarAgora(); }
+      if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: focar num veículo (vale com qualquer janela aberta)
+      else if (so && tecla === 's') { e.preventDefault(); if (!S.modoMapa) salvarAgora(); }
       else if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
       else if (so && tecla === 'l' && !S.modoMapa && !document.querySelector('.fundo')) { e.preventDefault(); RT.sit.abrirBusca(); } // Ctrl+L: abre a busca de nota
       else if (so && tecla === 'v' && !emCampo && !S.modoMapa && !document.querySelector('.fundo')) { if (tela === 'rotas' && ciclarOrdemFoco()) e.preventDefault(); else if (tela === 'notas') { e.preventDefault(); ciclarOrdemNotas(); } } // Ctrl+V: A–Z → maior volume → maior valor → A–Z, na janela em foco
@@ -1234,8 +1252,6 @@
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
-  /* faixa dos veículos sem barra: a roda do mouse rola na horizontal */
-  { const ch = $('#chips-carros'); if (ch) ch.addEventListener('wheel', e => { if (ch.scrollWidth > ch.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { ch.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); }
   /* clicar numa janela flutuante (em qualquer ponto, inclusive na moldura) a deixa em foco: borda destacada e atalhos valem nela */
   document.addEventListener('pointerdown', e => {
     const j = e.target.closest && e.target.closest('.jan'); const id = j ? j.id : null;
