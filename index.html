@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F4B55">
-<title>Health Route</title>
+<title>Health LOG · Eficiência Máxima Em Roteirização</title>
 <script>try{var t=JSON.parse(localStorage.getItem("hr:tema")||"null");document.documentElement.setAttribute("data-tema",t==="claro"?"claro":"escuro")}catch(e){document.documentElement.setAttribute("data-tema","escuro")}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -19,7 +19,7 @@
   <aside class="rail">
     <div class="marca" id="marca" title="Ver o Mural do dia" role="button" tabindex="0">
       <img src="icons/marca.png" width="38" height="38" alt="" style="border-radius:9px;flex:none">
-      <div><b>Health Search</b><span>Rotas</span></div>
+      <div><b>Health LOG</b><span>Eficiência Máxima Em Roteirização</span></div>
     </div>
     <nav class="nav" aria-label="Seções">
       <div class="nav-grupo">Operação</div>
@@ -40,11 +40,14 @@
     <div class="resumo">
       <dl><dt>Operação</dt><dd id="r-op">—</dd><dt>Notas</dt><dd id="r-nf">0</dd><dt>Volumes</dt><dd id="r-vol">0</dd><dt>Alocadas</dt><dd id="r-aloc">0%</dd><dt>Carros</dt><dd id="r-car">0</dd></dl>
       <div class="salvo"><i id="r-salvo-i"></i><span id="r-salvo">Abrindo…</span></div>
+      <button class="btn mini pri rail-bt" id="bt-salvar" type="button" title="Salva agora e guarda uma cópia de segurança (Ctrl+S)">💾 Salvar</button>
+      <button class="btn mini rail-bt" id="bt-instalar" type="button" title="Instalar o Health LOG no computador ou celular, com o ícone da bússola" hidden>⬇ Instalar aplicativo</button>
       <button class="tema" id="bt-tema" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="tema-lbl">Tema escuro</span></button>
-      <div class="autoria">Desenvolvido por <b>Tiago</b><br>© 2026 Health Search · uso interno<br><span id="versao"></span></div>
+      <div class="autoria">Desenvolvido por <b>Tiago</b><br>© 2026 Health LOG · uso interno<br><span id="versao"></span></div>
     </div>
   </aside>
 
+  <button class="rail-seta" id="bt-rail" type="button" aria-label="Esconder o menu lateral" title="Esconder / mostrar o menu lateral" aria-expanded="true">‹</button>
   <main id="principal">
     <div class="faixa-erro" id="faixa-erro" role="alert" hidden></div>
 
@@ -148,7 +151,7 @@
       <p class="sub">Ajustes deste aparelho. Nada daqui vai para o GitHub, para as cópias de segurança nem para os arquivos que você baixa.</p>
       <div class="cfg-card">
         <h2>Meu Danfe (API)</h2>
-        <p class="sub" style="margin-bottom:10px">Com a Api-Key, ao bipar uma nota que <b>não está em nenhum XML</b>, o Health Route busca os dados dela no Meu Danfe (cliente, cidade, endereço, volumes e valor) e ela entra na operação como ROMANEIO EXTRA. Nota que já está nos XMLs não faz consulta.</p>
+        <p class="sub" style="margin-bottom:10px">Com a Api-Key, ao bipar uma nota que <b>não está em nenhum XML</b>, o Health LOG busca os dados dela no Meu Danfe (cliente, cidade, endereço, volumes e valor) e ela entra na operação como ROMANEIO EXTRA. Nota que já está nos XMLs não faz consulta.</p>
         <label class="cfg-campo">Api-Key do Meu Danfe<input type="password" id="cfg-md" autocomplete="off" spellcheck="false" placeholder="Cole a Api-Key aqui" aria-label="Api-Key do Meu Danfe"></label>
         <div class="botoes-linha"><button class="btn pri" id="cfg-md-ok" type="button">Salvar chave</button><button class="btn perigo" id="cfg-md-rm" type="button">Remover chave</button></div>
         <p class="dica" id="cfg-md-st"></p>

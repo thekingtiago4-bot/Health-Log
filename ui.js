@@ -21,15 +21,27 @@
   let tt = null;
   U.toast = function (msg, acao) {
     const el = $('#toast'); if (!el) return;
-    el.innerHTML = '<span></span>';
+    el.innerHTML = '<span></span>'; el.style.transform = ''; el.style.opacity = '';
     el.firstChild.textContent = msg;
     if (acao) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-acao'; b.textContent = acao.rotulo;
       b.onclick = () => { el.hidden = true; acao.fn(); };
       el.appendChild(b);
     }
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'toast-x'; x.textContent = '×'; x.title = 'Ignorar (ou arraste para cima)'; x.setAttribute('aria-label', 'Ignorar aviso');
+    x.onclick = () => { el.hidden = true; }; el.appendChild(x);
     el.hidden = false; clearTimeout(tt); tt = setTimeout(() => { el.hidden = true; }, acao ? 7000 : 3800);
   };
+  /* arrastar o aviso para cima (ou tocar nele) = ignorar */
+  (function () {
+    document.addEventListener('DOMContentLoaded', () => {
+      const el = $('#toast'); if (!el) return; let y0 = null, dy = 0;
+      el.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; y0 = e.clientY; dy = 0; try { el.setPointerCapture(e.pointerId); } catch (er) { /* ok */ } });
+      el.addEventListener('pointermove', e => { if (y0 == null) return; dy = Math.min(0, e.clientY - y0); el.style.transform = 'translateX(-50%) translateY(' + dy + 'px)'; el.style.opacity = String(Math.max(.2, 1 + dy / 80)); });
+      const fim = () => { if (y0 == null) return; const t = y0; y0 = null; if (dy < -18 || Math.abs(dy) < 4) el.hidden = true; el.style.transform = ''; el.style.opacity = ''; void t; };
+      el.addEventListener('pointerup', fim); el.addEventListener('pointercancel', fim);
+    });
+  })();
 
   /* ---------- janelas modais (sem alert/confirm/prompt do navegador) ---------- */
   function modal(html, onMontar) {
@@ -134,7 +146,7 @@
         req.onsuccess = () => { DB.db = req.result; DB.db.onversionchange = () => DB.db.close(); res(true); };
         /* erro ao abrir: NÃO recria nem apaga nada — só avisa */
         req.onerror = () => { DB.erro = 'Não consegui abrir o banco deste navegador: ' + ((req.error && req.error.message) || 'erro desconhecido'); res(false); };
-        req.onblocked = () => { DB.erro = 'O banco está bloqueado por outra aba aberta. Feche as outras abas do Health Route.'; res(false); };
+        req.onblocked = () => { DB.erro = 'O banco está bloqueado por outra aba aberta. Feche as outras abas do Health LOG.'; res(false); };
       });
     },
     _tx(store, modo, fn) {

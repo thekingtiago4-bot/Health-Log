@@ -3,13 +3,13 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.14.0';
+  const VERSAO = '0.15.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
   const S = RT.S = {
     op: null, idx: null, res: null, carroAtivo: null,
-    cidadeAberta: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
+    cidadeAberta: null, ordemCar: 'nome', janFoco: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
     hist: [], mapa: null, precisaEnquadrar: true, lote: null, destino: 'atual',
     nf: { q: '', carro: '', origem: '', ord: 'nf', dir: 1 },
     canal: null, ext: null, parede: false, modoMapa: /[?&]mapa=1/.test(location.search),
@@ -62,14 +62,39 @@
   function salvar() {
     if (!S.op || S.modoMapa) return Promise.resolve();
     if (!DB.db) { statusSalvo('erro', DB.erro || 'banco indisponível'); return Promise.resolve(); }
-    statusSalvo('salvando');
+    statusSalvo('salvando'); S.sujo = true;
     const copia = structuredClone(S.op);
     S.fila = S.fila
       .then(() => DB.put('ops', copia))
       .then(() => DB.put('meta', { k: 'ativa', id: copia.id }))
-      .then(() => { S.ultimoSalvo = new Date(); statusSalvo('ok'); enviar({ t: 'op', id: copia.id, rev: copia.rev }); })
+      .then(() => { S.ultimoSalvo = new Date(); S.sujo = false; statusSalvo('ok'); enviar({ t: 'op', id: copia.id, rev: copia.rev }); })
       .catch(e => statusSalvo('erro', (e && e.message) || String(e)));
     return S.fila;
+  }
+  /* botão Salvar (igual ao do Health Search): grava agora, espera terminar e deixa cópia de segurança */
+  async function salvarAgora() {
+    if (!S.op) { toast('Não há operação aberta para salvar.'); return; }
+    await salvar(); await S.fila;
+    if (S.sujo || !(await backup(S.op, 'Salvar'))) { toast('⚠ Não consegui salvar. Baixe uma cópia em Importar XML → Operações guardadas.'); return; }
+    toast('✓ Tudo salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (com cópia de segurança).');
+  }
+  window.addEventListener('beforeunload', e => { if (S.sujo || (DB.erro && S.op)) { e.preventDefault(); e.returnValue = ''; } });
+  /* menu lateral que esconde, e instalar o aplicativo */
+  function ligarLateral() {
+    const app = $('#app'), seta = $('#bt-rail');
+    const aplicar = (oculta, grava) => { app.classList.toggle('rail-oculta', oculta); seta.textContent = oculta ? '›' : '‹'; seta.setAttribute('aria-expanded', String(!oculta)); seta.setAttribute('aria-label', oculta ? 'Mostrar o menu lateral' : 'Esconder o menu lateral'); if (grava) U.pref.gravar('railOculta', oculta); setTimeout(() => { window.dispatchEvent(new Event('resize')); if (S.mapa) { S.mapa.redimensionar(); S.mapa.marcar(); } }, 60); };
+    seta.onclick = () => aplicar(!app.classList.contains('rail-oculta'), true);
+    aplicar(!!U.pref.ler('railOculta', false), false);
+    $('#bt-salvar').onclick = salvarAgora;
+    let evt = null; const bi = $('#bt-instalar');
+    const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (!instalado()) bi.hidden = false;
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; bi.hidden = false; });
+    window.addEventListener('appinstalled', () => { bi.hidden = true; toast('Health LOG instalado.'); });
+    bi.onclick = async () => {
+      if (evt) { evt.prompt(); try { await evt.userChoice; } catch (er) { /* ok */ } evt = null; return; }
+      U.modal('<h2>Instalar o Health LOG</h2><p><b>Computador (Chrome ou Edge):</b> clique no ícone de instalar (um monitor com seta) no fim da barra de endereço, ou no menu ⋮ → “Instalar Health LOG”. O ícone da bússola vai para a área de trabalho.</p><p><b>iPhone / iPad (Safari):</b> botão Compartilhar → “Adicionar à Tela de Início”.</p><p><b>Android (Chrome):</b> menu ⋮ → “Instalar aplicativo”.</p><div class="botoes"><button class="btn pri" data-s>Entendi</button></div>', (f, fechar) => { f.querySelector('[data-s]').onclick = () => fechar(true); });
+    };
   }
   /* cópia de segurança ANTES de qualquer coisa destrutiva. Se não conseguir guardar, quem chamou aborta. */
   async function backup(op, motivo) {
@@ -161,11 +186,27 @@
     if (S.cidadeAberta && draftSujo()) toast('Marcações não concluídas foram descartadas.');
     S.carroAtivo = id; S.mapa.setAtivo(id); resetDraft(); renderCarros(); renderJanCidade();
   }
+  /* lápis do veículo: motorista + cor (algumas cores da lista inicial são fracas no mapa) */
+  const PALETA_CARRO = ['#7B3FE4', '#1C6DD0', '#E8590C', '#D6336C', '#0B8FA6', '#8D5A2B', '#C92A2A', '#4C5DDC', '#B23BC4', '#2FA0F5', '#F5B700', '#2E9E48', '#FF3EA5', '#00C2A8', '#FF7A00', '#111111'];
   async function renomearCarro(id) {
     const c = carroPorId(id); if (!c) return;
-    const v = await U.perguntar('Motorista de ' + N.nomeCarro(c), 'O nome aparece na folha de rotas. Deixe vazio para tirar.', c.motorista, 'Salvar');
-    if (v == null) return;
-    mutar('renomear ' + N.nomeCarro(c), () => { c.motorista = v.slice(0, 40); });
+    let cor = c.cor;
+    const html = '<h2>Editar ' + esc(N.nomeCarro(c)) + '</h2><label class="cfg-campo">Motorista<input class="filtro modal-in" id="ec-mot" style="max-width:none;width:100%" maxlength="40" placeholder="Nome do motorista (opcional)"></label>' +
+      '<p class="sub" style="margin:12px 0 6px">Cor no mapa</p><div class="ec-cores">' + PALETA_CARRO.map(x => '<button type="button" class="ec-cor" data-cor="' + x + '" style="background:' + x + '" aria-label="Cor ' + x + '"></button>').join('') +
+      '<label class="ec-cor ec-livre" title="Escolher outra cor"><input type="color" id="ec-livre" value="' + (/^#[0-9a-f]{6}$/i.test(c.cor) ? c.cor : '#7b3fe4') + '">+</label></div>' +
+      '<div class="ec-previa" id="ec-previa"></div><div class="botoes"><button class="btn" data-n>Cancelar</button><button class="btn pri" data-s>Salvar</button></div>';
+    const r = await U.modal(html, (f, fechar) => {
+      const mot = f.querySelector('#ec-mot'); mot.value = c.motorista || ''; mot.focus();
+      const marcar = () => { f.querySelectorAll('.ec-cor[data-cor]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cor.toLowerCase() === String(cor).toLowerCase()))); f.querySelector('#ec-previa').innerHTML = '<span style="display:inline-block;width:46px;border-top:5px dashed ' + cor + ';vertical-align:middle;margin-right:8px"></span><b style="color:' + cor + '">' + esc(N.nomeCarro(c)) + '</b>'; };
+      marcar();
+      f.addEventListener('click', e => { const b = e.target.closest('.ec-cor[data-cor]'); if (b) { cor = b.dataset.cor; marcar(); } });
+      f.querySelector('#ec-livre').addEventListener('input', e => { cor = e.target.value; marcar(); });
+      const ok = () => fechar({ mot: mot.value.trim().slice(0, 40), cor });
+      mot.onkeydown = e => { if (e.key === 'Enter') ok(); };
+      f.querySelector('[data-n]').onclick = () => fechar(null); f.querySelector('[data-s]').onclick = ok;
+    });
+    if (!r) return;
+    mutar('editar ' + N.nomeCarro(c), () => { c.motorista = r.mot; c.cor = r.cor; });
   }
   async function excluirCarro(id) {
     const rc = S.res.carros.find(x => x.carro.id === id); if (!rc) return;
@@ -218,6 +259,19 @@
 
   /* ================= cidades pendentes (janela flutuante) ================= */
   /* Ctrl+V com a janela de pendentes aberta: A–Z → maior volume → maior valor → volta ao A–Z (e fica assim até você mudar) */
+  const prox3 = (seq, x) => seq[(seq.indexOf(x) + 1) % seq.length];
+  /* Ctrl+V: vale na janela em foco (moldura destacada) ou na tabela de Notas; sempre A–Z → maior volume → maior valor → A–Z */
+  function ciclarOrdemFoco() {
+    const f = S.janFoco && $('#' + S.janFoco), vis = f && !f.hidden ? S.janFoco : null;
+    if (vis === 'jan-cid' && S.cidadeAberta) { S.ordemCli = prox3(['nome', 'vol', 'maior'], S.ordemCli); renderJanCidade(); toast('Clientes: ' + ({ nome: 'A–Z', vol: 'maior volume', maior: 'maior valor' })[S.ordemCli]); return true; }
+    if (vis === 'jan-carros') { S.ordemCar = prox3(['nome', 'volume', 'valor'], S.ordemCar); renderJanCarros(); toast('Veículos: ' + ({ nome: 'A–Z (ordem de criação)', volume: 'maior volume', valor: 'maior valor' })[S.ordemCar]); return true; }
+    if (vis === 'jan-pend' || (!vis && tela === 'rotas' && !$('#jan-pend').hidden)) { ciclarOrdemPend(); return true; }
+    return false;
+  }
+  function ciclarOrdemNotas() {
+    const f = S.nf, ordem = f.ord === 'vol' ? 'valor' : f.ord === 'valor' ? 'cliente' : 'vol'; f.ord = ordem; f.dir = ordem === 'cliente' ? 1 : -1;
+    renderNotas(); toast('Notas: ' + ({ cliente: 'cliente A–Z', vol: 'maior volume', valor: 'maior valor' })[ordem]);
+  }
   function ciclarOrdemPend() {
     const seq = ['nome', 'volume', 'valor'], prox = seq[(seq.indexOf(S.pend.ordem) + 1) % 3];
     S.pend.ordem = prox; U.pref.gravar('pendOrdem', prox); $('#pend-ordem').value = prox; renderPend();
@@ -315,7 +369,9 @@
     const selDisp = disp.filter(n => S.draft.has(n.id)).length;
     let clientes = c.listaClientes.slice();
     const vcli = cl => N.somar(cl.notas).valor;
-    if (S.ordemCli === 'maior') clientes.sort((a, b) => vcli(b) - vcli(a) || cmp(a.nome, b.nome));
+    const vvol = cl => N.somar(cl.notas).vol;
+    if (S.ordemCli === 'vol') clientes.sort((a, b) => vvol(b) - vvol(a) || cmp(a.nome, b.nome));
+    else if (S.ordemCli === 'maior') clientes.sort((a, b) => vcli(b) - vcli(a) || cmp(a.nome, b.nome));
     else if (S.ordemCli === 'menor') clientes.sort((a, b) => vcli(a) - vcli(b) || cmp(a.nome, b.nome));
     jan.style.setProperty('--cor', car ? car.cor : 'var(--teal)');
     const est = { pendente: 'Sem carro', parcial: 'Falta nota', completa: 'Completa' }[rc.estado];
@@ -347,7 +403,7 @@
       '<div class="cid-info"><span><b>' + c.listaClientes.length + '</b> clientes</span><span><b>' + tot.notas + '</b> notas</span><span><b>' + i$(tot.vol) + '</b> vol</span><span><b>' + m$(tot.valor) + '</b></span>' +
       (rc.estado === 'parcial' ? '<span style="color:var(--amarTxt)">faltam <b>' + rc.livres.notas + '</b> nota(s) · ' + m$(rc.livres.valor) + '</span>' : '') + (c.semPosicao ? '<span style="color:var(--no)">cidade sem posição no mapa</span>' : '') + (c.fora ? '<span style="color:var(--mudo)">FORA DE ROTA</span>' : '') + (c.code ? '<button type="button" class="lib" data-a="forarota">' + (c.fora ? 'trazer para a rota' : 'marcar como fora de rota') + '</button>' : '') + '</div>' +
       '<div class="cid-ctrl"><span>Levar para:</span><div class="carros-mini">' + S.op.carros.map(x => '<button type="button" class="mini-car" data-car="' + x.id + '" aria-pressed="' + (x.id === S.carroAtivo) + '" style="--cor:' + x.cor + '">' + N.nomeCarro(x) + '</button>').join('') + '</div>' +
-      '<select id="jc-ordem" class="filtro" style="min-height:28px;padding:1px 6px;font-size:.78rem" aria-label="Ordenar clientes"><option value="nome"' + (S.ordemCli === 'nome' ? ' selected' : '') + '>A–Z</option><option value="maior"' + (S.ordemCli === 'maior' ? ' selected' : '') + '>Maior valor</option><option value="menor"' + (S.ordemCli === 'menor' ? ' selected' : '') + '>Menor valor</option></select>' +
+      '<select id="jc-ordem" class="filtro" style="min-height:28px;padding:1px 6px;font-size:.78rem" aria-label="Ordenar clientes"><option value="nome"' + (S.ordemCli === 'nome' ? ' selected' : '') + '>A–Z</option><option value="vol"' + (S.ordemCli === 'vol' ? ' selected' : '') + '>Maior volume</option><option value="maior"' + (S.ordemCli === 'maior' ? ' selected' : '') + '>Maior valor</option><option value="menor"' + (S.ordemCli === 'menor' ? ' selected' : '') + '>Menor valor</option></select>' +
       '<label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="jc-todos" data-a="todos"' + (disp.length && selDisp === disp.length ? ' checked' : '') + (disp.length ? '' : ' disabled') + '> todos</label></div>' +
       '<div class="cid-lista">' + (linhas || '<div class="vazio-lista">Sem clientes.</div>') + '</div>' +
       '<div class="cid-rod"><div class="sel">' + (sel.length ? '<b>' + sel.length + '</b> nota(s) · <b>' + par + '</b> parada(s)<br><b>' + i$(st.vol) + '</b> vol · <b>' + m$(st.valor) + '</b>' : 'Marque os clientes (ou abra ▸ para escolher notas) e clique em Concluir.') + '</div>' +
@@ -622,6 +678,7 @@
     }
     return h + '</div>';
   }
+  const ordemVeiculos = (a, b) => S.ordemCar === 'volume' ? (b.vol - a.vol || a.carro.id - b.carro.id) : S.ordemCar === 'valor' ? (b.valor - a.valor || a.carro.id - b.carro.id) : 0;
   function renderJanCarros() {
     const jan = $('#jan-carros'); if (jan.hidden) return;
     const corpo = $('#car-corpo'), op = S.op;
@@ -632,7 +689,7 @@
     for (const id of [...S.selMov]) if (!S.idx.notaPorId.has(id) || op.atrib[id] == null) S.selMov.delete(id);
     let h = '<div class="car-res"><span><b>' + r.carros.filter(x => x.notas).length + '</b> rodando</span><span><b>' + m$(r.aloc.valor) + '</b></span><span><b>' + i$(r.aloc.vol) + '</b> vol</span>' +
       '<label class="car-lim" title="Opcional. Regra sua: o app só avisa quando o valor de um veículo passa deste número.">alerta acima de R$ <input id="car-lim" class="filtro" inputmode="decimal" placeholder="sem limite" value="' + fmtLimite(S.cfg.limite) + '"></label></div>' +
-      '<div class="car-lista">' + (r.carros.length ? r.carros.map(veiculoHtml).join('') : '<div class="vazio-lista">Nenhum veículo ainda. Use + Carro, + Van ou + Caminhão.</div>') + '</div>';
+      '<div class="car-lista">' + (r.carros.length ? r.carros.slice().sort(ordemVeiculos).map(veiculoHtml).join('') : '<div class="vazio-lista">Nenhum veículo ainda. Use + Carro, + Van ou + Caminhão.</div>') + '</div>';
     if (S.selMov.size) {
       const ns = [...S.selMov].map(id => S.idx.notaPorId.get(id)), t = N.somar(ns);
       h += '<div class="car-mover"><b>' + ns.length + ' nota' + (ns.length === 1 ? '' : 's') + '</b> · ' + m$(t.valor) + ' → mover para <select id="mv-dest" class="filtro">' + op.carros.map(c => '<option value="' + c.id + '">' + esc(N.rotuloCarro(c)) + '</option>').join('') + '</select>' +
@@ -733,12 +790,24 @@
     const card = $('#geo-res'), i = S.geo.sel && munInfo(S.geo.sel);
     if (!i) card.innerHTML = '<p class="vazio-g">Clique numa cidade do mapa, ou digite o nome acima, para ver a região e a base dela.</p>';
     else {
-      const em = regs.filter(r => r.cidades.includes(i.code)), fora = N.foraDeRota(i.code, i.uf), aj = S.cfg.fora[i.code];
-      card.innerHTML = '<h2>' + esc(i.nome) + ' <span class="tag">' + esc(i.uf) + '</span></h2>' +
-        '<div><b>Regiões e bases</b><br>' + (em.length ? em.map(r => '<span class="geo-chip" style="--cor:' + (r.cor || '#888') + '">' + esc(r.nome) + ' <button type="button" data-geo-tirar="' + esc(r.id) + '" title="Tirar a cidade desta lista" aria-label="Tirar de ' + esc(r.nome) + '">×</button></span>').join('') : '<span class="vazio-g">Em nenhuma lista.</span>') + '</div>' +
-        '<div style="margin-top:8px"><span class="geo-st ' + (fora ? 'fora' : 'rota') + '">' + (fora ? 'FORA DE ROTA' : 'EM ROTA') + '</span>' + (aj ? ' <small>ajuste manual · <button type="button" class="lib" data-geo-aj="limpar">voltar ao automático</button></small>' : '') + '</div>' +
-        '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><select id="geo-add-sel" class="filtro" aria-label="Lista">' + regs.map(r => '<option value="' + esc(r.id) + '">' + esc(r.nome) + '</option>').join('') + '</select><button type="button" class="btn mini pri" data-geo-add="1">Adicionar a esta lista</button></div>' +
-        '<div style="margin-top:8px"><button type="button" class="btn mini" data-geo-aj="' + (fora ? 'rota' : 'fora') + '">' + (fora ? 'Contar como em rota' : 'Contar como fora de rota') + '</button></div>';
+      const fora = N.foraDeRota(i.code, i.uf), aj = S.cfg.fora[i.code];
+      const bloco = (tp, rot) => {
+        const em = regs.filter(r => r.tipo === tp && r.cidades.includes(i.code)), ops = regs.filter(r => r.tipo === tp).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+        const et = r => '<span class="geo-et"><i style="background:' + (r.cor || '#888') + '"></i>' + esc(r.nome) + '</span>';
+        const corpo = em.length ? em.map(et).join('<br>') + (em.length > 1 ? '<p class="geo-expl">A cidade está em ' + em.length + ' listas.</p>' : '') : '<span class="geo-et">Nenhuma</span><p class="geo-expl">Esta cidade não está em nenhuma lista de ' + (tp === 'base' ? 'bases' : 'regiões') + '.</p>';
+        const atual = em.length === 1 ? em[0].id : '';
+        const ens = '<div class="geo-ensinar"><select data-geo-sel="' + tp + '" aria-label="' + (em.length ? 'Mover para outra' : 'Colocar numa') + ' ' + rot + '"><option value="">' + (em.length > 1 ? 'Está em ' + em.length + ' listas — deixar só em…' : em.length ? 'Mover para…' : 'Colocar em…') + '</option>' +
+          ops.map(r => '<option value="' + esc(r.id) + '"' + (r.id === atual ? ' disabled' : '') + '>' + esc(r.nome) + '</option>').join('') + (em.length ? '<option value="-">Nenhuma (tirar das listas)</option>' : '') + '</select>' +
+          '<button class="btn mini pri" type="button" data-geo-mover="' + tp + '">' + (em.length ? 'Mover' : 'Ensinar') + '</button></div>';
+        return '<div class="geo-linha"><div class="rotulo">' + rot + ' <span class="geo-fonte ' + (em.length ? 'lista' : 'fora') + '">' + (em.length ? 'na lista' : 'fora das listas') + '</span></div>' + corpo + ens + '</div>';
+      };
+      const doCid = S.idx && S.idx.lista ? S.idx.lista.find(c => String(c.code) === String(i.code)) : null, tt = doCid ? N.somar(doCid.notas) : null;
+      card.innerHTML = '<h2>' + esc(i.nome) + '/' + esc(i.uf) + '</h2><div class="ibge">IBGE ' + esc(i.code) + '</div>' + bloco('regiao', 'Região (rota)') + bloco('base', 'Base') +
+        '<div class="geo-linha"><div class="rotulo">Conta como</div><span class="geo-st ' + (fora ? 'fora' : 'rota') + '">' + (fora ? 'FORA DE ROTA' : 'EM ROTA') + '</span>' + (aj ? ' <small>ajuste manual · <button type="button" class="lib" data-geo-aj="limpar">voltar ao automático</button></small>' : '') +
+        '<div style="margin-top:8px"><button type="button" class="btn mini" data-geo-aj="' + (fora ? 'rota' : 'fora') + '">' + (fora ? 'Contar como em rota' : 'Contar como fora de rota') + '</button></div></div>' +
+        '<div class="geo-linha"><div class="rotulo">Na operação aberta</div>' + (tt && tt.notas ? '<p class="geo-expl" style="font-size:var(--fs)">' + i$(tt.notas) + ' nota(s), ' + i$(tt.vol) + ' volume(s), ' + m$(tt.valor) + '</p>' : '<p class="geo-expl">Nenhuma nota desta cidade.</p>') + '</div>' +
+        (S.geo.desfazer ? '<div class="geo-linha"><button type="button" class="btn mini" data-geo-desf="1">↶ Desfazer a última mudança de lista</button></div>' : '');
+
     }
     /* listas cadastradas */
     $('#geo-listas').innerHTML = regs.map(r => '<div class="geo-lista" style="--cor:' + (r.cor || '#888') + '"><i></i><span><b>' + esc(r.nome) + '</b> <small>' + (r.tipo === 'base' ? 'base' : 'região') + ' · ' + r.cidades.length + ' cidades</small></span>' +
@@ -780,10 +849,16 @@
     $('#geo-ver-tudo').onclick = () => { S.geo.foco = null; geoEnquadrarTudo(); renderGeo(); };
     $('#geo-res').addEventListener('click', e => {
       const i = S.geo.sel && munInfo(S.geo.sel); if (!i) return;
-      const tirar = e.target.closest('[data-geo-tirar]'), add = e.target.closest('[data-geo-add]'), aj = e.target.closest('[data-geo-aj]');
-      if (tirar) { const r = S.reg.regioes.find(x => x.id === tirar.dataset.geoTirar); if (r) { r.cidades = r.cidades.filter(c => c !== i.code); salvarReg(); toast(i.nome + ' saiu de ' + r.nome + '.'); } }
-      else if (add) { const r = S.reg.regioes.find(x => x.id === $('#geo-add-sel').value); if (r && !r.cidades.includes(i.code)) { r.cidades.push(i.code); salvarReg(); toast(i.nome + ' entrou em ' + r.nome + '.'); } }
-      else if (aj) { const v = aj.dataset.geoAj; if (v === 'limpar') delete S.cfg.fora[i.code]; else S.cfg.fora[i.code] = v; salvarCfg(); renderGeo(); }
+      const mov = e.target.closest('[data-geo-mover]'), aj = e.target.closest('[data-geo-aj]'), desf = e.target.closest('[data-geo-desf]');
+      if (mov) {
+        const tp = mov.dataset.geoMover, sel = mov.parentElement.querySelector('select'); if (!sel.value) { toast('Escolha a lista na caixa ao lado.'); return; }
+        S.geo.desfazer = JSON.stringify(S.reg);
+        const de = [];
+        for (const l of S.reg.regioes) if (l.tipo === tp && l.cidades.includes(i.code) && l.id !== sel.value) { l.cidades = l.cidades.filter(c => c !== i.code); de.push(l.nome); }
+        const dest = sel.value === '-' ? null : S.reg.regioes.find(x => x.id === sel.value); if (dest && !dest.cidades.includes(i.code)) dest.cidades.push(i.code);
+        salvarReg(); toast(i.nome + ': ' + (dest ? 'agora em ' + dest.nome : 'tirada das listas') + (de.length ? ' (saiu de ' + de.join(', ') + ')' : '') + '. Já vale em todo o programa.');
+      } else if (desf) { if (S.geo.desfazer) { S.reg = JSON.parse(S.geo.desfazer); S.geo.desfazer = null; salvarReg(); toast('Última mudança de lista desfeita.'); } }
+      if (aj) { const v = aj.dataset.geoAj; if (v === 'limpar') delete S.cfg.fora[i.code]; else S.cfg.fora[i.code] = v; salvarCfg(); renderGeo(); }
     });
     $('#geo-listas').addEventListener('click', async e => {
       const ver = e.target.closest('[data-geo-ver]'), del = e.target.closest('[data-geo-del]');
@@ -1061,9 +1136,10 @@
     document.addEventListener('keydown', e => {
       const emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
       const so = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey, tecla = e.key.toLowerCase();
-      if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
+      if (so && tecla === 's') { e.preventDefault(); if (!S.modoMapa) salvarAgora(); }
+      else if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
       else if (so && tecla === 'l' && !S.modoMapa && !document.querySelector('.fundo')) { e.preventDefault(); RT.sit.abrirBusca(); } // Ctrl+L: abre a busca de nota
-      else if (so && tecla === 'v' && !emCampo && !S.modoMapa && tela === 'rotas' && !$('#jan-pend').hidden && !document.querySelector('.fundo')) { e.preventDefault(); ciclarOrdemPend(); } // Ctrl+V: A–Z → maior volume → maior valor → A–Z
+      else if (so && tecla === 'v' && !emCampo && !S.modoMapa && !document.querySelector('.fundo')) { if (tela === 'rotas' && ciclarOrdemFoco()) e.preventDefault(); else if (tela === 'notas') { e.preventDefault(); ciclarOrdemNotas(); } } // Ctrl+V: A–Z → maior volume → maior valor → A–Z, na janela em foco
       else if (e.key === 'Escape' && !document.querySelector('.fundo')) {
         if (!$('#mural').hidden) muralFechar(); else if (S.cidadeAberta) fecharCidade();
       }
@@ -1078,7 +1154,7 @@
 
   /* ================= abertura do app ================= */
   async function boot() {
-    $('#versao').textContent = 'versão ' + VERSAO;
+    $('#versao').textContent = 'versão ' + VERSAO; ligarLateral();
     S.mapa = new RT.Mapa($('#mapa-area'), {
       onClique: h => { if (S.modoMapa) { if (h) enviar({ t: 'clique', key: h.key }); return; } if (h) abrirCidade(h.key, { centrar: false }); else if (S.cidadeAberta && !draftSujo()) fecharCidade(true); },
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
@@ -1086,7 +1162,7 @@
     });
     RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
     ligar(); ligarCanal();
-    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Route · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
+    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health LOG · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
     const okDb = await DB.abrir();
     if (!okDb) { statusSalvo('erro', DB.erro || 'banco indisponível'); }
     try {
@@ -1119,6 +1195,12 @@
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
+  /* clicar numa janela flutuante (em qualquer ponto, inclusive na moldura) a deixa em foco: borda destacada e atalhos valem nela */
+  document.addEventListener('pointerdown', e => {
+    const j = e.target.closest && e.target.closest('.jan'); const id = j ? j.id : null;
+    if (id === S.janFoco) return; S.janFoco = id;
+    $$('.jan').forEach(x => x.classList.toggle('foco', x.id === id));
+  }, true);
   RT.A = { backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

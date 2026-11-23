@@ -301,7 +301,7 @@
       const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
       this._cores = {
         fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#0F3438' : '#E9F3F2', destaque: escuro ? '#2FB5AC' : '#7FCFC8',
-        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', linhaT: escuro ? 'rgba(130,200,205,.28)' : 'rgba(40,90,95,.30)', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#8DB2B6' : '#6F8587', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
+        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', linhaT: escuro ? 'rgba(130,200,205,.28)' : 'rgba(40,90,95,.30)', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#8DB2B6' : '#6F8587', estado: escuro ? 'rgba(255,255,255,.88)' : '#5F8C92', tinta: v('--tinta') || '#0F2E33',
         teal: v('--teal') || '#0F4B55', sup: v('--sup') || '#fff', livre: escuro ? '#9CC3C5' : '#5B7C80', escuro
       };
       return this._cores;
@@ -321,7 +321,7 @@
         const pl = code && this.poli.get(code); if (!pl) continue;
         ctx.lineWidth = (code === G.sel ? 3 : 2) / k; ctx.strokeStyle = P.tinta; ctx.stroke(pl.path);
       }
-      ctx.strokeStyle = P.estado; ctx.lineWidth = 1.3 / k; for (const p of this.estados) ctx.stroke(p);
+      ctx.strokeStyle = P.estado; ctx.lineWidth = 2 / k; ctx.lineJoin = 'round'; for (const p of this.estados) ctx.stroke(p);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.font = '600 11px "Barlow","Barlow Semi Condensed",system-ui,sans-serif';
       const caixas = []; let n = 0;
@@ -378,7 +378,7 @@
         ctx.strokeStyle = c.key === this.sel ? P.tinta : (emCarro ? c.cores[0].cor : (re === 'forte' ? (comTiles ? P.destaque : P.linha2) : (comTiles ? P.linhaT : P.linha)));
         ctx.stroke(pl.path);
       }
-      ctx.strokeStyle = P.estado; ctx.lineWidth = 1.3 / k;
+      ctx.strokeStyle = P.estado; ctx.lineWidth = 2 / k; ctx.lineJoin = 'round';
       for (const p of this.estados) ctx.stroke(p);
       this._bgSujo = false;
     }
