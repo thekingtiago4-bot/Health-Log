@@ -109,30 +109,40 @@
       </div>
     </section>
 
-    <!-- GEOLOCALIZAÇÃO (mesma ideia do Health Search) -->
+    <!-- GEOLOCALIZAÇÃO (mesma organização do Health Search) -->
     <section class="tela" id="t-geo" aria-labelledby="h-geo" hidden>
-      <h1 id="h-geo">Geolocalização</h1>
-      <p class="sub">Veja a região (rota) e a base de cada cidade. Clique numa cidade do mapa ou digite o nome. O que for "Fora de rota" aparece no mapa da montagem, mas fica separado na lista de pendentes. Dá para mudar as listas aqui.</p>
-      <div class="geo-topo"><div class="campo-cidade"><input id="geo-q" class="filtro" style="width:min(420px,100%);min-height:44px;font-size:1.05rem" placeholder="Cidade (ex.: Presidente Prudente)" autocomplete="off" aria-label="Cidade"><ul class="sug" id="geo-sug" hidden></ul></div></div>
+      <div class="geo-titulo"><h1 id="h-geo">Geolocalização</h1><button type="button" class="geo-q" id="geo-ajuda" aria-label="Como funciona" title="Como funciona">?</button></div>
+      <p class="sub">Digite a cidade e veja a região (rota) e a base que atendem. Cidade que não está em nenhuma lista, mas fica dentro da área de uma região, ganha etiqueta automática: confirme ou corrija, e o programa aprende.</p>
+      <div class="geo-topo">
+        <div class="campo-cidade geo-busca"><span class="geo-pin"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><input id="geo-q" class="filtro" placeholder="Cidade (ex.: Varginha, Uberaba, Marília)" autocomplete="off" aria-label="Cidade"><ul class="sug" id="geo-sug" hidden></ul></div>
+        <button class="btn grande" id="geo-bt-alim" type="button" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 17v3h16v-3"/></svg> Alimentar</button>
+      </div>
+      <div class="geo-alim" id="geo-alim" hidden>
+        <label class="geo-soltar" id="geo-soltar" tabindex="0"><b>Arraste uma lista de cidades (.txt) aqui</b><span>ou</span><span class="btn pri">Escolher arquivo</span><input type="file" id="geo-arq" accept=".txt,.csv,text/plain" hidden></label>
+        <details class="geo-colar" open><summary>Ou cole uma lista de cidades</summary>
+          <div class="geo-col-grid"><label>Nome da lista<input id="geo-c-nome" class="filtro" placeholder="Ex.: Triângulo Mineiro" autocomplete="off"></label>
+            <label>Tipo<select id="geo-c-tipo" class="filtro"><option value="regiao">Região (rota)</option><option value="base">Base</option></select></label>
+            <label>Conta como<select id="geo-c-grupo" class="filtro"><option value="rota">Em rota</option><option value="fora">Fora de rota</option></select></label>
+            <button class="btn pri" id="geo-c-ok" type="button">Ler lista</button></div>
+          <textarea id="geo-c-txt" class="filtro" style="width:100%;min-height:110px;margin-top:8px" placeholder="Uma cidade por linha. Pode ter /UF no fim (ex.: Passos/MG)"></textarea>
+          <p class="dica" id="geo-c-res"></p>
+        </details>
+        <div class="barra-geo"><h2>Listas cadastradas</h2><button class="btn mini" id="geo-orig" type="button" title="Volta às listas que vieram do Health Search, descartando suas edições">Restaurar listas originais</button></div>
+        <div id="geo-listas"></div>
+        <div class="barra-geo"><h2>Para conferir</h2><button class="btn mini pri" id="geo-conf-todas" type="button">Confirmar todas</button></div>
+        <p class="sub" style="margin:0 0 8px">Cidades <b>da operação aberta</b> que não estão em nenhuma lista, mas ficam dentro da área de uma região ou base (etiqueta automática).</p>
+        <div id="geo-conferir"></div>
+      </div>
       <div class="geo-grid">
         <div class="geo-card" id="geo-res" aria-live="polite"></div>
-        <div class="geo-mapa">
-          <div class="ferr"><span class="seg" role="group" aria-label="Camada"><button type="button" data-geo-tipo="regiao" aria-pressed="true">Regiões</button><button type="button" data-geo-tipo="base" aria-pressed="false">Bases</button></span><span style="flex:1"></span>
-            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button></div>
+        <div class="geo-mapa" id="geo-mapa">
+          <div class="ferr"><span class="seg" role="group" aria-label="Camada"><button type="button" data-geo-tipo="regiao" aria-pressed="true">Regiões</button><button type="button" data-geo-tipo="base" aria-pressed="false">Bases</button></span>
+            <label class="geo-auto"><input type="checkbox" id="geo-auto" checked> Mostrar etiquetas automáticas</label><span style="flex:1"></span>
+            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button><button class="btn mini" type="button" id="geo-cheia" title="Mapa em tela cheia">Tela cheia</button></div>
           <div class="geo-box" id="geo-box"><div class="dica-mapa" id="geo-tip" hidden></div></div>
           <div class="geo-leg" id="geo-leg"></div>
         </div>
       </div>
-      <div class="barra-geo"><h2>Listas cadastradas</h2><button class="btn mini" id="geo-orig" type="button" title="Volta às listas que vieram do Health Search, descartando suas edições">Restaurar listas originais</button></div>
-      <div id="geo-listas"></div>
-      <details class="geo-colar"><summary>Colar uma lista de cidades</summary>
-        <div class="geo-col-grid"><label>Nome da lista<input id="geo-c-nome" class="filtro" placeholder="Ex.: Triângulo Mineiro" autocomplete="off"></label>
-          <label>Tipo<select id="geo-c-tipo" class="filtro"><option value="regiao">Região (rota)</option><option value="base">Base</option></select></label>
-          <label>Conta como<select id="geo-c-grupo" class="filtro"><option value="rota">Em rota</option><option value="fora">Fora de rota</option></select></label>
-          <button class="btn pri" id="geo-c-ok" type="button">Ler lista</button></div>
-        <textarea id="geo-c-txt" class="filtro" style="width:100%;min-height:110px;margin-top:8px" placeholder="Uma cidade por linha. Pode ter /UF no fim (ex.: Passos/MG)"></textarea>
-        <p class="dica" id="geo-c-res"></p>
-      </details>
     </section>
 
     <!-- RELATÓRIOS -->

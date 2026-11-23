@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.21.0';
+  const VERSAO = '0.22.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -799,7 +799,8 @@
 
   /* ================= geolocalização (regiões e bases, como no Health Search) ================= */
   const CORES_REG = ['#2A9D8F', '#E07A1F', '#7B5CC4', '#D1495B', '#3A86C8', '#137F7A', '#3D5A80', '#B5651D', '#4C9A2A', '#C77DFF', '#E9A23B', '#6D597A', '#2B9348', '#BC4749'];
-  S.geo = { mapa: null, tipo: 'regiao', sel: null, foco: null };
+  S.geo = { mapa: null, tipo: 'regiao', sel: null, foco: null, ocultos: new Set() };
+  const GEO_UFS = new Set('SP MG GO MS PR RJ ES DF'.split(' ')), GEO_RAIO = 50, GEO_K = 8, GEO_MAX = 160;
   async function carregarReg() {
     let base = null;
     try { base = await (await fetch('data/regioes.json')).json(); } catch (e) { console.warn('regiões originais não carregaram', e); }
@@ -807,19 +808,57 @@
     let usar = null;
     try { const r = await DB.get('meta', 'regioes'); if (r && r.v && Array.isArray(r.v.regioes)) usar = r.v; } catch (e) { /* usa as originais */ }
     S.reg = usar || (base ? JSON.parse(JSON.stringify(base)) : { regioes: [] });
+    if (!S.reg.aprend) S.reg.aprend = {};
     N.setRegioes(S.reg);
   }
   function salvarReg() {
-    N.setRegioes(S.reg);
+    S.geoCls = null; N.setRegioes(S.reg);
     DB.put('meta', { k: 'regioes', v: S.reg }).then(() => enviar({ t: 'cfg' })).catch(e => statusSalvo('erro', 'não consegui salvar as regiões: ' + ((e && e.message) || e)));
     reindexar(); atualizarTudo(); renderGeo();
   }
   const munInfo = code => (S.mun && S.mun[code]) ? { code, nome: S.mun[code][0], uf: S.mun[code][1], lat: S.mun[code][2], lon: S.mun[code][3] } : null;
+  const kmDist = (a, b) => { const la = (a.lat + b.lat) / 2 * Math.PI / 180, dx = (a.lon - b.lon) * 111.32 * Math.cos(la), dy = (a.lat - b.lat) * 110.57; return Math.sqrt(dx * dx + dy * dy); };
+  /* ---- classificação de cada cidade (igual à do Health Search) ----
+     lista = está numa lista · aprendido = você ensinou · auto = fora das listas mas dentro da área de uma (vizinhas mais próximas) ·
+     fora = longe demais de qualquer lista · sem = sem coordenadas */
+  function geoIndice(tipo) {
+    const I = (S.geoCls = S.geoCls || {})[tipo + '#i']; if (I) return I;
+    const pts = [], membro = new Map();
+    for (const l of S.reg.regioes) if (l.tipo === tipo) for (const c of l.cidades) { const k = String(c); if (!membro.has(k)) membro.set(k, []); if (!membro.get(k).includes(l.id)) membro.get(k).push(l.id); const p = munInfo(k); if (p) pts.push({ c: k, id: l.id, lat: p.lat, lon: p.lon }); }
+    for (const k in S.reg.aprend || {}) { const id = (S.reg.aprend[k] || {})[tipo]; if (!id || id === '-' || membro.has(k) || !S.reg.regioes.some(x => x.id === id)) continue; const p = munInfo(k); if (p) pts.push({ c: k, id, lat: p.lat, lon: p.lon }); }
+    return (S.geoCls[tipo + '#i'] = { pts, membro });
+  }
+  function geoClasse(code, tipo) {
+    const k = String(code), memo = (S.geoCls = S.geoCls || {})[tipo] || (S.geoCls[tipo] = new Map()); if (memo.has(k)) return memo.get(k);
+    const I = geoIndice(tipo); let r;
+    if (I.membro.has(k)) r = { ids: I.membro.get(k), fonte: 'lista' };
+    else {
+      const ap = ((S.reg.aprend || {})[k] || {})[tipo];
+      if (ap === '-') r = { ids: [], fonte: 'aprendido' };
+      else if (ap && S.reg.regioes.some(x => x.id === ap)) r = { ids: [ap], fonte: 'aprendido' };
+      else {
+        const p = munInfo(k);
+        if (!p) r = { ids: [], fonte: 'sem' };
+        else {
+          const near = []; for (const q of I.pts) { if (q.c === k) continue; const d = kmDist(p, q); if (d <= GEO_MAX) near.push({ q, d }); }
+          near.sort((x, y) => x.d - y.d); const vz = near.slice(0, GEO_K);
+          if (!vz.length) r = { ids: [], fonte: 'fora' };
+          else {
+            const v = {}; for (const { q, d } of vz) v[q.id] = (v[q.id] || 0) + 1 / ((d + 6) ** 2);
+            const tot = Object.values(v).reduce((s, x) => s + x, 0), [id, w] = Object.entries(v).sort((x, y) => y[1] - x[1])[0];
+            const dn = vz.find(x => x.q.id === id).d, viz = vz.filter(x => x.q.id === id).slice(0, 3).map(x => ({ c: x.q.c, d: Math.round(x.d) }));
+            r = dn > GEO_RAIO ? { ids: [], fonte: 'fora', sug: id, dn: Math.round(dn), viz } : { ids: [id], fonte: 'auto', conf: Math.round(100 * w / tot), dn: Math.round(dn), viz };
+          }
+        }
+      }
+    }
+    memo.set(k, r); return r;
+  }
   function geoGarantirMapa() {
     if (S.geo.mapa) return S.geo.mapa;
     const m = S.geo.mapa = new RT.Mapa($('#geo-box'), {
       onClique: h => { if (h) geoSelecionar(h.code, false); },
-      onHover: (h, e) => { const t = $('#geo-tip'); if (!h) { t.hidden = true; return; } const rs = (S.reg.regioes || []).filter(r => r.cidades.includes(h.code)).map(r => r.nome); t.innerHTML = '<b>' + esc(h.nome) + (h.uf ? '/' + esc(h.uf) : '') + '</b>' + (rs.length ? '<br>' + esc(rs.join(' · ')) : '<br>sem lista'); t.hidden = false; const a = $('#geo-box').getBoundingClientRect(); t.style.left = Math.min(a.width - 270, e.clientX - a.left + 14) + 'px'; t.style.top = Math.max(4, e.clientY - a.top + 14) + 'px'; },
+      onHover: (h, e) => { const t = $('#geo-tip'); if (!h) { t.hidden = true; return; } const c = geoClasse(h.code, S.geo.tipo), ids = c.ids.map(id => (S.reg.regioes.find(r => r.id === id) || {}).nome).filter(Boolean); t.innerHTML = '<b>' + esc(h.nome) + (h.uf ? '/' + esc(h.uf) : '') + '</b>' + (ids.length ? '<br>' + esc(ids.join(' · ')) + (c.fonte === 'auto' ? ' (automático)' : c.fonte === 'aprendido' ? ' (ensinado)' : '') : '<br>sem lista'); t.hidden = false; const a = $('#geo-box').getBoundingClientRect(); t.style.left = Math.min(a.width - 180, Math.max(4, e.clientX - a.left + 14)) + 'px'; t.style.top = Math.max(4, e.clientY - a.top + 14) + 'px'; },
       onMover: () => { $('#geo-tip').hidden = true; }
     }, { semBase: true });
     m.setPoligonosDe(S.mapa);
@@ -830,42 +869,76 @@
     S.geo.sel = code; renderGeo();
     const i = munInfo(code); if (i && centrar && S.geo.mapa) S.geo.mapa.enquadrarPontos([{ lat: i.lat + 0.6, lon: i.lon - 0.8 }, { lat: i.lat - 0.6, lon: i.lon + 0.8 }]);
   }
+  const geoNomeLista = id => (S.reg.regioes.find(r => r.id === id) || {}).nome || id;
+  const geoCorLista = id => (S.reg.regioes.find(r => r.id === id) || {}).cor || '#888';
+  function geoBloco(code, tp) {
+    const rot = tp === 'base' ? 'Base' : 'Região (rota)', r = geoClasse(code, tp);
+    const nomeL = id => '<span class="geo-et"><i style="background:' + esc(geoCorLista(id)) + '"></i>' + esc(geoNomeLista(id)) + '</span>';
+    const viz = v => (v || []).map(x => { const o = munInfo(x.c); return o ? esc(o.nome) + ' (' + x.d + ' km)' : ''; }).filter(Boolean).join(', ');
+    const ops = S.reg.regioes.filter(l => l.tipo === tp).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+    let fonte = '', corpo = '', acoes = '';
+    if (r.fonte === 'lista') {
+      fonte = '<span class="geo-fonte lista">na lista</span>'; corpo = r.ids.map(nomeL).join('<br>') + (r.ids.length > 1 ? '<p class="geo-expl">A cidade está em ' + r.ids.length + ' listas.</p>' : '');
+      const atual = r.ids.length === 1 ? r.ids[0] : '';
+      acoes = '<div class="geo-ensinar geo-mover"><select data-geo-sel="' + tp + '" aria-label="Mover para outra ' + rot + '"><option value="">' + (r.ids.length > 1 ? 'Está em ' + r.ids.length + ' listas — deixar só em…' : 'Mover para…') + '</option>' + ops.map(l => '<option value="' + esc(l.id) + '"' + (l.id === atual ? ' disabled' : '') + '>' + esc(l.nome) + '</option>').join('') + '<option value="-">Nenhuma (tirar das listas)</option></select><button class="btn mini pri" type="button" data-geo-mover="' + tp + '">Mover</button></div>';
+    } else {
+      if (r.fonte === 'aprendido') { fonte = '<span class="geo-fonte aprendido">ensinado por você</span>'; corpo = r.ids.length ? nomeL(r.ids[0]) : '<span class="geo-et">Nenhuma</span>'; }
+      else if (r.fonte === 'auto') { fonte = '<span class="geo-fonte auto">automático · ' + r.conf + '% de certeza</span>'; corpo = nomeL(r.ids[0]) + '<p class="geo-expl">Não está em nenhuma lista, mas fica dentro da área desta ' + (tp === 'base' ? 'base' : 'região') + ': perto de ' + viz(r.viz) + '.</p>'; }
+      else if (r.fonte === 'fora') { fonte = '<span class="geo-fonte fora">fora das listas</span>'; corpo = '<span class="geo-et">Nenhuma</span><p class="geo-expl">' + (r.sug ? 'A mais perto é ' + esc(geoNomeLista(r.sug)) + ', a ' + r.dn + ' km (' + viz(r.viz) + '). Longe demais para etiquetar sozinho.' : 'Nenhuma lista tem cidades por perto.') + '</p>'; }
+      else corpo = '<span class="geo-et">—</span><p class="geo-expl">Sem coordenadas desta cidade.</p>';
+      const atual = r.fonte === 'auto' ? '' : (r.ids[0] || r.sug || '');
+      acoes = '<div class="geo-ensinar">' + (r.fonte === 'auto' ? '<button class="btn mini pri" type="button" data-geo-conf="' + tp + '">Confirmar</button>' : '') +
+        '<select data-geo-sel="' + tp + '" aria-label="Corrigir ' + rot + '"><option value="">Corrigir para…</option>' + ops.map(l => '<option value="' + esc(l.id) + '"' + (l.id === atual && r.fonte !== 'auto' ? ' selected' : '') + '>' + esc(l.nome) + '</option>').join('') + '<option value="-">Nenhuma</option></select>' +
+        '<button class="btn mini" type="button" data-geo-ens="' + tp + '">Ensinar</button>' + (r.fonte === 'aprendido' ? ' <button class="btn mini" type="button" data-geo-esq="' + tp + '">Esquecer</button>' : '') + '</div>';
+    }
+    return '<div class="geo-linha"><div class="rotulo">' + rot + ' ' + fonte + '</div>' + corpo + acoes + '</div>';
+  }
+  function geoEnsinar(code, tp, id) {
+    const k = String(code); S.geo.desfazer = JSON.stringify(S.reg);
+    S.reg.aprend = S.reg.aprend || {}; S.reg.aprend[k] = S.reg.aprend[k] || {};
+    if (id == null) delete S.reg.aprend[k][tp]; else S.reg.aprend[k][tp] = id;
+    if (!Object.keys(S.reg.aprend[k]).length) delete S.reg.aprend[k];
+    salvarReg();
+  }
   function renderGeo() {
-    if (tela !== 'geo' || !S.reg) return;
-    const m = geoGarantirMapa(), tipo = S.geo.tipo, regs = S.reg.regioes;
-    const cor = new Map();
-    for (const r of regs) if (r.tipo === tipo) for (const c of r.cidades) if (!cor.has(c)) cor.set(c, r.cor || '#888');
-    if (S.geo.foco) { const rf = regs.find(r => r.id === S.geo.foco); if (rf) for (const c of [...cor.keys()]) if (!rf.cidades.includes(c)) cor.delete(c); }
-    m.setGeo({ cor, sel: S.geo.sel });
+    if (tela !== 'geo' || !S.reg || !S.mun) return;
+    const m = geoGarantirMapa(), tipo = S.geo.tipo, regs = S.reg.regioes, auto = $('#geo-auto').checked;
+    const cor = new Map(), autoSet = new Set(), ens = new Set(), grupos = new Map(), cont = {};
+    for (const code in S.mun) {
+      if (!GEO_UFS.has(S.mun[code][1])) continue;
+      const r = geoClasse(code, tipo);
+      for (const id of r.ids) { const c = (cont[id] = cont[id] || { l: 0, a: 0 }); if (r.fonte === 'auto') c.a++; else c.l++; }
+      const id = r.ids.find(x => !S.geo.ocultos.has(x) && (!S.geo.foco || x === S.geo.foco)); if (!id || (r.fonte === 'auto' && !auto)) continue;
+      cor.set(code, geoCorLista(id)); if (r.fonte === 'auto') autoSet.add(code); else if (r.fonte === 'aprendido') ens.add(code);
+      if (!grupos.has(id)) grupos.set(id, []); grupos.get(id).push(code);
+    }
+    const rotulos = []; for (const [id, cods] of grupos) { if (cods.length < 3) continue; let la = 0, lo = 0; for (const c of cods) { la += S.mun[c][2]; lo += S.mun[c][3]; } rotulos.push({ nome: geoNomeLista(id), cor: geoCorLista(id), lat: la / cods.length, lon: lo / cods.length }); }
+    m.setGeo({ cor, auto: autoSet, ens, rotulos, sel: S.geo.sel });
     for (const b of $$('[data-geo-tipo]')) b.setAttribute('aria-pressed', String(b.dataset.geoTipo === tipo));
-    $('#geo-leg').innerHTML = regs.filter(r => r.tipo === tipo).map(r => '<span style="--cor:' + (r.cor || '#888') + '"><i></i>' + esc(r.nome) + '</span>').join('') || '<span>Nenhuma lista desse tipo.</span>';
+    $('#geo-leg').innerHTML = regs.filter(r => r.tipo === tipo).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR')).map(r => { const c = cont[r.id] || { l: 0, a: 0 }; return '<button type="button" data-geo-leg="' + esc(r.id) + '" aria-pressed="' + !S.geo.ocultos.has(r.id) + '" title="Mostrar ou esconder"><i style="background:' + esc(r.cor || '#888') + '"></i>' + esc(r.nome) + ' · ' + c.l.toLocaleString('pt-BR') + (c.a ? ' + ' + c.a.toLocaleString('pt-BR') + ' auto' : '') + '</button>'; }).join('') +
+      '<span class="simb"><b></b>na lista</span><span class="simb"><b class="anel"></b>automática</span><span class="simb"><b class="ens"></b>ensinada</span>';
     /* cartão da cidade escolhida */
     const card = $('#geo-res'), i = S.geo.sel && munInfo(S.geo.sel);
-    if (!i) card.innerHTML = '<p class="vazio-g">Clique numa cidade do mapa, ou digite o nome acima, para ver a região e a base dela.</p>';
-    else {
+    if (!i) {
+      const nl = regs.reduce((s, l) => s + l.cidades.length, 0);
+      card.innerHTML = '<h2>Escolha uma cidade</h2><p class="geo-expl">Digite acima ou toque num ponto do mapa.</p><p class="geo-expl"><b>' + regs.filter(r => r.tipo === 'regiao').length + '</b> regiões e <b>' + regs.filter(r => r.tipo === 'base').length + '</b> bases cadastradas, ' + nl.toLocaleString('pt-BR') + ' cidades nas listas, ' + Object.keys(S.reg.aprend || {}).length + ' ensinadas por você.</p>';
+    } else {
       const fora = N.foraDeRota(i.code, i.uf), aj = S.cfg.fora[i.code];
-      const bloco = (tp, rot) => {
-        const em = regs.filter(r => r.tipo === tp && r.cidades.includes(i.code)), ops = regs.filter(r => r.tipo === tp).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
-        const et = r => '<span class="geo-et"><i style="background:' + (r.cor || '#888') + '"></i>' + esc(r.nome) + '</span>';
-        const corpo = em.length ? em.map(et).join('<br>') + (em.length > 1 ? '<p class="geo-expl">A cidade está em ' + em.length + ' listas.</p>' : '') : '<span class="geo-et">Nenhuma</span><p class="geo-expl">Esta cidade não está em nenhuma lista de ' + (tp === 'base' ? 'bases' : 'regiões') + '.</p>';
-        const atual = em.length === 1 ? em[0].id : '';
-        const ens = '<div class="geo-ensinar"><select data-geo-sel="' + tp + '" aria-label="' + (em.length ? 'Mover para outra' : 'Colocar numa') + ' ' + rot + '"><option value="">' + (em.length > 1 ? 'Está em ' + em.length + ' listas — deixar só em…' : em.length ? 'Mover para…' : 'Colocar em…') + '</option>' +
-          ops.map(r => '<option value="' + esc(r.id) + '"' + (r.id === atual ? ' disabled' : '') + '>' + esc(r.nome) + '</option>').join('') + (em.length ? '<option value="-">Nenhuma (tirar das listas)</option>' : '') + '</select>' +
-          '<button class="btn mini pri" type="button" data-geo-mover="' + tp + '">' + (em.length ? 'Mover' : 'Ensinar') + '</button></div>';
-        return '<div class="geo-linha"><div class="rotulo">' + rot + ' <span class="geo-fonte ' + (em.length ? 'lista' : 'fora') + '">' + (em.length ? 'na lista' : 'fora das listas') + '</span></div>' + corpo + ens + '</div>';
-      };
       const doCid = S.idx && S.idx.lista ? S.idx.lista.find(c => String(c.code) === String(i.code)) : null, tt = doCid ? N.somar(doCid.notas) : null;
-      card.innerHTML = '<h2>' + esc(i.nome) + '/' + esc(i.uf) + '</h2><div class="ibge">IBGE ' + esc(i.code) + '</div>' + bloco('regiao', 'Região (rota)') + bloco('base', 'Base') +
+      card.innerHTML = '<h2>' + esc(i.nome) + '/' + esc(i.uf) + '</h2><div class="ibge">IBGE ' + esc(i.code) + '</div>' + geoBloco(i.code, 'regiao') + geoBloco(i.code, 'base') +
         '<div class="geo-linha"><div class="rotulo">Conta como</div><span class="geo-st ' + (fora ? 'fora' : 'rota') + '">' + (fora ? 'FORA DE ROTA' : 'EM ROTA') + '</span>' + (aj ? ' <small>ajuste manual · <button type="button" class="lib" data-geo-aj="limpar">voltar ao automático</button></small>' : '') +
         '<div style="margin-top:8px"><button type="button" class="btn mini" data-geo-aj="' + (fora ? 'rota' : 'fora') + '">' + (fora ? 'Contar como em rota' : 'Contar como fora de rota') + '</button></div></div>' +
         '<div class="geo-linha"><div class="rotulo">Na operação aberta</div>' + (tt && tt.notas ? '<p class="geo-expl" style="font-size:var(--fs)">' + i$(tt.notas) + ' nota(s), ' + i$(tt.vol) + ' volume(s), ' + m$(tt.valor) + '</p>' : '<p class="geo-expl">Nenhuma nota desta cidade.</p>') + '</div>' +
-        (S.geo.desfazer ? '<div class="geo-linha"><button type="button" class="btn mini" data-geo-desf="1">↶ Desfazer a última mudança de lista</button></div>' : '');
-
+        (S.geo.desfazer ? '<div class="geo-linha"><button type="button" class="btn mini" data-geo-desf="1">↶ Desfazer a última mudança</button></div>' : '');
     }
     /* listas cadastradas */
     $('#geo-listas').innerHTML = regs.map(r => '<div class="geo-lista" style="--cor:' + (r.cor || '#888') + '"><i></i><span><b>' + esc(r.nome) + '</b> <small>' + (r.tipo === 'base' ? 'base' : 'região') + ' · ' + r.cidades.length + ' cidades</small></span>' +
       '<select class="filtro" data-geo-grupo="' + esc(r.id) + '" aria-label="Conta como" style="min-height:30px;padding:2px 6px"><option value="rota"' + (r.grupo !== 'fora' ? ' selected' : '') + '>Em rota</option><option value="fora"' + (r.grupo === 'fora' ? ' selected' : '') + '>Fora de rota</option></select>' +
       '<button type="button" class="btn mini" data-geo-ver="' + esc(r.id) + '">' + (S.geo.foco === r.id ? 'Ver todas' : 'Ver no mapa') + '</button><button type="button" class="btn mini perigo" data-geo-del="' + esc(r.id) + '">Excluir</button></div>').join('');
+    /* para conferir: cidades da operação com etiqueta automática */
+    const conf = []; if (S.idx) for (const c of S.idx.lista) { if (!c.code) continue; for (const tp of ['regiao', 'base']) { const r = geoClasse(c.code, tp); if (r.fonte === 'auto') conf.push({ c, tp, r }); } }
+    $('#geo-conferir').innerHTML = conf.length ? conf.map(x => '<div class="geo-lista" style="--cor:' + geoCorLista(x.r.ids[0]) + '"><i></i><span><b>' + esc(x.c.nome) + '/' + esc(x.c.uf) + '</b> <small>' + (x.tp === 'base' ? 'base' : 'região') + ' → ' + esc(geoNomeLista(x.r.ids[0])) + ' · ' + x.r.conf + '% de certeza</small></span><button type="button" class="btn mini" data-geo-ir="' + esc(x.c.code) + '">Ver</button><button type="button" class="btn mini pri" data-geo-conf1="' + esc(x.c.code) + '|' + x.tp + '">Confirmar</button></div>').join('') : '<p class="dica">Nenhuma cidade da operação aberta precisa de conferência.</p>';
+    $('#geo-conf-todas').disabled = !conf.length;
   }
   async function geoColarLista() {
     const nome = $('#geo-c-nome').value.trim(), txt = $('#geo-c-txt').value, res = $('#geo-c-res');
@@ -897,7 +970,27 @@
     q.addEventListener('keydown', e => { if (e.key === 'Enter') { const r = achar(); if (r[0]) { geoSelecionar(r[0][0], true); sug.hidden = true; } } });
     sug.addEventListener('mousedown', e => { const li = e.target.closest('li'); if (li) { geoSelecionar(li.dataset.code, true); sug.hidden = true; q.value = ''; } });
     q.addEventListener('blur', () => setTimeout(() => { sug.hidden = true; }, 150));
-    for (const b of $$('[data-geo-tipo]')) b.onclick = () => { S.geo.tipo = b.dataset.geoTipo; S.geo.foco = null; renderGeo(); };
+    for (const b of $$('[data-geo-tipo]')) b.onclick = () => { S.geo.tipo = b.dataset.geoTipo; S.geo.foco = null; S.geo.ocultos.clear(); renderGeo(); };
+    $('#geo-auto').onchange = () => renderGeo();
+    $('#geo-bt-alim').onclick = () => { const p = $('#geo-alim'); p.hidden = !p.hidden; $('#geo-bt-alim').setAttribute('aria-expanded', String(!p.hidden)); };
+    $('#geo-cheia').onclick = () => { const el = $('#geo-mapa'); if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => toast('O navegador não deixou abrir em tela cheia.')); };
+    document.addEventListener('fullscreenchange', () => { const el = $('#geo-mapa'); el.classList.toggle('cheia', document.fullscreenElement === el); $('#geo-cheia').textContent = document.fullscreenElement === el ? 'Sair da tela cheia' : 'Tela cheia'; setTimeout(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); S.geo.mapa.marcar(); } }, 120); });
+    $('#geo-ajuda').onclick = () => U.aviso('Como funciona a Geolocalização', '<p><b>Região (rota)</b> é a área de entrega que atende a cidade; <b>Base</b> é de onde o veículo sai. Cada lista tem uma cor.</p><p><b>na lista</b>: a cidade está escrita numa das listas. <b>automática</b>: não está em lista nenhuma, mas fica no meio de cidades de uma região — o app sugere (com % de certeza); clique em <b>Confirmar</b> ou corrija. <b>ensinada</b>: você confirmou/corrigiu, e isso passa a valer em todo o programa (inclusive fora de rota).</p><p>Clique num nome da legenda para esconder ou mostrar a lista no mapa.</p>');
+    const lerArq = f => { const r = new FileReader(); r.onload = () => { $('#geo-c-txt').value = String(r.result || ''); if (!$('#geo-c-nome').value) $('#geo-c-nome').value = f.name.replace(/\.[^.]+$/, ''); $('#geo-c-res').textContent = 'Arquivo lido. Confira o nome, o tipo e clique em Ler lista.'; }; r.readAsText(f); };
+    $('#geo-arq').onchange = e => { if (e.target.files[0]) lerArq(e.target.files[0]); e.target.value = ''; };
+    const sol = $('#geo-soltar'); sol.addEventListener('dragover', e => { e.preventDefault(); sol.classList.add('sobre'); }); sol.addEventListener('dragleave', () => sol.classList.remove('sobre')); sol.addEventListener('drop', e => { e.preventDefault(); sol.classList.remove('sobre'); const f = e.dataTransfer.files[0]; if (f) lerArq(f); });
+    $('#geo-leg').addEventListener('click', e => { const b = e.target.closest('[data-geo-leg]'); if (!b) return; const id = b.dataset.geoLeg; if (S.geo.ocultos.has(id)) S.geo.ocultos.delete(id); else S.geo.ocultos.add(id); renderGeo(); });
+    $('#geo-conferir').addEventListener('click', e => {
+      const ir = e.target.closest('[data-geo-ir]'), c1 = e.target.closest('[data-geo-conf1]');
+      if (ir) geoSelecionar(ir.dataset.geoIr, true);
+      if (c1) { const [cod, tp] = c1.dataset.geoConf1.split('|'), r = geoClasse(cod, tp); if (r.ids[0]) { geoEnsinar(cod, tp, r.ids[0]); toast('Confirmado.'); } }
+    });
+    $('#geo-conf-todas').onclick = async () => {
+      const lista = []; for (const c of (S.idx ? S.idx.lista : [])) { if (!c.code) continue; for (const tp of ['regiao', 'base']) { const r = geoClasse(c.code, tp); if (r.fonte === 'auto') lista.push([c.code, tp, r.ids[0]]); } }
+      if (!lista.length) return; if (!(await U.confirmar('Confirmar todas?', 'As ' + lista.length + ' etiquetas automáticas das cidades desta operação viram “ensinadas” e passam a valer em todo o programa.', 'Confirmar todas'))) return;
+      S.geo.desfazer = JSON.stringify(S.reg); S.reg.aprend = S.reg.aprend || {}; for (const [cod, tp, id] of lista) { S.reg.aprend[cod] = S.reg.aprend[cod] || {}; S.reg.aprend[cod][tp] = id; }
+      salvarReg(); toast(lista.length + ' etiqueta(s) confirmada(s).');
+    };
     $('#geo-z-mais').onclick = () => S.geo.mapa && S.geo.mapa.zoom(1.5); $('#geo-z-menos').onclick = () => S.geo.mapa && S.geo.mapa.zoom(1 / 1.5);
     $('#geo-ver-tudo').onclick = () => { S.geo.foco = null; geoEnquadrarTudo(); renderGeo(); };
     $('#geo-res').addEventListener('click', e => {
@@ -911,6 +1004,10 @@
         const dest = sel.value === '-' ? null : S.reg.regioes.find(x => x.id === sel.value); if (dest && !dest.cidades.includes(i.code)) dest.cidades.push(i.code);
         salvarReg(); toast(i.nome + ': ' + (dest ? 'agora em ' + dest.nome : 'tirada das listas') + (de.length ? ' (saiu de ' + de.join(', ') + ')' : '') + '. Já vale em todo o programa.');
       } else if (desf) { if (S.geo.desfazer) { S.reg = JSON.parse(S.geo.desfazer); S.geo.desfazer = null; salvarReg(); toast('Última mudança de lista desfeita.'); } }
+      const ens = e.target.closest('[data-geo-ens]'), esq = e.target.closest('[data-geo-esq]'), conf = e.target.closest('[data-geo-conf]');
+      if (ens) { const sel = ens.parentElement.querySelector('select'); if (!sel.value) { toast('Escolha a lista na caixa ao lado.'); return; } geoEnsinar(i.code, ens.dataset.geoEns, sel.value); toast(i.nome + ': ensinado. Já vale em todo o programa.'); }
+      else if (esq) { geoEnsinar(i.code, esq.dataset.geoEsq, null); toast('Esqueci o que você tinha ensinado.'); }
+      else if (conf) { const r = geoClasse(i.code, conf.dataset.geoConf); if (r.ids[0]) { geoEnsinar(i.code, conf.dataset.geoConf, r.ids[0]); toast(i.nome + ': confirmado. Já vale em todo o programa.'); } }
       if (aj) { const v = aj.dataset.geoAj; if (v === 'limpar') delete S.cfg.fora[i.code]; else S.cfg.fora[i.code] = v; salvarCfg(); renderGeo(); }
     });
     $('#geo-listas').addEventListener('click', async e => {
@@ -923,7 +1020,7 @@
       if (!S.regBase) { toast('As listas originais não estão disponíveis.'); return; }
       if (!(await U.confirmar('Restaurar as listas originais?', 'Suas edições nas regiões e bases são descartadas e voltam as listas que vieram do Health Search.', 'Restaurar', true))) return;
       if (!(await backupReg())) return;
-      S.reg = JSON.parse(JSON.stringify(S.regBase)); try { await DB.apagar('meta', 'regioes'); } catch (e) { /* ok */ }
+      S.reg = JSON.parse(JSON.stringify(S.regBase)); S.reg.aprend = {}; S.geoCls = null; try { await DB.apagar('meta', 'regioes'); } catch (e) { /* ok */ }
       N.setRegioes(S.reg); reindexar(); atualizarTudo(); renderGeo(); toast('Listas originais restauradas.');
     };
     $('#geo-c-ok').onclick = geoColarLista;
@@ -1265,6 +1362,6 @@
     if (id === S.janFoco) return; S.janFoco = id;
     $$('.jan').forEach(x => x.classList.toggle('foco', x.id === id));
   }, true);
-  RT.A = { backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

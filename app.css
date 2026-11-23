@@ -351,8 +351,6 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 .seg button[aria-pressed="true"]{background:var(--teal);color:var(--priTxt)}
 .geo-box{position:relative;height:min(560px,62vh);min-height:340px}
 .geo-leg{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 12px;border-top:1px solid var(--linha2);font-size:.78rem}
-.geo-leg span{display:inline-flex;gap:6px;align-items:center}
-.geo-leg i{width:12px;height:12px;border-radius:3px;background:var(--cor);display:inline-block}
 .barra-geo{display:flex;justify-content:space-between;align-items:center;margin-top:26px;gap:12px}
 .geo-lista{display:grid;grid-template-columns:18px minmax(0,1fr) auto auto auto;gap:8px 12px;align-items:center;border:1px solid var(--linha);background:var(--sup);border-radius:8px;padding:8px 12px;margin-bottom:6px}
 .geo-lista i{width:14px;height:14px;border-radius:4px;background:var(--cor)}
@@ -603,3 +601,26 @@ body.modo-mapa .hs-salvar{display:none}
 
 .cfg-card .botoes-linha .btn{display:inline-flex;align-items:center;gap:8px}
 #bt-tema svg{flex:none}
+
+/* Geolocalização no estilo do Health Search */
+.geo-titulo{display:flex;align-items:center;gap:10px}.geo-titulo h1{margin:0}
+.geo-q{all:unset;cursor:pointer;width:24px;height:24px;border-radius:50%;border:2px solid var(--aqua,#4fd1c5);color:var(--aqua,#4fd1c5);display:grid;place-items:center;font-weight:700;font-size:.8rem}
+.geo-q:hover{background:var(--tealBg)}
+.geo-topo{display:flex;gap:12px;align-items:stretch;margin-bottom:12px}
+.geo-busca{position:relative;flex:1;min-width:0}.geo-busca .geo-pin{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--mudo);pointer-events:none;display:flex}
+.geo-busca #geo-q{width:100%;max-width:none;min-height:50px;font-size:1.05rem;padding-left:42px}
+.btn.grande{min-height:50px;padding:0 20px;font-size:1rem;display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.geo-alim{border:1px solid var(--linha);background:var(--sup);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.geo-soltar{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;border:1.5px dashed var(--linha);border-radius:10px;padding:14px;cursor:pointer}.geo-soltar.sobre{border-color:var(--teal);background:var(--tealBg)}
+.geo-alim .geo-colar{margin-top:12px}
+.geo-auto{display:flex;gap:6px;align-items:center;font-size:var(--fs-sm);cursor:pointer}
+.geo-leg button{all:unset;cursor:pointer;display:inline-flex;gap:6px;align-items:center;padding:2px 4px;border-radius:5px}
+.geo-leg button i{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none}
+.geo-leg button[aria-pressed="false"]{opacity:.4;text-decoration:line-through}
+.geo-leg button:hover{background:var(--tealBg)}
+.geo-leg .simb{display:inline-flex;gap:6px;align-items:center;color:var(--mudo)}
+.geo-leg .simb b{width:11px;height:11px;border-radius:50%;background:var(--mudo);display:inline-block}
+.geo-leg .simb b.anel{background:transparent;border:1.6px solid var(--mudo)}.geo-leg .simb b.ens{box-shadow:0 0 0 1.5px var(--tinta)}
+.geo-fonte.aprendido{background:var(--tealBg);color:var(--acento)}.geo-fonte.auto{background:rgba(244,194,31,.2);color:var(--amarTxt)}
+.geo-mapa.cheia{background:var(--papel);padding:10px;display:flex;flex-direction:column}.geo-mapa.cheia .geo-box{flex:1;height:auto}
+@media (max-width:860px){.geo-topo{flex-direction:column}}

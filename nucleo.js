@@ -360,6 +360,12 @@
   N.setRegioes = function (dados) {
     REG = { rota: new Set(), fora: new Set(), nomes: new Map() };
     for (const r of (dados && dados.regioes) || []) for (const c of r.cidades) { (r.grupo === 'fora' ? REG.fora : REG.rota).add(String(c)); if (!REG.nomes.has(String(c))) REG.nomes.set(String(c), []); REG.nomes.get(String(c)).push(r.nome); }
+    /* cidades "ensinadas" (confirmadas na Geolocalização) contam como se estivessem na lista escolhida */
+    const apr = (dados && dados.aprend) || {};
+    for (const cod in apr) for (const tp in apr[cod]) {
+      const l = ((dados && dados.regioes) || []).find(x => x.id === apr[cod][tp]); if (!l) continue;
+      (l.grupo === 'fora' ? REG.fora : REG.rota).add(String(cod)); if (!REG.nomes.has(String(cod))) REG.nomes.set(String(cod), []); if (!REG.nomes.get(String(cod)).includes(l.nome)) REG.nomes.get(String(cod)).push(l.nome);
+    }
   };
   N.setAjustesRota = o => { AJ = o || {}; };
   N.foraDeRota = function (code, uf) {

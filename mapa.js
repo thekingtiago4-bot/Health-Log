@@ -315,7 +315,10 @@
       for (const [code, pl] of this.poli) {
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
         const cor = G.cor.get(code);
-        ctx.fillStyle = cor || P.terra; ctx.globalAlpha = cor ? (P.escuro ? 0.7 : 0.78) : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.stroke(pl.path);
+        const auto = G.auto && G.auto.has(code);
+        ctx.fillStyle = cor || P.terra; ctx.globalAlpha = cor ? (auto ? 0.3 : (P.escuro ? 0.7 : 0.78)) : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.stroke(pl.path);
+        if (auto) { ctx.save(); ctx.lineWidth = 1.6 / k; ctx.strokeStyle = cor; ctx.setLineDash([4 / k, 3 / k]); ctx.stroke(pl.path); ctx.restore(); }   // automática: preenchimento claro, contorno tracejado
+        else if (G.ens && G.ens.has(code)) { ctx.save(); ctx.lineWidth = 1.8 / k; ctx.strokeStyle = P.tinta; ctx.stroke(pl.path); ctx.restore(); }          // ensinada por você: contorno escuro
       }
       for (const code of [G.sel, this.hover]) {
         const pl = code && this.poli.get(code); if (!pl) continue;
@@ -335,6 +338,16 @@
         if (!forca && caixas.some(b => !(r[2] < b[0] || r[0] > b[2] || r[3] < b[1] || r[1] > b[3]))) continue;
         caixas.push(r); n++;
         ctx.lineWidth = 3.4; ctx.strokeStyle = P.fundo; ctx.strokeText(t.nome, px, py + 9); ctx.fillStyle = P.tinta; ctx.fillText(t.nome, px, py + 9);
+      }
+      /* nome de cada região no centro da área dela (como no Health Search) */
+      if (G.rotulos && G.rotulos.length) {
+        ctx.font = '700 13px "Barlow","Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (const r of G.rotulos) {
+          const px = (X(r.lon) - cx) * k + W / 2, py = (Y(r.lat) - cy) * k + H / 2;
+          if (px < -60 || py < -20 || px > W + 60 || py > H + 20) continue;
+          ctx.lineWidth = 4.5; ctx.strokeStyle = P.escuro ? 'rgba(4,16,20,.92)' : 'rgba(255,255,255,.95)'; ctx.strokeText(r.nome, px, py); ctx.fillStyle = P.escuro ? '#fff' : r.cor; ctx.fillText(r.nome, px, py);
+        }
+        ctx.textBaseline = 'alphabetic';
       }
       ctx.textAlign = 'start';
     }
