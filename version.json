@@ -1,1 +1,1 @@
-{"versao":"0.22.0","data":"2026-11-23","novidades":"Geolocalizacao no estilo do Health Search: etiqueta automatica com % de certeza, confirmar/ensinar/esquecer, nome das regioes no mapa, legenda com contagem, Alimentar, Para conferir, tela cheia."}
+{"versao":"0.23.0","data":"2026-11-23","novidades":"Geolocalizacao: Feriados (cidade em vermelho no mapa, estaduais e municipais da internet + os que voce inclui) e Editor de regioes (delimitar por contorno, lacunas, nao fazemos, cor/nome/apelido, excluir)."}

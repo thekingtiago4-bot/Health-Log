@@ -319,6 +319,10 @@
         ctx.fillStyle = cor || P.terra; ctx.globalAlpha = cor ? (auto ? 0.3 : (P.escuro ? 0.7 : 0.78)) : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.stroke(pl.path);
         if (auto) { ctx.save(); ctx.lineWidth = 1.6 / k; ctx.strokeStyle = cor; ctx.setLineDash([4 / k, 3 / k]); ctx.stroke(pl.path); ctx.restore(); }   // automática: preenchimento claro, contorno tracejado
         else if (G.ens && G.ens.has(code)) { ctx.save(); ctx.lineWidth = 1.8 / k; ctx.strokeStyle = P.tinta; ctx.stroke(pl.path); ctx.restore(); }          // ensinada por você: contorno escuro
+        if (G.nf && G.nf.has(code)) { ctx.fillStyle = P.escuro ? '#3B4A4E' : '#8A979A'; ctx.fill(pl.path); ctx.stroke(pl.path); }                         // "Não fazemos": cinza
+        if (G.fer && G.fer.has(code)) {                                                                                                                  // feriado: VERMELHO (hoje mais forte)
+          const f = G.fer.get(code); ctx.save(); ctx.globalAlpha = f.hoje ? 0.85 : 0.5; ctx.fillStyle = '#E03131'; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.lineWidth = 1.6 / k; ctx.strokeStyle = '#C92A2A'; ctx.stroke(pl.path); ctx.restore();
+        }
       }
       for (const code of [G.sel, this.hover]) {
         const pl = code && this.poli.get(code); if (!pl) continue;
@@ -338,6 +342,19 @@
         if (!forca && caixas.some(b => !(r[2] < b[0] || r[0] > b[2] || r[3] < b[1] || r[1] > b[3]))) continue;
         caixas.push(r); n++;
         ctx.lineWidth = 3.4; ctx.strokeStyle = P.fundo; ctx.strokeText(t.nome, px, py + 9); ctx.fillStyle = P.tinta; ctx.fillText(t.nome, px, py + 9);
+      }
+      /* editor de regiões: cidades dentro do contorno, linha tracejada e pontos numerados */
+      if (G.ed && G.ed.pts.length) {
+        const E = G.ed, xy = E.pts.map(p => [(X(p.lon) - cx) * k + W / 2, (Y(p.lat) - cy) * k + H / 2]);
+        ctx.save(); ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k)); ctx.strokeStyle = E.cor; ctx.lineWidth = 2.2 / k;
+        for (const c of E.dentro) { const pl = this.poli.get(c); if (pl) ctx.stroke(pl.path); }
+        ctx.restore();
+        ctx.beginPath(); xy.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        if (xy.length >= 3) { ctx.closePath(); ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = E.cor; ctx.fill(); ctx.restore(); }
+        ctx.setLineDash([7, 5]); ctx.strokeStyle = E.cor; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
+        ctx.font = '700 11px "Barlow",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        xy.forEach(([x, y], i) => { ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.2832); ctx.fillStyle = E.cor; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#fff'; ctx.fillText(String(i + 1), x, y + 0.5); });
+        ctx.textBaseline = 'alphabetic';
       }
       /* nome de cada região no centro da área dela (como no Health Search) */
       if (G.rotulos && G.rotulos.length) {

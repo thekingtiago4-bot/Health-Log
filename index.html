@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://api.meudanfe.com.br; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://api.meudanfe.com.br https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F4B55">
 <title>Health Log. · Eficiência Máxima Em Roteirização</title>
@@ -138,9 +138,10 @@
         <div class="geo-mapa" id="geo-mapa">
           <div class="ferr"><span class="seg" role="group" aria-label="Camada"><button type="button" data-geo-tipo="regiao" aria-pressed="true">Regiões</button><button type="button" data-geo-tipo="base" aria-pressed="false">Bases</button></span>
             <label class="geo-auto"><input type="checkbox" id="geo-auto" checked> Mostrar etiquetas automáticas</label><span style="flex:1"></span>
-            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button><button class="btn mini" type="button" id="geo-cheia" title="Mapa em tela cheia">Tela cheia</button></div>
+            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button><label class="fer-map" title="Cidades com feriado ficam em vermelho"><input type="checkbox" id="fer-map-on" checked><i></i>Feriados</label><select id="fer-map-ate" class="filtro" aria-label="Feriados de quais dias"><option value="0">hoje</option><option value="1">hoje + amanhã</option><option value="3">próximos 3 dias</option><option value="7">próximos 7 dias</option></select><button class="btn mini pri" type="button" id="ged-abrir" title="Delimitar regiões e bases no mapa">Editor de regiões</button><button class="btn mini" type="button" id="geo-cheia" title="Mapa em tela cheia">Tela cheia</button></div>
           <div class="geo-box" id="geo-box"><div class="dica-mapa" id="geo-tip" hidden></div></div>
           <div class="geo-leg" id="geo-leg"></div>
+          <p class="fer-st" id="fer-st"></p>
         </div>
       </div>
     </section>
@@ -264,6 +265,8 @@
 <script src="situacao.js"></script>
 <script src="romaneio.js"></script>
 <script src="turno.js"></script>
+<script src="feriados.js"></script>
+<script src="geoeditor.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

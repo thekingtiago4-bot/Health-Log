@@ -31,6 +31,11 @@ const cents = s => Math.round(parseFloat(s) * 100);
       const [a, b] = cs, mid = [(a[0] + b[0]) / 2 + 0.02, (a[1] + b[1]) / 2 - 0.02], km = Math.round(Math.hypot((a[0] - b[0]) * 100, (a[1] - b[1]) * 111) * 1.2);
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ code: 'Ok', routes: [{ distance: km * 1000, duration: km * 55, geometry: { type: 'LineString', coordinates: [a, mid, b] } }] }) });
     });
+    await ctx.route(/raw\.githubusercontent\.com/, r => { // feriados SIMULADOS: um estadual (MG) e um municipal (Araraquara) HOJE
+      const d = new Date(), br = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+      const corpo = /municipal/.test(r.request().url()) ? [{ codigo_ibge: 3503208, data: br, nome: 'Aniversário de Araraquara (teste)' }] : [{ uf: 'MG', data: br, nome: 'Feriado estadual de teste' }];
+      r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(corpo) });
+    });
     await ctx.route(/tiles\.openfreemap\.org/, r => { // mapa de fundo SIMULADO: estilo mínimo (com camadas de nomes, para provar que são tiradas) e peças vazias
       const u = r.request().url(); reqsTile.push(u);
       if (/\/styles\/positron/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ version: 8, name: 'teste', sources: { x: { type: 'vector', tiles: ['https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'], maxzoom: 14 } }, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#eee' } }, { id: 'label_city', type: 'symbol', source: 'x', 'source-layer': 'place' }, { id: 'highway-shield-non-us', type: 'symbol', source: 'x', 'source-layer': 'transportation_name' }] }) });
@@ -621,6 +626,39 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(id => RT.S.geo.ocultos.has(id), lid), 'clicar na legenda esconde a lista no mapa'); await p.click('#geo-leg [data-geo-leg="' + lid + '"]');
   await p.click('#geo-bt-alim'); verdade(await p.evaluate(() => !document.querySelector('#geo-alim').hidden), 'Alimentar abre o painel de listas'); await p.click('#geo-bt-alim');
   await p.click('#geo-ajuda'); verdade(/Como funciona/.test(await p.innerText('.modal')), 'o "?" explica a tela'); await p.keyboard.press('Escape');
+
+  console.log('\nFeriados em vermelho e Editor de regiões');
+  await p.click('.nav button[data-tela="geo"]');
+  await p.waitForFunction(() => RT.S.geo.fer && RT.S.geo.fer.has('3503208'), null, { timeout: 8000 });
+  verdade(await p.evaluate(() => RT.S.geo.fer.has('3503208') && RT.S.geo.fer.get('3503208').hoje), 'feriado municipal de hoje deixa a cidade em VERMELHO no mapa (Araraquara)');
+  verdade(await p.evaluate(() => [...RT.S.geo.fer.keys()].some(c => RT.S.mun[c][1] === 'MG')), 'feriado estadual pinta as cidades do estado');
+  verdade(await p.evaluate(() => /atualizados/.test(document.querySelector('#fer-st').textContent)), 'a linha de status diz quando os feriados foram atualizados');
+  await p.evaluate(() => RT.A.geoSelecionar('3503208', false));
+  verdade(/Aniversário de Araraquara/.test(await p.innerText('#geo-res')), 'o cartão da cidade lista o feriado');
+  await p.click('#geo-res [data-fer-tira]'); await p.waitForFunction(() => !RT.S.geo.fer.has('3503208')).catch(() => {});
+  verdade(await p.evaluate(() => !RT.S.geo.fer.has('3503208')), '"não é feriado" tira só dessa cidade (a lista da internet pode errar)');
+  await p.fill('#fer-nome', 'Ponto facultativo (teste)'); await p.click('#geo-res [data-fer-add]'); await p.waitForFunction(() => RT.S.geo.fer.has('3503208')).catch(() => {});
+  verdade(await p.evaluate(() => RT.S.geo.fer.has('3503208')), 'incluir um feriado à mão deixa a cidade vermelha');
+  await p.click('#geo-res [data-fer-rm]'); await p.waitForTimeout(150); await p.evaluate(() => { RT.fer.manual.length = 0; RT.fer._memo = null; RT.G.render(); });
+  await p.uncheck('#fer-map-on'); verdade(await p.evaluate(() => RT.S.geo.fer.size === 0), 'desmarcar "Feriados" tira o vermelho do mapa'); await p.check('#fer-map-on');
+  await p.selectOption('#fer-map-ate', '7'); igual(await p.evaluate(() => RT.U.pref.ler('ferMapaAte', 0)), 7, 'o período escolhido (próximos 7 dias) fica guardado');
+  await p.selectOption('#fer-map-ate', '0');
+
+  await p.click('#ged-abrir'); await p.waitForSelector('#ged-painel');
+  verdade(await p.evaluate(() => document.querySelector('#ged-painel').innerText.includes('Delimitar') && document.querySelector('#ged-painel').innerText.includes('Lacunas')), 'Editor de regiões abre com Delimitar, Lacunas e as listas');
+  await p.selectOption('#ged-alvo', 'interior');
+  const nAntes = await p.evaluate(() => RT.S.reg.regioes.find(r => r.id === 'interior').cidades.length);
+  for (const c of ['3503208', '3541406', '3543402']) await p.evaluate(c => RT.A.geoSelecionar(c, false), c);
+  verdade(await p.evaluate(() => /cidade\(s\) dentro/.test(document.querySelector('#ged-painel').innerText) && RT.ged.paraMapa().pts.length === 3), 'clicar nas cidades-limite monta o contorno (3 pontos) e conta as cidades de dentro');
+  await p.uncheck('#ged-livres'); await p.click('#ged-aplica');
+  verdade(await p.evaluate(a => RT.S.reg.regioes.find(r => r.id === 'interior').cidades.length > a, nAntes), 'Fechar e aplicar: as cidades dentro do contorno entram na lista');
+  await p.click('#ged-desfaz');
+  igual(await p.evaluate(() => RT.S.reg.regioes.find(r => r.id === 'interior').cidades.length), nAntes, 'Desfazer a última mudança volta as listas como estavam');
+  await p.selectOption('#ged-alvo', '-'); await p.evaluate(() => RT.A.geoSelecionar('3541406', false));
+  verdade(await p.evaluate(() => RT.S.reg.aprend['3541406'].regiao === '-' && RT.S.geo.mapa.geo.nf.has('3541406')), '"Não fazemos": clicar na cidade a deixa cinza');
+  await p.evaluate(() => RT.A.geoSelecionar('3541406', false));
+  verdade(await p.evaluate(() => !(RT.S.reg.aprend['3541406'] || {}).regiao), 'e clicar de novo desmarca');
+  await p.click('#ged-sair'); verdade(await p.evaluate(() => !document.querySelector('#ged-painel') && !RT.G.interceptar), 'Fechar editor');
 
   console.log('\nAtalhos: Ctrl+L (buscar nota) e Ctrl+V (ordem das pendentes)');
   await p.click('.nav button[data-tela="notas"]');

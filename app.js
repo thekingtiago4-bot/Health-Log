@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.22.0';
+  const VERSAO = '0.23.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -148,7 +148,7 @@
     else if (tela === 'xmls') { RT.rom.render(tela); renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'cadastros') RT.rom.render(tela);
     else if (tela === 'agenda' || tela === 'diverg') RT.sit.render(tela);
-    else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
+    else if (tela === 'geo') { renderGeo(); RT.fer.atualizar(false); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
     renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
@@ -858,7 +858,7 @@
     if (S.geo.mapa) return S.geo.mapa;
     const m = S.geo.mapa = new RT.Mapa($('#geo-box'), {
       onClique: h => { if (h) geoSelecionar(h.code, false); },
-      onHover: (h, e) => { const t = $('#geo-tip'); if (!h) { t.hidden = true; return; } const c = geoClasse(h.code, S.geo.tipo), ids = c.ids.map(id => (S.reg.regioes.find(r => r.id === id) || {}).nome).filter(Boolean); t.innerHTML = '<b>' + esc(h.nome) + (h.uf ? '/' + esc(h.uf) : '') + '</b>' + (ids.length ? '<br>' + esc(ids.join(' · ')) + (c.fonte === 'auto' ? ' (automático)' : c.fonte === 'aprendido' ? ' (ensinado)' : '') : '<br>sem lista'); t.hidden = false; const a = $('#geo-box').getBoundingClientRect(); t.style.left = Math.min(a.width - 180, Math.max(4, e.clientX - a.left + 14)) + 'px'; t.style.top = Math.max(4, e.clientY - a.top + 14) + 'px'; },
+      onHover: (h, e) => { const t = $('#geo-tip'); if (!h) { t.hidden = true; return; } const c = geoClasse(h.code, S.geo.tipo), ids = c.ids.map(id => (S.reg.regioes.find(r => r.id === id) || {}).nome).filter(Boolean); t.innerHTML = '<b>' + esc(h.nome) + (h.uf ? '/' + esc(h.uf) : '') + '</b>' + (ids.length ? '<br>' + esc(ids.join(' · ')) + (c.fonte === 'auto' ? ' (automático)' : c.fonte === 'aprendido' ? ' (ensinado)' : '') : '<br>sem lista') + ((S.geo.fer && S.geo.fer.get(h.code)) ? '<br><b style="color:#ff8787">Feriado ' + dm(S.geo.fer.get(h.code).iso) + ': ' + esc(S.geo.fer.get(h.code).n) + '</b>' : ''); t.hidden = false; const a = $('#geo-box').getBoundingClientRect(); t.style.left = Math.min(a.width - 180, Math.max(4, e.clientX - a.left + 14)) + 'px'; t.style.top = Math.max(4, e.clientY - a.top + 14) + 'px'; },
       onMover: () => { $('#geo-tip').hidden = true; }
     }, { semBase: true });
     m.setPoligonosDe(S.mapa);
@@ -866,6 +866,7 @@
     return m;
   }
   function geoSelecionar(code, centrar) {
+    if (RT.G && RT.G.interceptar && RT.G.interceptar(code)) return;   // editor de regiões aberto: o clique vira ponto do contorno
     S.geo.sel = code; renderGeo();
     const i = munInfo(code); if (i && centrar && S.geo.mapa) S.geo.mapa.enquadrarPontos([{ lat: i.lat + 0.6, lon: i.lon - 0.8 }, { lat: i.lat - 0.6, lon: i.lon + 0.8 }]);
   }
@@ -900,23 +901,34 @@
     if (!Object.keys(S.reg.aprend[k]).length) delete S.reg.aprend[k];
     salvarReg();
   }
+  const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+  function ferBloco(i) {
+    const fs = RT.fer.deCidade(i.code, i.uf, 7);
+    return '<div class="geo-linha"><div class="rotulo">Feriados · hoje e próximos 7 dias</div>' + (fs.length ? fs.map(x => '<div class="fer-it"><b>' + dm(x.iso) + '</b> ' + esc(x.n) + ' <small>' + esc(x.tipo) + '</small>' + (x.tipo === 'Cadastrado' ? ' <button type="button" class="lib" data-fer-rm="' + esc(x.id) + '">remover</button>' : ' <button type="button" class="lib" data-fer-tira="' + x.iso + '|' + esc(x.n) + '" title="A lista da internet errou: tira este feriado só aqui">não é feriado</button>') + '</div>').join('') : '<p class="geo-expl">Nenhum feriado estadual ou municipal neste período.</p>') +
+      '<div class="geo-ensinar"><input type="date" id="fer-data" class="filtro" aria-label="Data do feriado" value="' + RT.fer.diaMais(0) + '"><input id="fer-nome" class="filtro" placeholder="Nome (ex.: Aniversário da cidade)" maxlength="80" aria-label="Nome do feriado"><button class="btn mini" type="button" data-fer-add="1">Incluir feriado</button></div></div>';
+  }
   function renderGeo() {
     if (tela !== 'geo' || !S.reg || !S.mun) return;
     const m = geoGarantirMapa(), tipo = S.geo.tipo, regs = S.reg.regioes, auto = $('#geo-auto').checked;
-    const cor = new Map(), autoSet = new Set(), ens = new Set(), grupos = new Map(), cont = {};
+    const cor = new Map(), autoSet = new Set(), ens = new Set(), nf = new Set(), grupos = new Map(), cont = {};
     for (const code in S.mun) {
       if (!GEO_UFS.has(S.mun[code][1])) continue;
       const r = geoClasse(code, tipo);
+      if (((S.reg.aprend || {})[code] || {})[tipo] === '-') nf.add(code);
       for (const id of r.ids) { const c = (cont[id] = cont[id] || { l: 0, a: 0 }); if (r.fonte === 'auto') c.a++; else c.l++; }
       const id = r.ids.find(x => !S.geo.ocultos.has(x) && (!S.geo.foco || x === S.geo.foco)); if (!id || (r.fonte === 'auto' && !auto)) continue;
       cor.set(code, geoCorLista(id)); if (r.fonte === 'auto') autoSet.add(code); else if (r.fonte === 'aprendido') ens.add(code);
       if (!grupos.has(id)) grupos.set(id, []); grupos.get(id).push(code);
     }
-    const rotulos = []; for (const [id, cods] of grupos) { if (cods.length < 3) continue; let la = 0, lo = 0; for (const c of cods) { la += S.mun[c][2]; lo += S.mun[c][3]; } rotulos.push({ nome: geoNomeLista(id), cor: geoCorLista(id), lat: la / cods.length, lon: lo / cods.length }); }
-    m.setGeo({ cor, auto: autoSet, ens, rotulos, sel: S.geo.sel });
+    const rotulos = []; for (const [id, cods] of grupos) { if (cods.length < 3) continue; let la = 0, lo = 0; for (const c of cods) { la += S.mun[c][2]; lo += S.mun[c][3]; } rotulos.push({ nome: ((S.reg.regioes.find(x => x.id === id) || {}).alias || [])[0] || geoNomeLista(id), cor: geoCorLista(id), lat: la / cods.length, lon: lo / cods.length }); }
+    const ferOn = $('#fer-map-on').checked, ferAte = +$('#fer-map-ate').value, hoje = RT.fer.diaMais(0), fer = new Map();
+    if (ferOn) for (const [c, f] of RT.fer.mapa(ferAte)) fer.set(c, { iso: f.iso, n: f.n, hoje: f.iso === hoje });
+    S.geo.fer = fer;
+    m.setGeo({ cor, auto: autoSet, ens, nf, fer, rotulos, sel: S.geo.sel, ed: RT.ged && RT.ged.paraMapa ? RT.ged.paraMapa() : null });
+    $('#fer-st').textContent = ferOn ? RT.fer.status() + (fer.size ? ' · ' + fer.size.toLocaleString('pt-BR') + ' cidade(s) em vermelho.' : ' Nenhuma cidade com feriado no período.') : '';
     for (const b of $$('[data-geo-tipo]')) b.setAttribute('aria-pressed', String(b.dataset.geoTipo === tipo));
     $('#geo-leg').innerHTML = regs.filter(r => r.tipo === tipo).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR')).map(r => { const c = cont[r.id] || { l: 0, a: 0 }; return '<button type="button" data-geo-leg="' + esc(r.id) + '" aria-pressed="' + !S.geo.ocultos.has(r.id) + '" title="Mostrar ou esconder"><i style="background:' + esc(r.cor || '#888') + '"></i>' + esc(r.nome) + ' · ' + c.l.toLocaleString('pt-BR') + (c.a ? ' + ' + c.a.toLocaleString('pt-BR') + ' auto' : '') + '</button>'; }).join('') +
-      '<span class="simb"><b></b>na lista</span><span class="simb"><b class="anel"></b>automática</span><span class="simb"><b class="ens"></b>ensinada</span>';
+      '<span class="simb"><b></b>na lista</span><span class="simb"><b class="anel"></b>automática</span><span class="simb"><b class="ens"></b>ensinada</span><span class="simb"><b class="nf"></b>não fazemos</span><span class="simb"><b class="fer"></b>feriado</span>';
     /* cartão da cidade escolhida */
     const card = $('#geo-res'), i = S.geo.sel && munInfo(S.geo.sel);
     if (!i) {
@@ -929,6 +941,7 @@
         '<div class="geo-linha"><div class="rotulo">Conta como</div><span class="geo-st ' + (fora ? 'fora' : 'rota') + '">' + (fora ? 'FORA DE ROTA' : 'EM ROTA') + '</span>' + (aj ? ' <small>ajuste manual · <button type="button" class="lib" data-geo-aj="limpar">voltar ao automático</button></small>' : '') +
         '<div style="margin-top:8px"><button type="button" class="btn mini" data-geo-aj="' + (fora ? 'rota' : 'fora') + '">' + (fora ? 'Contar como em rota' : 'Contar como fora de rota') + '</button></div></div>' +
         '<div class="geo-linha"><div class="rotulo">Na operação aberta</div>' + (tt && tt.notas ? '<p class="geo-expl" style="font-size:var(--fs)">' + i$(tt.notas) + ' nota(s), ' + i$(tt.vol) + ' volume(s), ' + m$(tt.valor) + '</p>' : '<p class="geo-expl">Nenhuma nota desta cidade.</p>') + '</div>' +
+        ferBloco(i) +
         (S.geo.desfazer ? '<div class="geo-linha"><button type="button" class="btn mini" data-geo-desf="1">↶ Desfazer a última mudança</button></div>' : '');
     }
     /* listas cadastradas */
@@ -940,6 +953,7 @@
     $('#geo-conferir').innerHTML = conf.length ? conf.map(x => '<div class="geo-lista" style="--cor:' + geoCorLista(x.r.ids[0]) + '"><i></i><span><b>' + esc(x.c.nome) + '/' + esc(x.c.uf) + '</b> <small>' + (x.tp === 'base' ? 'base' : 'região') + ' → ' + esc(geoNomeLista(x.r.ids[0])) + ' · ' + x.r.conf + '% de certeza</small></span><button type="button" class="btn mini" data-geo-ir="' + esc(x.c.code) + '">Ver</button><button type="button" class="btn mini pri" data-geo-conf1="' + esc(x.c.code) + '|' + x.tp + '">Confirmar</button></div>').join('') : '<p class="dica">Nenhuma cidade da operação aberta precisa de conferência.</p>';
     $('#geo-conf-todas').disabled = !conf.length;
   }
+  RT.G = { S, classe: geoClasse, salvarReg, info: munInfo, selecionar: geoSelecionar, render: renderGeo, ufs: GEO_UFS, interceptar: null };
   async function geoColarLista() {
     const nome = $('#geo-c-nome').value.trim(), txt = $('#geo-c-txt').value, res = $('#geo-c-res');
     if (!nome) { res.textContent = 'Dê um nome para a lista.'; return; }
@@ -972,6 +986,9 @@
     q.addEventListener('blur', () => setTimeout(() => { sug.hidden = true; }, 150));
     for (const b of $$('[data-geo-tipo]')) b.onclick = () => { S.geo.tipo = b.dataset.geoTipo; S.geo.foco = null; S.geo.ocultos.clear(); renderGeo(); };
     $('#geo-auto').onchange = () => renderGeo();
+    const fon = $('#fer-map-on'), fat = $('#fer-map-ate'); fon.checked = U.pref.ler('ferMapaOn', true) !== false; fat.value = String(U.pref.ler('ferMapaAte', 0));
+    if (!['0', '1', '3', '7'].includes(fat.value)) fat.value = '0';
+    fon.onchange = () => { U.pref.gravar('ferMapaOn', fon.checked); renderGeo(); }; fat.onchange = () => { U.pref.gravar('ferMapaAte', +fat.value); renderGeo(); };
     $('#geo-bt-alim').onclick = () => { const p = $('#geo-alim'); p.hidden = !p.hidden; $('#geo-bt-alim').setAttribute('aria-expanded', String(!p.hidden)); };
     $('#geo-cheia').onclick = () => { const el = $('#geo-mapa'); if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => toast('O navegador não deixou abrir em tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { const el = $('#geo-mapa'); el.classList.toggle('cheia', document.fullscreenElement === el); $('#geo-cheia').textContent = document.fullscreenElement === el ? 'Sair da tela cheia' : 'Tela cheia'; setTimeout(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); S.geo.mapa.marcar(); } }, 120); });
@@ -1004,6 +1021,10 @@
         const dest = sel.value === '-' ? null : S.reg.regioes.find(x => x.id === sel.value); if (dest && !dest.cidades.includes(i.code)) dest.cidades.push(i.code);
         salvarReg(); toast(i.nome + ': ' + (dest ? 'agora em ' + dest.nome : 'tirada das listas') + (de.length ? ' (saiu de ' + de.join(', ') + ')' : '') + '. Já vale em todo o programa.');
       } else if (desf) { if (S.geo.desfazer) { S.reg = JSON.parse(S.geo.desfazer); S.geo.desfazer = null; salvarReg(); toast('Última mudança de lista desfeita.'); } }
+      const fAdd = e.target.closest('[data-fer-add]'), fTira = e.target.closest('[data-fer-tira]'), fRm = e.target.closest('[data-fer-rm]');
+      if (fAdd) { const d = $('#fer-data').value, nm = $('#fer-nome').value.trim(); if (!d || !nm) { toast('Escolha a data e escreva o nome do feriado.'); return; } RT.fer.incluir(i.code, d, nm).then(() => { renderGeo(); toast('Feriado incluído em ' + i.nome + '.'); }); return; }
+      if (fTira) { const [d, nm] = fTira.dataset.ferTira.split('|'); RT.fer.tirar(i.code, d, nm).then(() => { renderGeo(); toast('Marcado como “não é feriado” em ' + i.nome + '.'); }); return; }
+      if (fRm) { RT.fer.remover(fRm.dataset.ferRm).then(() => { renderGeo(); toast('Feriado removido.'); }); return; }
       const ens = e.target.closest('[data-geo-ens]'), esq = e.target.closest('[data-geo-esq]'), conf = e.target.closest('[data-geo-conf]');
       if (ens) { const sel = ens.parentElement.querySelector('select'); if (!sel.value) { toast('Escolha a lista na caixa ao lado.'); return; } geoEnsinar(i.code, ens.dataset.geoEns, sel.value); toast(i.nome + ': ensinado. Já vale em todo o programa.'); }
       else if (esq) { geoEnsinar(i.code, esq.dataset.geoEsq, null); toast('Esqueci o que você tinha ensinado.'); }
@@ -1339,7 +1360,7 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
+    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');
