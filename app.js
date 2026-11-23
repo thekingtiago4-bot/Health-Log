@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.13.0';
+  const VERSAO = '0.14.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -1119,6 +1119,6 @@
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
-  RT.A = { kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

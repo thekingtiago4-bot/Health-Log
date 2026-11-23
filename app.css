@@ -539,3 +539,5 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .mapa-cv{z-index:1}
 
 .bn.esc{background:var(--tealBg);box-shadow:inset 3px 0 0 var(--teal)}
+
+.turno-txt{white-space:pre-wrap;background:var(--tealBg,rgba(0,0,0,.05));border:1px solid var(--linha,#8884);border-radius:10px;padding:12px;max-height:50vh;overflow:auto;font:13px/1.5 inherit;margin:8px 0}

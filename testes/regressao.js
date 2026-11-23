@@ -630,6 +630,22 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#bt-enquadrar'); await p.waitForTimeout(500);
   verdade(await p.evaluate(() => RT.S.mapa._nTodas > 15), 'o nome das cidades SEM rota também aparece no mapa, sem destaque (' + await p.evaluate(() => RT.S.mapa._nTodas) + ' nomes na tela)');
 
+  console.log('\nFinal de Turno');
+  await p.click('.nav button[data-tela="rotas"]');
+  await p.click('#bt-turno'); await p.waitForSelector('#turno-txt');
+  const txtT = await p.textContent('#turno-txt');
+  verdade(/Final de turno/.test(txtT) && /Veículos/.test(txtT) && /Bipadas/.test(txtT), 'o botão abre o resumo do turno com veículos e bipagem');
+  igual(await p.evaluate(async () => (await RT.turno.guardados()).length), 0, 'abrir só mostra: nada é guardado sozinho');
+  await p.click('#turno-g'); await p.waitForFunction(() => document.querySelector('#turno-g').disabled);
+  const gu = await p.evaluate(async () => { const l = await RT.turno.guardados(); return { n: l.length, tot: l[0].totais.notas, op: l[0].opId === RT.S.op.id, carros: l[0].carros.length, sem: JSON.stringify(l[0]).search(/\d{11,}/) }; });
+  igual(gu.n, 1, 'Guardar final de turno grava um registro'); verdade(gu.op && gu.tot > 0, 'com os totais da operação');
+  igual(gu.sem, -1, 'sem CPF/CNPJ/chave no registro');
+  verdade(await p.evaluate(async () => (await RT.DB.todos('bk')).some(b => b.motivo === 'Final de turno')), 'e deixa cópia de segurança da operação');
+  await p.click('#turno-g').catch(() => {});
+  igual(await p.evaluate(async () => (await RT.turno.guardados()).length), 1, 'guardar de novo no mesmo clique não duplica');
+  await p.click('[data-a="h"]'); verdade(/notas/.test(await p.textContent('#turno-txt')), 'dá para ver os turnos guardados');
+  await p.keyboard.press('Escape');
+
   console.log('\nAgendamentos: regra da MESA e pop-up');
   await p.evaluate(() => { RT.S.op.notas.find(n => n.nf === '000001007').origem = 'MESA.XML'; });
   await p.click('.nav button[data-tela="agenda"]');

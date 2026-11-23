@@ -61,6 +61,7 @@
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a janela de veículos e rotas" aria-pressed="false">Veículos</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
+        <button class="btn mini pri" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">🌙 Final de Turno</button>
         <button class="btn mini" id="bt-mapa-fora" type="button" title="Abre o mapa em outra janela (para o segundo monitor). Esta tela vira uma parede para as janelas flutuantes.">Mapa em outra tela</button>
         <button class="btn mini" id="bt-enquadrar" type="button" title="Enquadra as cidades da operação (Shift: inclui as muito isoladas)">Enquadrar mapa</button>
       </div>
@@ -227,6 +228,7 @@
 <script src="bipagem.js"></script>
 <script src="situacao.js"></script>
 <script src="romaneio.js"></script>
+<script src="turno.js"></script>
 <script src="app.js"></script>
 <script>if(!/[?&]mapa=1/.test(location.search)){var s=document.createElement("script");s.src="abertura.js";document.body.appendChild(s);}</script>
 </body>

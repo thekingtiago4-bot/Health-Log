@@ -45,3 +45,6 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 ## Atalhos (v0.13)
 - Ctrl+L = abre "Buscar nota" (Enter escolhe e centra o mapa; ↑/↓ navegam). Ctrl+V com a janela de pendentes aberta e fora de qualquer campo = A–Z → maior volume → maior valor → A–Z; a última ordem fica guardada (pref `pendOrdem`). Dentro de campo, Ctrl+V continua sendo colar.
 - Cidades sem rota no dia também têm o nome no mapa, sem destaque.
+
+## Final de Turno (v0.14, `turno.js`)
+- Botão "🌙 Final de Turno" (Rotas): mostra o resumo (copiar/WhatsApp, como o Health Search). Só "Guardar" grava: meta `turno:<opId>:<data-hora>` (totais, rota, alocadas, bipagem, agendamentos, divergências, veículos com km, cidades pendentes, origens) + cópia de segurança da operação (`bk`, motivo "Final de turno"). Sem CPF/CNPJ/chave. Os relatórios futuros leem esses registros (`RT.turno.guardados()`).
