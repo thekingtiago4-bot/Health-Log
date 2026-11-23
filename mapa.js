@@ -439,11 +439,11 @@
       /* 1) o contorno claro de todas as linhas; 2) as linhas tracejadas por cima — assim nenhuma faixa apaga a vizinha */
       for (const d of dados) { ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, true, d.forte ? 7 : 5, claro, []); if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, true, d.forte ? 5 : 3.5, claro, []); } }
       for (const d of dados.slice().sort((a, b) => (a.forte ? 1 : 0) - (b.forte ? 1 : 0))) { // o veículo em destaque por cima
-        ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, false, d.forte ? 3.8 : 2.4, d.r.cor, d.forte ? [11, 9] : [8, 8]);
-        if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, false, d.forte ? 2.6 : 1.8, d.r.cor, [2, 8]); }
+        ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, false, d.forte ? 3.8 : 2.4, d.r.cor, this.rotaFixa ? [] : (d.forte ? [11, 9] : [8, 8]));
+        if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, false, d.forte ? 2.6 : 1.8, d.r.cor, this.rotaFixa ? [] : [2, 8]); }
       }
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
-      for (const d of dados) for (const t of d.trechos) { // seta no meio de cada trecho: mostra o sentido
+      for (const d of dados) for (const t of (this.rotaFixa ? [] : d.trechos)) { // seta no meio de cada trecho: mostra o sentido
         if (!visivel(t)) continue;
         let mx, my, ang;
         if (t.per) { const q = pts(t, d.r.id), i = Math.max(0, Math.floor(q.length / 2) - 1), a = q[i], b = q[Math.min(q.length - 1, i + 1)]; mx = (a.x + b.x) / 2; my = (a.y + b.y) / 2; ang = Math.atan2(b.y - a.y, b.x - a.x); }

@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.18.1';
+  const VERSAO = '0.18.3';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -105,10 +105,10 @@
     const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     if (!instalado()) bi.hidden = false;
     window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; bi.hidden = false; });
-    window.addEventListener('appinstalled', () => { bi.hidden = true; toast('Health LOG instalado.'); });
+    window.addEventListener('appinstalled', () => { bi.hidden = true; toast('Health Log instalado.'); });
     bi.onclick = async () => {
       if (evt) { evt.prompt(); try { await evt.userChoice; } catch (er) { /* ok */ } evt = null; return; }
-      U.modal('<h2>Instalar o Health LOG</h2><p><b>Computador (Chrome ou Edge):</b> clique no ícone de instalar (um monitor com seta) no fim da barra de endereço, ou no menu ⋮ → “Instalar Health LOG”. O ícone da bússola vai para a área de trabalho.</p><p><b>iPhone / iPad (Safari):</b> botão Compartilhar → “Adicionar à Tela de Início”.</p><p><b>Android (Chrome):</b> menu ⋮ → “Instalar aplicativo”.</p><div class="botoes"><button class="btn pri" data-s>Entendi</button></div>', (f, fechar) => { f.querySelector('[data-s]').onclick = () => fechar(true); });
+      U.modal('<h2>Instalar o Health Log</h2><p><b>Computador (Chrome ou Edge):</b> clique no ícone de instalar (um monitor com seta) no fim da barra de endereço, ou no menu ⋮ → “Instalar Health Log”. O ícone da bússola vai para a área de trabalho.</p><p><b>iPhone / iPad (Safari):</b> botão Compartilhar → “Adicionar à Tela de Início”.</p><p><b>Android (Chrome):</b> menu ⋮ → “Instalar aplicativo”.</p><div class="botoes"><button class="btn pri" data-s>Entendi</button></div>', (f, fechar) => { f.querySelector('[data-s]').onclick = () => fechar(true); });
     };
   }
   /* cópia de segurança ANTES de qualquer coisa destrutiva. Se não conseguir guardar, quem chamou aborta. */
@@ -642,7 +642,7 @@
   function aplicarRotaAnim() {
     if (!S.mapa) return;
     const reduz = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    S.mapa.animarRotas = !S.cfg.rotaFixa && !reduz; S.mapa.sujo = true; S.mapa._bgSujo = true;
+    S.mapa.animarRotas = !S.cfg.rotaFixa && !reduz; S.mapa.rotaFixa = !!S.cfg.rotaFixa; S.mapa.sujo = true; S.mapa._bgSujo = true;
   }
   async function carregarCfg() {
     try { const r = await DB.get('meta', 'config'); if (r && r.v) S.cfg = Object.assign({ fora: {}, limite: null }, r.v); } catch (e) { /* segue com o padrão */ }
@@ -1199,7 +1199,7 @@
     });
     RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
     ligar(); ligarCanal();
-    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health LOG · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
+    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Log. · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
     const okDb = await DB.abrir();
     if (!okDb) { statusSalvo('erro', DB.erro || 'banco indisponível'); }
     try {
@@ -1230,10 +1230,12 @@
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').then(r => { r.update().catch(() => { }); setInterval(() => r.update().catch(() => { }), 10 * 60 * 1000); }).catch(() => { });
     /* versão nova assumiu: recarrega sozinho (o trabalho já está gravado); se houver gravação pendente, avisa */
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) { let recarregou = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (recarregou) return; const ir = () => { recarregou = true; window.__hsRecarregando = true; location.reload(); }; if (!S.sujo) ir(); else toast('Há uma versão nova do Health LOG.', { rotulo: 'Atualizar agora', fn: ir }); }); }
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) { let recarregou = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (recarregou) return; const ir = () => { recarregou = true; window.__hsRecarregando = true; location.reload(); }; if (!S.sujo) ir(); else toast('Há uma versão nova do Health Log.', { rotulo: 'Atualizar agora', fn: ir }); }); }
     if (S.modoMapa) enviar({ t: 'pronto' });
     RT.pronto = true;
   }
+  /* faixa dos veículos sem barra: a roda do mouse rola na horizontal */
+  { const ch = $('#chips-carros'); if (ch) ch.addEventListener('wheel', e => { if (ch.scrollWidth > ch.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { ch.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); }
   /* clicar numa janela flutuante (em qualquer ponto, inclusive na moldura) a deixa em foco: borda destacada e atalhos valem nela */
   document.addEventListener('pointerdown', e => {
     const j = e.target.closest && e.target.closest('.jan'); const id = j ? j.id : null;

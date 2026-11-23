@@ -186,7 +186,7 @@
         req.onsuccess = () => { DB.db = req.result; DB.db.onversionchange = () => DB.db.close(); res(true); };
         /* erro ao abrir: NÃO recria nem apaga nada — só avisa */
         req.onerror = () => { DB.erro = 'Não consegui abrir o banco deste navegador: ' + ((req.error && req.error.message) || 'erro desconhecido'); res(false); };
-        req.onblocked = () => { DB.erro = 'O banco está bloqueado por outra aba aberta. Feche as outras abas do Health LOG.'; res(false); };
+        req.onblocked = () => { DB.erro = 'O banco está bloqueado por outra aba aberta. Feche as outras abas do Health Log.'; res(false); };
       });
     },
     _tx(store, modo, fn) {

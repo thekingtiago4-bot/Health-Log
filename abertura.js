@@ -55,7 +55,7 @@
 body.hs-cine-on #hs-splash *{animation:none!important;filter:none!important}`; document.head.appendChild(st); })();
 function hsCineHtml(){ let ticks=''; for(let i=0;i<60;i++){ const g=i%5===0; ticks+=`<line x1="200" y1="${g?52:56}" x2="200" y2="${g?66:62}" stroke="#9af5ea" stroke-width="${g?2.4:1.2}" stroke-linecap="round" transform="rotate(${i*6} 200 200)"/>`; }
   let pts=''; const NPT=14; for(let i=0;i<NPT;i++) pts+=`<span class="pt" style="left:${Math.round(Math.random()*100)}%;--dx:${Math.round(Math.random()*120-60)}px;animation-duration:${(4+Math.random()*5).toFixed(1)}s;animation-delay:${(Math.random()*4).toFixed(1)}s;width:${3+Math.round(Math.random()*4)}px;height:${3+Math.round(Math.random()*4)}px"></span>`;
-  const nome='Health LOG'.split('').map((c,i)=>`<i style="animation-delay:${(3.2+i*0.07).toFixed(2)}s">${c===' '?'&nbsp;':c}</i>`).join('');
+  const nome='Health Log.'.split('').map((c,i)=>`<i style="animation-delay:${(3.2+i*0.07).toFixed(2)}s">${c===' '?'&nbsp;':c}</i>`).join('');
   const pin=(x,y,d)=>`<g class="hc-pin" style="animation-delay:${d}s"><path d="M${x} ${y} c-9 -12 -13 -18 -13 -25 a13 13 0 0 1 26 0 c0 7 -4 13 -13 25z" fill="#d9fffa"/><circle cx="${x}" cy="${y-25}" r="5" fill="#0f4c4c"/></g>`;
   return `${pts}<svg viewBox="34 34 332 332" aria-hidden="true">
   <defs><linearGradient id="hcBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e444b"/><stop offset="1" stop-color="#061f23"/></linearGradient>

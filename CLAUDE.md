@@ -50,7 +50,7 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - Botão "🌙 Final de Turno" (Rotas): mostra o resumo (copiar/WhatsApp, como o Health Search). Só "Guardar" grava: meta `turno:<opId>:<data-hora>` (totais, rota, alocadas, bipagem, agendamentos, divergências, veículos com km, cidades pendentes, origens) + cópia de segurança da operação (`bk`, motivo "Final de turno"). Sem CPF/CNPJ/chave. Os relatórios futuros leem esses registros (`RT.turno.guardados()`).
 
 ## v0.15
-- Nome do app: **Health LOG** — "Eficiência Máxima Em Roteirização" (tela, manifest, abertura).
+- Nome do app: **Health Log** — "Eficiência Máxima Em Roteirização" (tela, manifest, abertura).
 - Janela flutuante clicada fica em foco (`.jan.foco`, `S.janFoco`); Ctrl+V gira A–Z → maior volume → maior valor na janela em foco (pendentes, clientes da cidade, veículos) e na tabela de Notas.
 - Aviso (toast): × e arrastar para cima ignoram. Estados no mapa: linha branca de 2 px (escuro). Lápis do veículo: motorista + cor. Seta `#bt-rail` esconde o menu lateral (pref `railOculta`).
 - 💾 Salvar / Ctrl+S: grava, espera e deixa cópia (`bk`, motivo "Salvar"); aviso ao fechar com gravação pendente/falha. "Instalar aplicativo" (beforeinstallprompt, com instruções se o navegador não oferecer).
@@ -62,3 +62,5 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - v0.17.1: veículo com rastreio SIM acima do limite = aviso verde "Dentro do limite" (`.vei-alerta.ok`). Configurações → "Linha tracejada das rotas": em movimento (padrão) ou fixa (`cfg.rotaFixa`, `aplicarRotaAnim`; vale no mapa em outra tela; 'reduzir movimento' do sistema também deixa fixa).
 - v0.18.0: janelas flutuantes redimensionáveis (`U.redimensionavel`: alças direita/baixo/canto; pref `tam:<id>` + `pos:<id>`); Configurações → "Resetar janelas flutuantes para o padrão" (`resetarJanelas`). Pendentes: nome com reticências, UF inteira (`.cn-nome` + `.tag`).
 - v0.18.1: abertura sem pins de mapa e sem a linha ao fundo.
+- v0.18.2: nome de marca = **Health Log.** (com ponto, nas telas de marca); linha 'Fixa' = contínua, sem tracejado e sem setas (`mapa.rotaFixa`).
+- v0.18.3: faixa de veículos sem barra de rolagem (roda do mouse rola).

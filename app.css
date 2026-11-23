@@ -610,3 +610,6 @@ body.modo-mapa .hs-salvar{display:none}
 .jan.redim :is(.pend-lista,.cid-lista,.car-lista,#busca-res){flex:1 1 auto;min-height:0}
 @media (max-width:860px){.jan-rz{display:none}}
 @media print{.jan-rz{display:none}}
+/* faixa dos veículos: sem barra de rolagem visível (continua rolando com a roda do mouse / arrastando) */
+.chips-carros{scrollbar-width:none;-ms-overflow-style:none}
+.chips-carros::-webkit-scrollbar{display:none;height:0}
