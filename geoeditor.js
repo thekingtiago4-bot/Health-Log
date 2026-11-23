@@ -28,7 +28,7 @@
   const esquecer = (c, tp) => { const ap = G().S.reg.aprend || {}; if (ap[c]) { delete ap[c][tp]; if (!Object.keys(ap[c]).length) delete ap[c]; } };
 
   function painel() {
-    const p = $('#ged-painel'); if (!p) return;
+    const p = $('#ged-painel'); if (!p) return; const foi = document.activeElement && document.activeElement.id;
     const ls = listas(); if (ED.alvo && ED.alvo !== '__nova' && ED.alvo !== NF && !lista(ED.alvo)) ED.alvo = '';
     const alvo = ED.alvo && lista(ED.alvo); let mud = 0, ja = 0;
     if (alvo) for (const c of ED.dentro) { const r = G().classe(c, tipo()); if (r.fonte === 'lista' && r.ids.length === 1 && r.ids[0] === alvo.id) ja++; else mud++; }
@@ -49,6 +49,7 @@
       ls.map(l => '<div class="ged-it" data-id="' + esc(l.id) + '"><input type="color" value="' + esc(/^#[0-9a-fA-F]{6}$/.test(l.cor) ? l.cor : '#888888') + '" data-ged="cor" title="Cor"><div class="ged-cps"><input class="filtro" value="' + esc(l.nome) + '" data-ged="nome" aria-label="Nome"><input class="filtro" value="' + esc((l.alias || []).join(', ')) + '" data-ged="alias" placeholder="Apelidos (ex.: LKR, VIA MINAS)" aria-label="Apelidos"></div>' +
         '<div class="ged-acs"><small>' + l.cidades.length + '</small><button type="button" class="btn mini" data-ged-so="' + esc(l.id) + '" title="Mostrar só esta no mapa">só</button><button type="button" class="btn mini perigo" data-ged-del="' + esc(l.id) + '" title="Excluir a lista">✕</button></div></div>').join('') +
       '</div><button class="btn mini" type="button" id="ged-todas">Mostrar todas</button></section>';
+    if (ED.alvo === '__nova' && foi !== 'ged-novo') { const n = $('#ged-novo'); if (n) n.focus(); }
   }
   /* o painel começa logo abaixo da barra de botões do mapa (que pode quebrar em duas linhas) */
   function posicionar() { const p = $('#ged-painel'), f = document.querySelector('#geo-mapa .ferr'); if (p && f) p.style.top = f.offsetHeight + 'px'; }

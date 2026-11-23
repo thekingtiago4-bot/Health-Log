@@ -77,6 +77,8 @@
       f.addEventListener('mousedown', e => { if (e.target === f) fechar(null); });
       document.body.appendChild(f); U.som('popup');
       onMontar(f, fechar);
+      /* a digitação já entra: se a janela tem campo de texto e ninguém pediu foco, o primeiro campo recebe o cursor */
+      if (!f.contains(document.activeElement) || /^(BODY|HTML)$/.test(document.activeElement.tagName)) { const c = f.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color]):not([type=range]), textarea'); if (c && !c.disabled) { c.focus(); if (c.select && c.type !== 'date') { try { c.select(); } catch (e) { /* ok */ } } } }
     });
   }
   U.modal = modal;

@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.23.3';
+  const VERSAO = '0.23.4';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -152,7 +152,7 @@
     else if (tela === 'xmls') { RT.rom.render(tela); renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'cadastros') RT.rom.render(tela);
     else if (tela === 'agenda' || tela === 'diverg') RT.sit.render(tela);
-    else if (tela === 'geo') { renderGeo(); RT.fer.atualizar(false); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
+    else if (tela === 'geo') { renderGeo(); RT.fer.atualizar(false); if (!document.activeElement || /^(BODY|BUTTON)$/.test(document.activeElement.tagName)) setTimeout(() => { const q = $('#geo-q'); if (q && tela === 'geo' && !matchMedia('(pointer:coarse)').matches) q.focus(); }, 60); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
     desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
@@ -204,8 +204,9 @@
   }
   /* O pop-up fica na tela (móvel) até você fechar no ✕ ou apertar Ctrl+F de novo; acompanha os veículos que forem criados/alterados. */
   function fecharFocar() { const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true); }
-  function teclaFocar(e) {   // digitar o número (1–9) só vale com o cursor dentro do pop-up, para não atrapalhar quem digita em outro lugar
-    const p = $('#pop-focar'); if (!p || !p.contains(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey || !/^\d$/.test(e.key)) return;
+  function teclaFocar(e) {   // digitar o número (1–9) vale com o pop-up aberto, desde que o cursor não esteja num campo de texto
+    const p = $('#pop-focar'), ae = document.activeElement; if (!p || e.ctrlKey || e.metaKey || e.altKey || !/^\d$/.test(e.key)) return;
+    if (ae && (/^(TEXTAREA|SELECT)$/.test(ae.tagName) || (ae.tagName === 'INPUT' && !/^(checkbox|radio|button)$/.test(ae.type)) || ae.isContentEditable)) return;   // digitando num campo: o número é do campo
     const b = p.querySelector('[data-foco-n="' + e.key + '"]'); if (b) { e.preventDefault(); e.stopPropagation(); b.click(); }
   }
   function desenharFocar() {
@@ -1005,7 +1006,7 @@
     const fon = $('#fer-map-on'), fat = $('#fer-map-ate'); fon.checked = U.pref.ler('ferMapaOn', true) !== false; fat.value = String(U.pref.ler('ferMapaAte', 0));
     if (!['0', '1', '3', '7'].includes(fat.value)) fat.value = '0';
     fon.onchange = () => { U.pref.gravar('ferMapaOn', fon.checked); renderGeo(); }; fat.onchange = () => { U.pref.gravar('ferMapaAte', +fat.value); renderGeo(); };
-    $('#geo-bt-alim').onclick = () => { const p = $('#geo-alim'); p.hidden = !p.hidden; $('#geo-bt-alim').setAttribute('aria-expanded', String(!p.hidden)); };
+    $('#geo-bt-alim').onclick = () => { const p = $('#geo-alim'); p.hidden = !p.hidden; $('#geo-bt-alim').setAttribute('aria-expanded', String(!p.hidden)); if (!p.hidden) setTimeout(() => $('#geo-c-nome').focus(), 30); };
     $('#geo-cheia').onclick = () => { const el = $('#geo-mapa'); if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => toast('O navegador não deixou abrir em tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { const el = $('#geo-mapa'); el.classList.toggle('cheia', document.fullscreenElement === el); $('#geo-cheia').textContent = document.fullscreenElement === el ? 'Sair da tela cheia' : 'Tela cheia'; setTimeout(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); S.geo.mapa.marcar(); } }, 120); });
     $('#geo-ajuda').onclick = () => U.aviso('Como funciona a Geolocalização', '<p><b>Região (rota)</b> é a área de entrega que atende a cidade; <b>Base</b> é de onde o veículo sai. Cada lista tem uma cor.</p><p><b>na lista</b>: a cidade está escrita numa das listas. <b>automática</b>: não está em lista nenhuma, mas fica no meio de cidades de uma região — o app sugere (com % de certeza); clique em <b>Confirmar</b> ou corrija. <b>ensinada</b>: você confirmou/corrigiu, e isso passa a valer em todo o programa (inclusive fora de rota).</p><p>Clique num nome da legenda para esconder ou mostrar a lista no mapa.</p>');

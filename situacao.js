@@ -95,7 +95,10 @@
     escolha = 0;
     box.innerHTML = consulta.trim().length < 2 ? '<p class="dica" style="padding:12px 14px;margin:0">Digite o número da NF, o cliente, a cidade, o endereço ou a origem. Nos quadrinhos: <b style="color:var(--ok)">✓</b> presente (já vem marcado), <b style="color:var(--amarTxt)">A</b> agendamento, <b style="color:var(--no)">!</b> divergência.</p>'
       : r.length ? r.map(linhaNota).join('') + (r.length === 40 ? '<p class="dica" style="padding:6px 14px">Mostrando as 40 primeiras. Afunile a busca.</p>' : '') : '<p class="dica" style="padding:12px 14px;margin:0">Nenhuma nota encontrada.</p>';
+    if (aberta) focarForm();
   }
+  /* formulário aberto dentro da nota (editar cidade, agendamento, divergência): o cursor já cai no primeiro campo */
+  function focarForm() { const f = document.querySelector('#busca-res .bf'); if (f && !f.contains(document.activeElement)) { const c = f.querySelector('input,select,textarea'); if (c) c.focus(); } }
   function marcar(tipo, id, f) {
     const o = S().op, n = o.notas.find(x => x.id === id); if (!n) return;
     const v = k => ((f.querySelector('[data-f="' + k + '"]') || {}).value || '').trim();
