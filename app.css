@@ -584,3 +584,8 @@ body.modo-mapa .rail-seta{display:none}
 @media (max-width:860px){.marca-txt{display:none}.hs-salvar{right:12px;bottom:12px;width:48px;height:48px;padding:0;justify-content:center;font-size:0}.hs-salvar::before{margin:0}}
 @media print{.hs-salvar{display:none!important}}
 body.modo-mapa .hs-salvar{display:none}
+
+.bf-cid{flex-wrap:wrap}.sug-cid{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.sug-i{border:1.5px solid var(--linha);background:var(--sup);color:var(--tinta);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;display:inline-flex;gap:6px;align-items:center}
+.sug-i span{font-size:.75rem;color:var(--mudo);font-weight:700}.sug-i:hover,.sug-i:focus-visible{border-color:var(--teal);background:var(--tealBg)}
+.chk-cid{display:flex;gap:6px;align-items:center;font-size:.85rem;width:100%}
