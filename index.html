@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://api.meudanfe.com.br https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://api.meudanfe.com.br https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F4B55">
 <title>Health Log. · Eficiência Máxima Em Roteirização</title>
@@ -68,7 +68,7 @@
       <div class="faixa-carro" id="faixa-carro"></div>
       <div class="mapa-area" id="mapa-area">
         <div class="zoom-bt"><button type="button" id="z-mais" aria-label="Aproximar">+</button><button type="button" id="z-menos" aria-label="Afastar">−</button></div>
-        <div class="mapa-chips"><button type="button" class="mapa-chip" id="bt-estradas" aria-pressed="true" title="Liga/desliga o mapa de fundo com estradas e rodovias (precisa de internet)">Estradas</button><button type="button" class="mapa-chip" id="bt-realce" title="Quanto as cidades do dia se destacam das outras: forte, suave ou nenhum">Realce: suave</button><button type="button" class="mapa-chip" id="bt-vias" aria-pressed="true" title="As linhas seguem as rodovias, de cidade em cidade (precisa de internet na 1ª vez; depois fica guardado)">Rodovias</button><button type="button" class="mapa-chip" id="bt-base" aria-pressed="true" title="Mostra a saída da base no começo de cada rota">Base</button></div>
+        <div class="mapa-chips"><button type="button" class="mapa-chip" id="bt-estradas" aria-pressed="true" title="Liga/desliga o mapa de fundo com estradas e rodovias (precisa de internet)">Estradas</button><button type="button" class="mapa-chip" id="bt-realce" title="Quanto as cidades do dia se destacam das outras: forte, suave ou nenhum">Realce: suave</button><button type="button" class="mapa-chip" id="bt-vias" aria-pressed="true" title="As linhas seguem as rodovias, de cidade em cidade (precisa de internet na 1ª vez; depois fica guardado)">Rodovias</button><button type="button" class="mapa-chip" id="bt-pedagio" aria-pressed="false" title="Padrão: o caminho mais direto, com ou sem pedágio ($ marca os trechos pedagiados). Ligado: o app procura caminhos sem pedágio (pode ficar mais longo)">Evitar pedágio</button><button type="button" class="mapa-chip" id="bt-base" aria-pressed="true" title="Mostra a saída da base no começo de cada rota">Base</button></div>
         <div class="legenda" id="legenda">
           <span><i class="lg-b"></i>Sem carro</span>
           <span><i class="lg-cor"></i>Em carro</span>

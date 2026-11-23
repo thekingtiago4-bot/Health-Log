@@ -1,1 +1,1 @@
-{"versao":"0.23.4","data":"2026-11-23","novidades":"Pop-ups e formularios ja abrem com o cursor no campo de digitacao (sem clicar). No Ctrl+F o numero do veiculo funciona sem clicar."}
+{"versao":"0.24.0","data":"2026-11-23","novidades":"Rotas pelo Valhalla (caminho mais direto, com pedagio ou nao), $ marca os trechos com pedagio no mapa, botao Evitar pedagio, botao Menor KM (↯) para reordenar as cidades do veiculo, menu lateral sem rolagem."}

@@ -105,7 +105,7 @@
       if (!p || !p.coords) { this.pernas.delete(chave); return; }
       const n = p.coords.length, w = new Float64Array(n * 2); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (let i = 0; i < n; i++) { const x = X(p.coords[i][0]), y = Y(p.coords[i][1]); w[2 * i] = x; w[2 * i + 1] = y; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-      this.pernas.set(chave, { w, b: [x0, y0, x1, y1], km: p.km, min: p.min, refs: p.refs || [] }); this._lanesSujo = true; this.sujo = true;
+      this.pernas.set(chave, { w, b: [x0, y0, x1, y1], km: p.km, min: p.min, refs: p.refs || [], ped: (p.pedagios || []).map(q => ({ x: X(q.lon), y: Y(q.lat), n: q.n, km: q.km })) }); this._lanesSujo = true; this.sujo = true;
     }
     setVias(v) { this.viasLigadas = !!v; this._lanesSujo = true; this.sujo = true; }
     setAtivo(id) { if (id !== this.ativo) { this.ativo = id; this.sujo = true; } }
@@ -113,6 +113,7 @@
     setMostrarBase(v) { this.mostrarBase = !!v; this._lanesSujo = true; this.sujo = true; }
     setRealce(v) { this.realce = v; this._bgSujo = this.sujo = true; }
     setEstradas(v) { this.estradas = !!v && !this.semBase; this.baseEl.style.display = this.estradas ? '' : 'none'; if (this.estradas) { this._iniciarFundo(); this._ultSync = null; } this._bgSujo = this.sujo = true; }
+    setPedagio(v) { this.mostrarPedagio = !!v; this.sujo = true; this._bgSujo = true; }
     setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }
     temaMudou() { this._cores = null; if (this.fundoMl) RT.fundo.trocarTema(this.fundoMl, this._paleta().escuro).catch(e => console.warn(e)); this._bgSujo = this.sujo = true; }
@@ -483,6 +484,21 @@
         ctx.fillStyle = d.r.cor; ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fill(); ctx.restore();
       }
       ctx.restore();
+      /* pedágio: um "$" âmbar no começo de cada trecho pedagiado (dado do próprio mapa; a praça fica nesse trecho) */
+      if (this.mostrarPedagio !== false && k >= 18) {
+        const jaDesenhado = new Set();
+        ctx.font = '800 11px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (const d of dados) for (const t of d.trechos) {
+          if (!t.per || !t.per.ped || !t.per.ped.length || !visivel(t)) continue;
+          for (const q of t.per.ped) {
+            const px = (q.x - cx) * k + W / 2, py = (q.y - cy) * k + H / 2; if (px < 6 || py < 6 || px > W - 6 || py > H - 6) continue;
+            const id = Math.round(px / 3) + ',' + Math.round(py / 3); if (jaDesenhado.has(id)) continue; jaDesenhado.add(id);
+            ctx.globalAlpha = d.alfa; ctx.beginPath(); ctx.arc(px, py, 9, 0, 6.2832); ctx.fillStyle = '#F5A400'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fillStyle = '#1b1200'; ctx.fillText('$', px, py + 0.5);
+            this._pedHit = this._pedHit || [];
+          }
+        }
+        ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'start';
+      }
       /* quilometragem (e rodovia) escrita em cada trecho do veículo escolhido */
       if (temAtivo && k >= 55) {
         const d = dados.find(x => x.r.id === this.ativo);
@@ -491,7 +507,7 @@
           for (const t of d.pista) {
             if (!visivel(t)) continue;
             const q = pts(t, d.r.id), i = Math.floor(q.length * 0.36), a = q[i]; if (a.x < 20 || a.y < 20 || a.x > W - 20 || a.y > H - 20) continue;
-            const txt = Math.round(t.per.km) + ' km' + (t.per.refs && t.per.refs.length ? ' · ' + t.per.refs[0] : ''), w = ctx.measureText(txt).width + 14;
+            const txt = Math.round(t.per.km) + ' km' + (t.per.refs && t.per.refs.length ? ' · ' + t.per.refs[0] : '') + (t.per.ped && t.per.ped.length ? ' · pedágio' : ''), w = ctx.measureText(txt).width + 14;
             ctx.fillStyle = d.r.cor; this._pilula(ctx, a.x - w / 2, a.y - 10, w, 20, 10); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke();
             ctx.fillStyle = '#fff'; ctx.fillText(txt, a.x, a.y + 0.5);
           }

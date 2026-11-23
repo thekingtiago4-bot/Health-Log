@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.23.4';
+  const VERSAO = '0.24.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -251,6 +251,32 @@
   }
   /* lápis do veículo: motorista + cor (algumas cores da lista inicial são fracas no mapa) */
   const PALETA_CARRO = ['#7B3FE4', '#1C6DD0', '#E8590C', '#D6336C', '#0B8FA6', '#8D5A2B', '#C92A2A', '#4C5DDC', '#B23BC4', '#2FA0F5', '#F5B700', '#2E9E48', '#FF3EA5', '#00C2A8', '#FF7A00', '#111111'];
+  /* "Menor KM": reordena as cidades do veículo saindo e voltando à base, pelo menor percurso em LINHA RETA entre elas
+     (com até 9 cidades testa todas as ordens; acima disso usa vizinho mais próximo + trocas 2-opt). O KM real pelas rodovias aparece depois. */
+  function ordenarCurto(base, pts) {
+    const n = pts.length, rad = Math.PI / 180, d = (a, b) => { const x = (a.lon - b.lon) * Math.cos((a.lat + b.lat) / 2 * rad), y = a.lat - b.lat; return Math.hypot(x, y) * 111; };
+    const custo = o => { let s = 0, p = base; for (const i of o) { s += d(p, pts[i]); p = pts[i]; } return s + d(p, base); };
+    let melhor = [...Array(n).keys()];
+    if (n <= 9) {
+      let bc = Infinity; const perm = (arr, k) => { if (k === arr.length) { const c = custo(arr); if (c < bc) { bc = c; melhor = arr.slice(); } return; } for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; perm(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; } };
+      perm(melhor.slice(), 0);
+    } else {
+      const falta = new Set(melhor), o = []; let p = base; while (falta.size) { let bi = -1, bd = Infinity; for (const i of falta) { const x = d(p, pts[i]); if (x < bd) { bd = x; bi = i; } } o.push(bi); falta.delete(bi); p = pts[bi]; }
+      melhor = o; let mudou = true; while (mudou) { mudou = false; for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) { const t = melhor.slice(0, i).concat(melhor.slice(i, j + 1).reverse(), melhor.slice(j + 1)); if (custo(t) + 1e-9 < custo(melhor)) { melhor = t; mudou = true; } } }
+    }
+    return { ordem: melhor, antes: custo([...Array(n).keys()]), depois: custo(melhor) };
+  }
+  function ordemMaisCurta(id) {
+    const c = carroPorId(id); if (!c) return; const base = S.mapa.base;
+    if (!base) { toast('Sem base definida: ajuste a base em Configurações.'); return; }
+    const cids = c.cidades.map(k => S.idx.cidades.get(k)).filter(x => x && x.lat != null);
+    if (cids.length < 3) { toast(N.nomeCarro(c) + ' tem menos de 3 cidades: não há o que reorganizar.'); return; }
+    const r = ordenarCurto(base, cids.map(x => ({ lat: x.lat, lon: x.lon })));
+    if (r.depois >= r.antes - 0.5) { toast(N.nomeCarro(c) + ': a ordem atual já é a mais curta (em linha reta).'); return; }
+    const nova = r.ordem.map(i => cids[i].key), resto = c.cidades.filter(k => !nova.includes(k));
+    mutar('ordem mais curta de ' + N.nomeCarro(c), () => { c.cidades = nova.concat(resto); });
+    toast(N.nomeCarro(c) + ': ordem reorganizada — percurso em linha reta de ' + Math.round(r.antes) + ' para ' + Math.round(r.depois) + ' km. O KM real pelas rodovias aparece em instantes. Ctrl+Z desfaz.');
+  }
   async function renomearCarro(id) {
     const c = carroPorId(id); if (!c) return;
     let cor = c.cor;
@@ -695,7 +721,7 @@
   }
   async function carregarCfg() {
     try { const r = await DB.get('meta', 'config'); if (r && r.v) S.cfg = Object.assign({ fora: {}, limite: null }, r.v); } catch (e) { /* segue com o padrão */ }
-    N.setAjustesRota(S.cfg.fora);
+    N.setAjustesRota(S.cfg.fora); RT.vias.definirEvitar(!!S.cfg.evitarPedagio);
   }
   function salvarCfg() {
     N.setAjustesRota(S.cfg.fora); aplicarRotaAnim(); reindexar(); atualizarTudo();
@@ -727,7 +753,7 @@
     const c = rc.carro, aberto = S.carAberto.has(c.id), acima = S.cfg.limite != null && rc.valor > S.cfg.limite;
     const rastro = c.rastreio === 'sim' ? 'Rastreio: SIM' : c.rastreio === 'nao' ? 'Rastreio: NÃO' : 'Rastreio: —';
     let h = '<div class="vei' + (c.id === S.carroAtivo ? ' ativo' : '') + '" data-car="' + c.id + '" style="--cor:' + c.cor + '"><div class="vei-cab"><b>' + esc(N.rotuloCarro(c)) + '</b>' +
-      '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
+      '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-otim="' + c.id + '" title="Menor KM: reorganiza a ordem das cidades para a rota ficar mais curta (estimativa em linha reta; Ctrl+Z desfaz)" aria-label="Ordem mais curta">↯</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
       '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)' + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c), true) + '</span>' : '') + '</span>' +
       (acima ? (c.rastreio === 'sim' ? '<span class="vei-alerta ok" title="Veículo com rastreio: pode passar do limite">✔ Dentro do limite de ' + m$(S.cfg.limite) + '</span>' : '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>') : '') + '</div>';
     if (aberto) {
@@ -784,6 +810,7 @@
       const t = e.target;
       let m;
       if ((m = t.closest('[data-rast]'))) { const c = carroPorId(+m.dataset.rast); const prox = { null: 'sim', sim: 'nao', nao: null }[String(c.rastreio || null)]; return mutar('rastreio de ' + N.nomeCarro(c), () => { c.rastreio = prox; }); }
+      if ((m = t.closest('[data-otim]'))) return ordemMaisCurta(+m.dataset.otim);
       if ((m = t.closest('[data-ren]'))) return renomearCarro(+m.dataset.ren);
       if ((m = t.closest('[data-del]'))) return excluirCarro(+m.dataset.del);
       if ((m = t.closest('[data-up]'))) { const [id, i] = m.dataset.up.split('|').map(Number); return mutar('ordem das paradas', () => N.moverCidade(S.op, id, i, i - 1)); }
@@ -1090,7 +1117,7 @@
   async function recarregarDoBanco(id) {
     try {
       const [c, r] = [await DB.get('meta', 'config'), await DB.get('meta', 'regioes')];
-      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora); aplicarRotaAnim();
+      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora); aplicarRotaAnim(); { const ev = !!S.cfg.evitarPedagio; if (ev !== RT.vias.evitar) { RT.vias.definirEvitar(ev); S.mapa.pernas.clear(); } const bp = $('#bt-pedagio'); if (bp) bp.setAttribute('aria-pressed', String(ev)); }
       if (r && r.v && Array.isArray(r.v.regioes)) { S.reg = r.v; N.setRegioes(S.reg); }
       const op = id ? await DB.get('ops', id) : null;
       if (op) { S.op = op; if (!carroPorId(S.carroAtivo) && op.carros.length) S.carroAtivo = op.carros[0].id; }
@@ -1233,6 +1260,11 @@
     $('#bt-estradas').onclick = () => { const v = $('#bt-estradas').getAttribute('aria-pressed') !== 'true'; $('#bt-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('estradas', v); S.mapa.setEstradas(v); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
+    $('#bt-pedagio').onclick = () => {
+      const v = $('#bt-pedagio').getAttribute('aria-pressed') !== 'true'; $('#bt-pedagio').setAttribute('aria-pressed', String(v));
+      S.cfg.evitarPedagio = v; RT.vias.definirEvitar(v); S.mapa.pernas.clear(); salvarCfg();   // salvarCfg redesenha e pede os trechos do outro modo
+      toast(v ? 'Evitar pedágio ligado: as rotas procuram caminhos sem pedágio (podem ficar mais longas).' : 'Evitar pedágio desligado: caminho mais direto, com pedágio ou não.');
+    };
     $('#bt-vias').onclick = () => { const v = $('#bt-vias').getAttribute('aria-pressed') !== 'true'; $('#bt-vias').setAttribute('aria-pressed', String(v)); U.pref.gravar('vias', v); S.mapa.setVias(v); if (v) atualizarVias(); statusVias(); };
     $('#bt-base').onclick = () => { S.cfg.mostrarBase = S.cfg.mostrarBase === false; salvarCfg(); aplicarBase(); };
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
@@ -1390,6 +1422,7 @@
     await malha; S.mapa.marcar();
     aplicarBase();
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }
+    $('#bt-pedagio').setAttribute('aria-pressed', String(!!S.cfg.evitarPedagio));
     { const v = U.pref.ler('vias', true); S.mapa.setVias(v); $('#bt-vias').setAttribute('aria-pressed', String(v)); atualizarVias(); }
     { const e = U.pref.ler('estradas', true); S.mapa.setEstradas(e); $('#bt-estradas').setAttribute('aria-pressed', String(e)); }
     if (S.mun) { const rota = new Set(); for (const r of ((S.reg && S.reg.regioes) || [])) if (r.grupo !== 'fora') for (const c of r.cidades) rota.add(String(c)); S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3], pri: rota.has(c) ? 1 : 0 })).sort((x, y) => y.pri - x.pri || x.nome.length - y.nome.length)); }
@@ -1406,6 +1439,6 @@
     if (id === S.janFoco) return; S.janFoco = id;
     $$('.jan').forEach(x => x.classList.toggle('foco', x.id === id));
   }, true);
-  RT.A = { geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

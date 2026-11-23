@@ -7,7 +7,7 @@ const amostra = require('./amostra.js');
 
 const PORTA = 8097, URL = 'http://localhost:' + PORTA + '/';
 let ok = 0, falhas = [], ignorarRede = false, falhaRotas = false;
-const reqsRota = [], reqsTile = [];
+const reqsRota = [], reqsTile = [], reqsValhalla = []; let pedagioSim = false;
 function igual(real, esperado, nome) {
   const a = JSON.stringify(real), b = JSON.stringify(esperado);
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
@@ -30,6 +30,15 @@ const cents = s => Math.round(parseFloat(s) * 100);
       if (falhaRotas) return r.fulfill({ status: 500, headers: { 'access-control-allow-origin': '*' }, body: 'erro' });
       const [a, b] = cs, mid = [(a[0] + b[0]) / 2 + 0.02, (a[1] + b[1]) / 2 - 0.02], km = Math.round(Math.hypot((a[0] - b[0]) * 100, (a[1] - b[1]) * 111) * 1.2);
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ code: 'Ok', routes: [{ distance: km * 1000, duration: km * 55, geometry: { type: 'LineString', coordinates: [a, mid, b] } }] }) });
+    });
+    await ctx.route('https://valhalla1.openstreetmap.de/**', async r => { // Valhalla SIMULADO: mesma estrada de 3 pontos; marca pedágio no modo padrão quando pedagioSim = true
+      const req = r.request(), corpo = JSON.parse(req.postData() || '{}'), cs = (corpo.locations || []).map(l => [l.lon, l.lat]);
+      reqsRota.push('https://routing.openstreetmap.de/routed-car/route/v1/driving/' + cs.map(c => c.join(',')).join(';')); reqsValhalla.push(corpo);
+      if (falhaRotas) return r.fulfill({ status: 500, headers: { 'access-control-allow-origin': '*' }, body: 'erro' });
+      const [a, b] = cs, mid = [(a[0] + b[0]) / 2 + 0.02, (a[1] + b[1]) / 2 - 0.02], km = Math.round(Math.hypot((a[0] - b[0]) * 100, (a[1] - b[1]) * 111) * 1.2);
+      const evita = corpo.costing_options && corpo.costing_options.auto && corpo.costing_options.auto.use_tolls === 0, toll = pedagioSim && !evita;
+      const enc = pts => { let la = 0, lo = 0, s = ''; const e1 = v => { v = v < 0 ? ~(v << 1) : v << 1; let o = ''; while (v >= 32) { o += String.fromCharCode((32 | (v & 31)) + 63); v >>= 5; } return o + String.fromCharCode(v + 63); }; for (const [x, y] of pts) { const ila = Math.round(y * 1e6), ilo = Math.round(x * 1e6); s += e1(ila - la) + e1(ilo - lo); la = ila; lo = ilo; } return s; };
+      return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ trip: { summary: { length: km + (evita ? 7 : 0), time: km * 55, has_toll: toll }, legs: [{ shape: enc([a, mid, b]), maneuvers: [{ begin_shape_index: 0, end_shape_index: 1, length: km / 2, toll: false, street_names: ['Rua A'] }, { begin_shape_index: 1, end_shape_index: 2, length: km / 2, toll, street_names: ['SP-255'] }] }] } }) });
     });
     await ctx.route(/raw\.githubusercontent\.com/, r => { // feriados SIMULADOS: um estadual (MG) e um municipal (Araraquara) HOJE
       const d = new Date(), br = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
@@ -895,6 +904,46 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('.nav button[data-tela="rotas"]');
   igual(await p.evaluate(() => document.querySelector('#jan-pend').offsetWidth), tam0.w, 'Resetar janelas flutuantes: volta ao tamanho padrão');
   igual(await p.evaluate(() => RT.U.pref.ler('tam:pend', null)), null, 'e esquece o tamanho guardado');
+
+  console.log('\nPedágio no mapa e "Evitar pedágio"');
+  await p.click('.nav button[data-tela="rotas"]');
+  pedagioSim = true;
+  await p.evaluate(async () => { for (const r of await RT.DB.todos('meta')) if (String(r.k).startsWith('via:')) await RT.DB.apagar('meta', r.k); RT.vias.mem.clear(); RT.S.mapa.pernas.clear(); RT.A.atualizarTudo(); });
+  await p.waitForFunction(() => [...RT.S.mapa.pernas.values()].some(x => x.ped && x.ped.length), null, { timeout: 15000 });
+  verdade(true, 'trecho com pedágio aparece marcado no mapa ($ no começo do trecho pedagiado)');
+  verdade(reqsValhalla.length > 0 && reqsValhalla.every(c => c.costing_options.auto.use_tolls === 1), 'padrão = caminho mais direto: o pedido deixa o pedágio liberado');
+  verdade(await p.evaluate(() => document.querySelector('#bt-pedagio').getAttribute('aria-pressed') === 'false'), 'o botão "Evitar pedágio" começa desligado');
+  await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 15000 });
+  const nPernas = await p.evaluate(() => RT.S.mapa.pernas.size);
+  const kmPadrao = await p.evaluate(() => [...RT.S.mapa.pernas.values()].reduce((s, x) => s + x.km, 0));
+  const nV0 = reqsValhalla.length;
+  await p.click('#bt-pedagio');
+  await p.waitForFunction(n => RT.vias.pendentes() === 0 && RT.S.mapa.pernas.size >= n && [...RT.S.mapa.pernas.values()].every(x => !x.ped.length), nPernas, { timeout: 15000 });
+  verdade(reqsValhalla.slice(nV0).some(c => c.costing_options.auto.use_tolls === 0) && reqsValhalla[reqsValhalla.length - 1].costing_options.auto.use_tolls === 0, 'Evitar pedágio: o app pede caminhos SEM pedágio');
+  verdade(await p.evaluate(() => document.querySelector('#bt-pedagio').getAttribute('aria-pressed') === 'true' && RT.S.cfg.evitarPedagio === true), 'o botão fica ligado e a escolha é guardada');
+  const kmEvita = await p.evaluate(() => [...RT.S.mapa.pernas.values()].reduce((s, x) => s + x.km, 0));
+  verdade(kmEvita > kmPadrao, 'sem pedágio o caminho pode ficar mais longo (' + Math.round(kmPadrao) + ' → ' + Math.round(kmEvita) + ' km)');
+  await p.click('#bt-pedagio');
+  await p.waitForFunction(() => [...RT.S.mapa.pernas.values()].some(x => x.ped && x.ped.length), null, { timeout: 15000 });
+  verdade(true, 'desligando, volta ao caminho mais direto com os $ de pedágio');
+  verdade(await p.evaluate(() => /pedágio/.test(document.querySelector('#toast').textContent)), 'e o app avisa o que mudou');
+  pedagioSim = false;
+  await p.evaluate(async () => { for (const r of await RT.DB.todos('meta')) if (String(r.k).startsWith('via:')) await RT.DB.apagar('meta', r.k); RT.vias.mem.clear(); RT.S.mapa.pernas.clear(); RT.A.atualizarTudo(); });
+
+  console.log('\nOrdem mais curta (Menor KM)');
+  const ord = await p.evaluate(() => { const c = RT.S.op.carros.find(x => x.cidades.length >= 3); return c ? { id: c.id, cid: c.cidades.slice() } : null; });
+  if (ord) {
+    await p.evaluate(id => { RT.A.janVer('carros', true); const c = RT.S.op.carros.find(x => x.id === id); RT.A.mutar('bagunçar', () => { c.cidades = c.cidades.slice().reverse(); }); }, ord.id);
+    const antesO = await p.evaluate(id => RT.S.op.carros.find(x => x.id === id).cidades.slice(), ord.id);
+    await p.click('#car-corpo .vei[data-car="' + ord.id + '"] [data-otim]');
+    const depoisO = await p.evaluate(id => RT.S.op.carros.find(x => x.id === id).cidades.slice(), ord.id);
+    verdade(depoisO.length === antesO.length && depoisO.every(k => antesO.includes(k)), 'Menor KM mantém as mesmas cidades do veículo (só muda a ordem)');
+    verdade(/linha reta|já é a mais curta/.test(await p.innerText('#toast')), 'e avisa o que fez');
+    await p.evaluate(() => RT.A.desfazer());
+  } else verdade(true, 'sem veículo com 3+ cidades nesta amostra');
+  const oc = await p.evaluate(() => RT.A.ordenarCurto({ lat: 0, lon: 0 }, [{ lat: 0, lon: 3 }, { lat: 0, lon: 1 }, { lat: 0, lon: 4 }, { lat: 0, lon: 2 }]));
+  verdade(Math.abs(oc.depois - 888) < 1, 'ordem mais curta: cidades em fila viram um vai-e-volta sem repetir caminho (percurso mínimo, ' + Math.round(oc.depois) + ' km em linha reta)');
+  verdade(oc.depois < oc.antes, 'e o percurso fica menor que o da ordem bagunçada');
 
   console.log('\nAgendamentos: regra da MESA e pop-up');
   await p.evaluate(() => { RT.S.op.notas.find(n => n.nf === '000001007').origem = 'MESA.XML'; });
