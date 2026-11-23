@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.23.1';
+  const VERSAO = '0.23.2';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -222,6 +222,14 @@
       const b = e.target.closest('[data-foco]'); if (!b) return; fecharFocar(); focarVeiculo(+b.dataset.foco);
     });
     document.body.appendChild(p); document.addEventListener('keydown', teclaFocar, true);
+    /* o pop-up é móvel: arraste pelo título; o lugar fica guardado (pref pos:focar) */
+    const pos = (x, y) => { const w = p.offsetWidth, h = p.offsetHeight; p.style.transform = 'none'; p.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px'; p.style.top = Math.max(4, Math.min(innerHeight - Math.min(h, 80) - 4, y)) + 'px'; };
+    const sv = U.pref.ler('pos:focar', null); if (sv && isFinite(sv.x) && isFinite(sv.y)) pos(sv.x, sv.y);
+    let d = null; const cab = p.querySelector('.pf-cab');
+    cab.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; const r = p.getBoundingClientRect(); d = { dx: e.clientX - r.left, dy: e.clientY - r.top, id: e.pointerId }; cab.setPointerCapture(e.pointerId); p.classList.add('movendo'); e.preventDefault(); });
+    cab.addEventListener('pointermove', e => { if (d && e.pointerId === d.id) pos(e.clientX - d.dx, e.clientY - d.dy); });
+    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; p.classList.remove('movendo'); U.pref.gravar('pos:focar', { x: parseFloat(p.style.left), y: parseFloat(p.style.top) }); };
+    cab.addEventListener('pointerup', fim); cab.addEventListener('pointercancel', fim);
     const at = p.querySelector('.pf-q.ativo') || p.querySelector('.pf-q'); if (at) at.focus();
   }
   document.addEventListener('pointerdown', e => { const p = $('#pop-focar'); if (p && !p.contains(e.target)) fecharFocar(); }, true);

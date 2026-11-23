@@ -653,3 +653,5 @@ body.ged-on .geo-mapa .geo-box{cursor:crosshair}
 .chave input:focus-visible+.trilho{outline:3px solid var(--aqua,#4fd1c5);outline-offset:2px}
 .chave-rot{font-weight:600}.chave-est{font-weight:700;color:var(--mudo);min-width:5.5ch}.chave input:checked~.chave-est{color:var(--ok)}
 .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(1)}
+
+#pop-focar .pf-cab{cursor:move;touch-action:none;user-select:none}#pop-focar.movendo{opacity:.92}
