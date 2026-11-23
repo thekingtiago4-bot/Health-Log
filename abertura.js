@@ -62,8 +62,6 @@ function hsCineHtml(){ let ticks=''; for(let i=0;i<60;i++){ const g=i%5===0; tic
    <linearGradient id="hcA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9fffa"/><stop offset="1" stop-color="#4fd1c5"/></linearGradient>
    <radialGradient id="hcHalo"><stop offset=".62" stop-color="#6fe3d6" stop-opacity="0"/><stop offset=".82" stop-color="#9af5ea" stop-opacity=".30"/><stop offset="1" stop-color="#9af5ea" stop-opacity="0"/></radialGradient></defs>
   <circle class="hc-onda vb" cx="200" cy="200" r="190"/><circle class="hc-onda vb" cx="200" cy="200" r="190" style="animation-delay:1s"/><circle class="hc-onda vb" cx="200" cy="200" r="190" style="animation-delay:2s"/>
-  <path class="hc-rota" pathLength="100" d="M-30 330 C60 250 90 360 170 300 S300 330 430 210" fill="none" stroke="#6fe3d6" stroke-width="3" stroke-linecap="round" stroke-dasharray="100" opacity=".55"/>
-  ${pin(38,283,2.9)}${pin(362,262,4.2)}
   <rect class="hc-cx vb" x="50" y="50" width="300" height="300" rx="72" fill="url(#hcBg)" stroke="rgba(154,245,234,.25)" stroke-width="2"/>
   <circle cx="200" cy="200" r="150" fill="url(#hcHalo)"/>
   <circle class="hc-anel" cx="200" cy="200" r="150" fill="none" stroke="url(#hcA)" stroke-width="3" stroke-linecap="round" pathLength="100" opacity=".55" transform="rotate(-90 200 200)"/>
