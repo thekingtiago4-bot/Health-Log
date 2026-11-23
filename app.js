@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.23.2';
+  const VERSAO = '0.23.3';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -155,7 +155,7 @@
     else if (tela === 'geo') { renderGeo(); RT.fer.atualizar(false); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
-    renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
+    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
     if (tela !== 'rotas') renderTelaAtual();
     if (!$('#mural').hidden) renderMural();
   }
@@ -202,26 +202,27 @@
     enviar({ t: 'foco', id, pts });                                                                        // o mapa em outra tela (segundo monitor) também foca
     toast('Focando em ' + N.rotuloCarro(rc.carro) + ' · ' + rc.carro.cidades.length + ' cidade(s)' + (kmTxt(kmDe(rc.carro)) ? ' · ' + kmTxt(kmDe(rc.carro)) : ''));
   }
+  /* O pop-up fica na tela (móvel) até você fechar no ✕ ou apertar Ctrl+F de novo; acompanha os veículos que forem criados/alterados. */
   function fecharFocar() { const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true); }
-  function teclaFocar(e) {
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fecharFocar(); return; }
-    if (/^\d$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { // digitar o número do veículo (1–9; 10+ por clique)
-      const b = $('#pop-focar [data-foco="' + e.key + '"]'); if (b) { e.preventDefault(); e.stopPropagation(); b.click(); }
-    }
+  function teclaFocar(e) {   // digitar o número (1–9) só vale com o cursor dentro do pop-up, para não atrapalhar quem digita em outro lugar
+    const p = $('#pop-focar'); if (!p || !p.contains(document.activeElement) || e.ctrlKey || e.metaKey || e.altKey || !/^\d$/.test(e.key)) return;
+    const b = p.querySelector('[data-foco-n="' + e.key + '"]'); if (b) { e.preventDefault(); e.stopPropagation(); b.click(); }
+  }
+  function desenharFocar() {
+    const p = $('#pop-focar'); if (!p) return; const g = p.querySelector('.pf-grade'), carros = S.res ? S.res.carros : [];
+    g.innerHTML = carros.length ? carros.map(rc => { const c = rc.carro; return '<button type="button" class="pf-q' + (c.id === S.carroAtivo ? ' ativo' : '') + (c.cidades.length ? '' : ' vazio') + '" data-foco="' + c.id + '" data-foco-n="' + c.numero + '" style="--cor:' + esc(c.cor) + ';--txt:' + corTexto(c.cor) + '" title="' + esc(N.rotuloCarro(c)) + (c.cidades.length ? '' : ' (sem rota ainda)') + '"><b>' + c.numero + '</b><small>' + esc(c.tipo === 'van' ? 'Van' : c.tipo === 'caminhao' ? 'Caminhão' : 'Carro') + '</small>' + (c.motorista ? '<em>' + esc(c.motorista) + '</em>' : '') + '</button>'; }).join('')
+      : '<p class="pf-vazio">Ainda não há veículos. Use + Carro, + Van ou + Caminhão: eles aparecem aqui.</p>';
   }
   function abrirFocar() {
+    if ($('#pop-focar')) { fecharFocar(); return; }          // Ctrl+F de novo = fecha
     if (!S.op || !S.res) { toast('Abra uma operação primeiro.'); return; }
-    if (!S.res.carros.length) { toast('Ainda não há veículos. Use + Carro, + Van ou + Caminhão.'); return; }
-    fecharFocar();
     const p = document.createElement('div'); p.id = 'pop-focar'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Focar num veículo');
-    p.innerHTML = '<div class="pf-cab"><b>Focar na rota do veículo</b><button type="button" class="jan-x" data-fx aria-label="Fechar">✕</button></div><div class="pf-grade">' +
-      S.res.carros.map(rc => { const c = rc.carro; return '<button type="button" class="pf-q' + (c.id === S.carroAtivo ? ' ativo' : '') + (c.cidades.length ? '' : ' vazio') + '" data-foco="' + c.id + '" style="--cor:' + esc(c.cor) + ';--txt:' + corTexto(c.cor) + '" title="' + esc(N.rotuloCarro(c)) + (c.cidades.length ? '' : ' (sem rota ainda)') + '"><b>' + c.numero + '</b><small>' + esc(c.tipo === 'van' ? 'Van' : c.tipo === 'caminhao' ? 'Caminhão' : 'Carro') + '</small>' + (c.motorista ? '<em>' + esc(c.motorista) + '</em>' : '') + '</button>'; }).join('') +
-      '</div><p class="pf-dica">Clique no quadradinho (ou digite o número). Esc fecha.</p>';
+    p.innerHTML = '<div class="pf-cab"><b>Focar na rota do veículo</b><button type="button" class="jan-x" data-fx aria-label="Fechar">✕</button></div><div class="pf-grade"></div><p class="pf-dica">Clique no quadradinho (ou digite o número). Fica aberto até você fechar no ✕ ou apertar Ctrl+F de novo.</p>';
     p.addEventListener('click', e => {
       if (e.target.closest('[data-fx]')) return fecharFocar();
-      const b = e.target.closest('[data-foco]'); if (!b) return; fecharFocar(); focarVeiculo(+b.dataset.foco);
+      const b = e.target.closest('[data-foco]'); if (b) focarVeiculo(+b.dataset.foco);
     });
-    document.body.appendChild(p); document.addEventListener('keydown', teclaFocar, true);
+    document.body.appendChild(p); document.addEventListener('keydown', teclaFocar, true); desenharFocar();
     /* o pop-up é móvel: arraste pelo título; o lugar fica guardado (pref pos:focar) */
     const pos = (x, y) => { const w = p.offsetWidth, h = p.offsetHeight; p.style.transform = 'none'; p.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px'; p.style.top = Math.max(4, Math.min(innerHeight - Math.min(h, 80) - 4, y)) + 'px'; };
     const sv = U.pref.ler('pos:focar', null); if (sv && isFinite(sv.x) && isFinite(sv.y)) pos(sv.x, sv.y);
@@ -232,7 +233,6 @@
     cab.addEventListener('pointerup', fim); cab.addEventListener('pointercancel', fim);
     const at = p.querySelector('.pf-q.ativo') || p.querySelector('.pf-q'); if (at) at.focus();
   }
-  document.addEventListener('pointerdown', e => { const p = $('#pop-focar'); if (p && !p.contains(e.target)) fecharFocar(); }, true);
   async function novoVeiculo(tipo) {
     if (!S.op) { toast('Importe os XMLs primeiro.'); return; }
     if (tipo === 'caminhao' && N.contarTipo(S.op, 'caminhao') >= 1) {
@@ -1339,7 +1339,7 @@
     document.addEventListener('keydown', e => {
       const emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
       const so = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey, tecla = e.key.toLowerCase();
-      if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: focar num veículo (vale com qualquer janela aberta)
+      if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: abre/fecha o pop-up de focar (vale com qualquer janela aberta)
       else if (so && tecla === 's') { e.preventDefault(); if (!S.modoMapa) salvarAgora(); }
       else if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
       else if (so && tecla === 'l' && !S.modoMapa && !document.querySelector('.fundo')) { e.preventDefault(); RT.sit.abrirBusca(); } // Ctrl+L: abre a busca de nota

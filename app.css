@@ -655,3 +655,5 @@ body.ged-on .geo-mapa .geo-box{cursor:crosshair}
 .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(1)}
 
 #pop-focar .pf-cab{cursor:move;touch-action:none;user-select:none}#pop-focar.movendo{opacity:.92}
+
+.pf-vazio{grid-column:1/-1;margin:6px 0;color:var(--mudo);font-size:.88rem}

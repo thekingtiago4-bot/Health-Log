@@ -93,3 +93,4 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - Ctrl+F/focar: `focarVeiculo` enquadra os pontos da rota + a base (`enquadrarPontos`, que agora respeita a janela de pendentes), mostra "Focando em…" e manda `{t:'foco'}` pelo BroadcastChannel — o mapa em outra tela (segundo monitor) também enquadra.
 - Configurações: opções liga/desliga são SEMPRE a chave `.chave` (Ligado/Desligado, ou Sim/Não no tema); Instalar é o último cartão e, depois de instalado (`appinstalled`, modo app ou pref `instalado`), o botão fica desativado e cinza; Janelas flutuantes = um só botão "Resetar padrão".
 - v0.23.2: pop-up do Ctrl+F é móvel (arrastar pelo título; pref `pos:focar`).
+- v0.23.3: pop-up do Ctrl+F é FIXO na tela: só fecha no ✕ ou com Ctrl+F de novo (Esc e clique fora não fecham); escolher veículo não fecha; `desenharFocar` roda em `atualizarTudo`, então veículos novos aparecem sozinhos. Número 1–9 só vale com o cursor dentro do pop-up.

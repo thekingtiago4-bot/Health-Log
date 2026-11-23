@@ -1,1 +1,1 @@
-{"versao":"0.23.2","data":"2026-11-23","novidades":"O pop-up do Ctrl+F (focar) agora e movel: arraste pelo titulo; o lugar fica guardado."}
+{"versao":"0.23.3","data":"2026-11-23","novidades":"Pop-up do Ctrl+F (focar) fica na tela ate fechar no X ou Ctrl+F de novo, e se atualiza sozinho quando veiculos sao criados ou mudam."}
