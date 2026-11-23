@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.15.2';
+  const VERSAO = '0.16.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -74,9 +74,23 @@
   /* botão Salvar (igual ao do Health Search): grava agora, espera terminar e deixa cópia de segurança */
   async function salvarAgora() {
     if (!S.op) { toast('Não há operação aberta para salvar.'); return; }
-    await salvar(); await S.fila;
-    if (S.sujo || !(await backup(S.op, 'Salvar'))) { toast('⚠ Não consegui salvar. Baixe uma cópia em Importar XML → Operações guardadas.'); return; }
-    toast('✓ Tudo salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (com cópia de segurança).');
+    const b = $('#bt-salvar'); if (b) { b.disabled = true; b.textContent = 'Salvando…'; }
+    try {
+      await salvar(); await S.fila;
+      if (S.sujo || !(await backup(S.op, 'Salvar'))) { toast('⚠ Não consegui salvar. Baixe uma cópia em Importar XML → Operações guardadas.'); return; }
+      toast('✔ Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' (com cópia de segurança).');
+    } finally { if (b) { b.disabled = false; b.textContent = 'Salvar'; } }
+  }
+  /* botão direito no Salvar: versões salvas desta operação (como no Health Search) */
+  async function versoesSalvas() {
+    if (!S.op) { toast('Não há operação aberta.'); return; }
+    let l = []; try { l = (await DB.todos('bk')).filter(b => b.opId === S.op.id).sort((x, y) => y.quando.localeCompare(x.quando)); } catch (e) { /* ok */ }
+    const html = '<h2>Versões salvas</h2><p class="sub" style="margin:0 0 10px">Cópias desta operação (as últimas 30). “Restaurar” abre a versão como uma operação nova, sem apagar a atual.</p><div style="max-height:50vh;overflow:auto">' +
+      (l.length ? l.map(b => '<div class="op-card"><div class="nome"><b>' + new Date(b.quando).toLocaleString('pt-BR') + '</b><small>' + esc(b.motivo) + ' · ' + b.op.notas.length + ' notas</small></div><button class="btn mini" data-bk-rest="' + b.k + '">Restaurar</button></div>').join('') : '<p class="dica">Ainda não há versões. Clique em Salvar para criar a primeira.</p>') + '</div><div class="botoes"><button class="btn pri" data-s>Fechar</button></div>';
+    U.modal(html, (f, fechar) => {
+      f.querySelector('[data-s]').onclick = () => fechar(true);
+      f.addEventListener('click', async e => { const r = e.target.closest('[data-bk-rest]'); if (!r) return; const x = await DB.get('bk', +r.dataset.bkRest); if (x) { try { await restaurarObjeto(x.op, ' (restaurada)'); fechar(true); } catch (er) { toast('⚠ ' + er.message); } } });
+    });
   }
   window.addEventListener('beforeunload', e => { if (window.__hsRecarregando) return; if (S.sujo || (DB.erro && S.op)) { e.preventDefault(); e.returnValue = ''; } });
   /* menu lateral que esconde, e instalar o aplicativo */
@@ -85,7 +99,8 @@
     const aplicar = (oculta, grava) => { app.classList.toggle('rail-oculta', oculta); seta.textContent = oculta ? '›' : '‹'; seta.setAttribute('aria-expanded', String(!oculta)); seta.setAttribute('aria-label', oculta ? 'Mostrar o menu lateral' : 'Esconder o menu lateral'); if (grava) U.pref.gravar('railOculta', oculta); setTimeout(() => { window.dispatchEvent(new Event('resize')); if (S.mapa) { S.mapa.redimensionar(); S.mapa.marcar(); } }, 60); };
     seta.onclick = () => aplicar(!app.classList.contains('rail-oculta'), true);
     aplicar(!!U.pref.ler('railOculta', false), false);
-    $('#bt-salvar').onclick = salvarAgora;
+    const bs = $('#bt-salvar'); bs.onclick = salvarAgora; bs.oncontextmenu = e => { e.preventDefault(); versoesSalvas(); };
+    setInterval(() => { bs.hidden = !(S.op && !S.modoMapa); }, 1000); bs.hidden = !(S.op && !S.modoMapa);
     let evt = null; const bi = $('#bt-instalar');
     const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     if (!instalado()) bi.hidden = false;

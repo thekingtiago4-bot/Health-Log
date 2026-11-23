@@ -19,6 +19,8 @@
 .hc-anel2{stroke-dasharray:100;animation:hcTraco 1.6s .9s cubic-bezier(.6,0,.2,1) both;opacity:.5}
 .hc-ticks{opacity:0;animation:hcTicks 1.4s 1.5s ease-out forwards}
 .hc-card{opacity:0;animation:hcFade .5s 2.1s forwards}
+.hc-bg{transform-box:fill-box;transform-origin:50% 100%;animation:hcBg 1.1s cubic-bezier(.2,1,.3,1) both}
+@keyframes hcBg{0%{transform:scaleY(0);opacity:0}30%{opacity:1}100%{transform:scaleY(1);opacity:1}}
 .hc-agulha{animation:hcAgulha 2.9s .9s cubic-bezier(.25,1,.35,1) both,hcBal 5s 3.9s ease-in-out infinite}
 .hc-flash{opacity:0;animation:hcFlash 1.1s 3.5s ease-out}
 .hc-rota{stroke-dasharray:100;stroke-dashoffset:100;animation:hcRota 2.2s 2.3s ease-in-out forwards}
@@ -64,14 +66,8 @@ function hsCineHtml(){ let ticks=''; for(let i=0;i<60;i++){ const g=i%5===0; tic
   ${pin(38,283,2.9)}${pin(362,262,4.2)}
   <rect class="hc-cx vb" x="50" y="50" width="300" height="300" rx="72" fill="url(#hcBg)" stroke="rgba(154,245,234,.25)" stroke-width="2"/>
   <circle cx="200" cy="200" r="150" fill="url(#hcHalo)"/>
-  <g class="hc-ticks vb">${ticks}</g>
-  <circle class="hc-anel" cx="200" cy="200" r="112" fill="none" stroke="url(#hcA)" stroke-width="12" stroke-linecap="round" pathLength="100" transform="rotate(-90 200 200)"/>
-  <circle class="hc-anel2" cx="200" cy="200" r="92" fill="none" stroke="#6fe3d6" stroke-width="2" pathLength="100" transform="rotate(90 200 200)"/>
-  <g class="hc-card" fill="#ffffff" stroke="#062227" stroke-width="5" stroke-linejoin="round" paint-order="stroke" font-family="Barlow Semi Condensed,Arial" font-weight="800" font-size="23" text-anchor="middle"><!-- v10.6.31: contorno escuro para não sumir no anel claro --><text x="200" y="101">N</text><text x="200" y="315">S</text><text x="307" y="208">L</text><text x="93" y="208">O</text></g>
-  <circle class="hc-flash vb" cx="200" cy="200" r="90" fill="#d9fffa"/>
-  <g class="hc-agulha vb"><path d="M200 108 L226 200 L200 292 L174 200 Z" fill="url(#hcA)"/><path d="M200 108 L226 200 L200 200 Z" fill="#fff"/><path d="M200 292 L174 200 L200 200 Z" fill="#2c9c92"/>
-   <path d="M132 200 L200 182 L268 200 L200 218 Z" fill="#6fe3d6" opacity=".85"/><circle cx="200" cy="200" r="13" fill="#062427" stroke="#d9fffa" stroke-width="4"/></g>
-  <g class="hc-orb vb"><circle cx="200" cy="200" r="112" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" pathLength="100" stroke-dasharray="9 91" transform="rotate(-90 200 200)" opacity=".85"/><circle cx="200" cy="88" r="5.5" fill="#fff"/></g><g class="hc-orb hc-o2 vb"><circle cx="200" cy="200" r="112" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="6 94" transform="rotate(-90 200 200)" opacity=".85"/><circle cx="200" cy="88" r="4.5" fill="#fff"/></g><g class="hc-orbr vb"><circle cx="200" cy="200" r="92" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" pathLength="100" stroke-dasharray="7 93" transform="rotate(-90 200 200)" opacity=".85"/><circle cx="200" cy="108" r="3.7" fill="#fff"/></g><g class="hc-orbr hc-o2 vb"><circle cx="200" cy="200" r="92" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" pathLength="100" stroke-dasharray="5 95" transform="rotate(-90 200 200)" opacity=".85"/><circle cx="200" cy="108" r="3.5" fill="#fff"/></g><g class="hc-orbl vb"><circle cx="200" cy="200" r="168" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" pathLength="100" stroke-dasharray="4 96" transform="rotate(-90 200 200)" opacity=".85"/><circle cx="200" cy="32" r="3.5" fill="#fff"/></g><g class="hc-orbl hc-o3 vb"><circle cx="200" cy="200" r="186" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" pathLength="100" stroke-dasharray="3 97" transform="rotate(-90 200 200)" opacity=".85"/><circle cx="200" cy="14" r="3.1" fill="#fff"/></g>
+  <circle class="hc-anel" cx="200" cy="200" r="150" fill="none" stroke="url(#hcA)" stroke-width="3" stroke-linecap="round" pathLength="100" opacity=".55" transform="rotate(-90 200 200)"/>
+  <g class="hc-bgs"><rect class="hc-bg" x="104" y="235" width="34" height="50" rx="9" fill="url(#hcA)" style="animation-delay:1.00s"/><rect class="hc-bg" x="156" y="193" width="34" height="92" rx="9" fill="url(#hcA)" style="animation-delay:1.22s"/><rect class="hc-bg" x="208" y="151" width="34" height="134" rx="9" fill="url(#hcA)" style="animation-delay:1.44s"/><rect class="hc-bg" x="260" y="109" width="34" height="176" rx="9" fill="#ffffff" style="animation-delay:1.66s"/></g>
  </svg><div class="hc-nome">${nome}</div><div class="hc-sub">Eficiência Máxima Em Roteirização</div><div class="hc-barra"><b></b></div>`; }
 /* v9.6.5: a abertura toca sempre que o app abre (logado ou não), por cima da tela de carregamento */
 (function(){ try{ if(matchMedia('(prefers-reduced-motion:reduce)').matches) return;

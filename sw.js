@@ -1,7 +1,7 @@
 /* Health Route · service worker. Troque o nome do cache a cada versão publicada. */
-const CACHE = 'hr-app-v017';
+const CACHE = 'hr-app-v018';
 const ARQUIVOS = ['./', 'index.html', 'app.css', 'fontes.css', 'nucleo.js', 'ui.js', 'mapa.js', 'vias.js', 'fundo.js', 'vendor/maplibre-gl.css', 'app.js', 'relatorios.js', 'bipagem.js', 'situacao.js', 'romaneio.js', 'turno.js', 'abertura.js', 'manifest.webmanifest',
-  'data/municipios.json', 'data/malha.json', 'data/regioes.json', 'icons/marca.png', 'icons/healthlog.png', 'icons/icon-192.png', 'icons/icon-512.png',
+  'data/municipios.json', 'data/malha.json', 'data/regioes.json', 'icons/marca.png', 'icons/healthlog.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/icone.svg',
   'fonts/Barlow-400.woff2', 'fonts/Barlow-500.woff2', 'fonts/Barlow-600.woff2', 'fonts/BarlowSemiCondensed-600.woff2', 'fonts/BarlowSemiCondensed-700.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== 'hr-vendor-v1').map(k => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -606,10 +606,12 @@
     _marcador(ctx, c, p, P) {
       const sel = c.key === this.sel, hov = c.key === this.hover;
       if (c.fora) { // cidade fora de rota: bolinha cinza discreta (continua clicável)
-        const r = 8;
-        if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 6.2832); ctx.fillStyle = 'rgba(110,225,220,.4)'; ctx.fill(); }
-        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.fillStyle = P.escuro ? '#0C2B31' : '#fff'; ctx.fill();
-        ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.strokeStyle = P.mudo; ctx.stroke(); ctx.setLineDash([]);
+        const r = 9.5, laranja = P.escuro ? '#FFB454' : '#C2410C';
+        if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, 6.2832); ctx.fillStyle = 'rgba(255,180,84,.45)'; ctx.fill(); }
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 2.5, 0, 6.2832); ctx.fillStyle = P.escuro ? 'rgba(4,16,19,.85)' : 'rgba(255,255,255,.9)'; ctx.fill(); // contorno que separa do fundo
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.fillStyle = P.escuro ? '#4A3412' : '#FFE8D1'; ctx.fill();
+        ctx.setLineDash([4, 3]); ctx.lineWidth = 2.6; ctx.strokeStyle = laranja; ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, 6.2832); ctx.fillStyle = laranja; ctx.fill();
         if (c.estado === 'completa') this._selo(ctx, p.x + r + 3, p.y - r - 3, '#1B9A53', 'ok');
         else if (c.estado === 'parcial') this._selo(ctx, p.x + r + 3, p.y - r - 3, '#F4C21F', '!');
         return;

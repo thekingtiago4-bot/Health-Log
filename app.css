@@ -567,3 +567,20 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 @media (max-width:860px){.rail-seta{display:none}.app.rail-oculta .rail{display:flex}}
 @media print{.rail-seta{display:none!important}}
 body.modo-mapa .rail-seta{display:none}
+
+/* logo e frase no canto: alinhados, em duas linhas curtas */
+.marca{align-items:center;gap:11px;padding:0 6px 20px}
+.marca img{width:42px;height:42px}
+.marca-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.marca-txt b{font-size:1.3rem;line-height:1;white-space:nowrap}
+.marca-txt span{font-size:.62rem;line-height:1.2;letter-spacing:.07em;text-transform:uppercase;color:var(--aqua,#4fd1c5);font-weight:600;white-space:nowrap}
+/* Salvar igual ao do Health Search: pílula flutuante, canto inferior direito */
+.hs-salvar{position:fixed;right:20px;bottom:18px;z-index:1500;background:var(--teal);color:#fff;border:1.5px solid var(--aqua,#4fd1c5);border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.28);display:inline-flex;align-items:center;gap:8px;padding:10px 18px 10px 14px;font-weight:700;letter-spacing:.01em;font-family:inherit;font-size:1rem;cursor:pointer}
+.hs-salvar[hidden]{display:none}
+.hs-salvar::before{content:"";width:20px;height:20px;flex:0 0 20px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1 .5 7.97'/%3E%3Cpath d='M12 12v8M9 15l3-3 3 3'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1 .5 7.97'/%3E%3Cpath d='M12 12v8M9 15l3-3 3 3'/%3E%3C/svg%3E") center/contain no-repeat}
+.hs-salvar:hover{filter:brightness(1.1)}.hs-salvar:disabled{opacity:.75;cursor:progress}
+.hs-salvar:focus-visible{outline:3px solid var(--aqua,#4fd1c5);outline-offset:2px}
+.mapa-chips{bottom:84px!important}
+@media (max-width:860px){.marca-txt{display:none}.hs-salvar{right:12px;bottom:12px;width:48px;height:48px;padding:0;justify-content:center;font-size:0}.hs-salvar::before{margin:0}}
+@media print{.hs-salvar{display:none!important}}
+body.modo-mapa .hs-salvar{display:none}
