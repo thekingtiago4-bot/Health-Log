@@ -1,1 +1,1 @@
-{"versao":"0.12.0","data":"2026-11-23","novidades":"Mapa de fundo proprio (dados abertos, sem nomes duplicados, com rodovias e numero), KM ida e volta, KM em cada trecho, realce das cidades do dia em 3 niveis e janela de pendentes com notas, volumes e valor que abatem."}
+{"versao":"0.13.0","data":"2026-11-23","novidades":"Atalhos: Ctrl+L abre a busca de nota; Ctrl+V troca a ordem das cidades pendentes (A-Z, maior volume, maior valor). Nome de todas as cidades no mapa, mesmo sem rota."}

@@ -34,10 +34,24 @@
     return h + '</div>';
   }
   const descDiv = (n, st) => st.div === 'parcial' ? 'volumes parciais (chegaram ' + (st.rec || 0) + ' de ' + i$(n.vol) + ')' : 'sem volumes';
+  let escolha = 0;
+  function marcarEscolha(irAoMapa) {
+    const linhas = [...document.querySelectorAll('#busca-res .bn')]; linhas.forEach((l, i) => l.classList.toggle('esc', i === escolha));
+    const l = linhas[escolha]; if (!l) return; l.scrollIntoView({ block: 'nearest' });
+    if (irAoMapa && S().idx) { const k = S().idx.chaveCidadeDaNota.get(l.dataset.nota); if (k) { S().mapa.setSelecionada(k); S().mapa.centrarEm(k, 110); } }
+  }
+  /* Ctrl+L: abre a busca como se tivesse clicado em "Buscar nota" e já deixa o cursor pronto para digitar */
+  function abrirBusca() {
+    if (!document.querySelector('#t-rotas') || document.querySelector('#t-rotas').hidden) A().irPara('rotas');
+    const j = $('#jan-busca'); if (j.hidden) A().janVer('busca', true);
+    j.style.zIndex = String(++U.z);
+    setTimeout(() => { const i = $('#busca-q'); i.focus(); i.select(); }, 20);
+  }
   function renderBusca() {
     const box = $('#busca-res'); if (!box) return;
     if (!S().op) { box.innerHTML = '<p class="dica" style="padding:12px">Abra uma operação.</p>'; return; }
     const r = achar(consulta);
+    escolha = 0;
     box.innerHTML = consulta.trim().length < 2 ? '<p class="dica" style="padding:12px 14px;margin:0">Digite o número da NF, o cliente, a cidade, o endereço ou a origem. Nos quadrinhos: <b style="color:var(--ok)">✓</b> presente (já vem marcado), <b style="color:var(--amarTxt)">A</b> agendamento, <b style="color:var(--no)">!</b> divergência.</p>'
       : r.length ? r.map(linhaNota).join('') + (r.length === 40 ? '<p class="dica" style="padding:6px 14px">Mostrando as 40 primeiras. Afunile a busca.</p>' : '') : '<p class="dica" style="padding:12px 14px;margin:0">Nenhuma nota encontrada.</p>';
   }
@@ -53,7 +67,7 @@
     aberta = null; renderBusca(); toast('NF ' + n.nf + ' saiu da rota → aba ' + (tipo === 'a' ? 'Agendamentos' : 'Divergências') + '.', { rotulo: 'Desfazer', fn: () => A().desfazer() });
   }
   function ligarBusca() {
-    $('#busca-q').addEventListener('input', e => { consulta = e.target.value; aberta = null; renderBusca(); });
+    $('#busca-q').addEventListener('input', e => { consulta = e.target.value; aberta = null; renderBusca(); marcarEscolha(false); });
     $('#busca-res').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       const o = S().op;
@@ -66,6 +80,15 @@
       if (b.dataset.ok) return marcar(b.dataset.ok, aberta.id, b.closest('.bf'));
     });
     $('#busca-x').onclick = () => A().janVer('busca', false);
+    /* Enter (ou ↓/↑) escolhe a nota na lista; a cidade dela é destacada e o mapa vai até lá */
+    $('#busca-q').addEventListener('keydown', e => {
+      if (e.key === 'Escape') { A().janVer('busca', false); return; }
+      if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
+      const linhas = [...document.querySelectorAll('#busca-res .bn')]; if (!linhas.length) return;
+      e.preventDefault();
+      if (e.key === 'ArrowDown') escolha = Math.min(linhas.length - 1, escolha + 1); else if (e.key === 'ArrowUp') escolha = Math.max(0, escolha - 1); else escolha = Math.max(0, escolha);
+      marcarEscolha(e.key === 'Enter');
+    });
     $('#bt-busca').onclick = () => { const j = $('#jan-busca'); A().janVer('busca', j.hidden); if (!j.hidden) setTimeout(() => $('#busca-q').focus(), 30); };
     U.arrastavel($('#jan-busca'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:busca', p));
   }
@@ -130,5 +153,5 @@
     if (o && o.status) for (const id in o.status) { if (o.status[id].tipo === 'agendamento') c.a++; else c.d++; }
     for (const [id, k] of [['#qt-ag', c.a], ['#qt-dv', c.d]]) { const e = $(id); if (e) { e.textContent = String(k); e.hidden = !k; } }
   }
-  RT.sit = { carregar, guardar, popup, contadores, aplicar, ligar() { ligarBusca(); ligarAbas(); }, render(t) { if (t === 'agenda') renderAgenda(); else if (t === 'diverg') renderDiverg(); }, renderBusca };
+  RT.sit = { abrirBusca, carregar, guardar, popup, contadores, aplicar, ligar() { ligarBusca(); ligarAbas(); }, render(t) { if (t === 'agenda') renderAgenda(); else if (t === 'diverg') renderDiverg(); }, renderBusca };
 })(typeof window !== 'undefined' ? window : globalThis);

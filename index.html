@@ -57,7 +57,7 @@
         <button class="btn mini pri" id="bt-novo-caminhao" type="button">+ Caminhão</button>
         <span class="sep"></span>
         <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
-        <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem">Buscar nota</button>
+        <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a janela de veículos e rotas" aria-pressed="false">Veículos</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
@@ -87,7 +87,7 @@
         <div class="jan" id="jan-pend" role="dialog" aria-label="Cidades pendentes">
           <div class="jan-cab" id="jan-pend-cab"><b>Cidades pendentes</b><span class="jan-qt" id="pend-qt">0</span><button type="button" class="jan-x" id="pend-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="pend-x" aria-label="Fechar" title="Fechar (reabre em Pendentes)">✕</button></div>
           <div class="jan-corpo" id="pend-corpo">
-            <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar"><option value="nome">A–Z</option><option value="valor">Maior valor</option><option value="paradas">Mais paradas</option></select></div>
+            <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar" title="Atalho: Ctrl+V alterna A–Z, maior volume e maior valor"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div>
             <div class="pend-colunas"><span></span><span>Cidade</span><span class="d">Notas</span><span class="d">Vol.</span><span class="d">Valor</span></div>
             <ul class="pend-lista" id="pend-lista"></ul>
             <div class="pend-rod" id="pend-rod"></div>

@@ -301,7 +301,7 @@
       const escuro = document.documentElement.getAttribute('data-tema') === 'escuro';
       this._cores = {
         fundo: v('--papel') || '#EEF3F3', terra: escuro ? '#0D2A30' : '#F8FBFB', temNota: escuro ? '#0F3438' : '#E9F3F2', destaque: escuro ? '#2FB5AC' : '#7FCFC8',
-        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', linhaT: escuro ? 'rgba(130,200,205,.28)' : 'rgba(40,90,95,.30)', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#5E8387' : '#8FA4A6', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
+        linha: escuro ? '#1E4148' : '#C7D6D6', linha2: escuro ? '#24535A' : '#A9C3C3', linhaT: escuro ? 'rgba(130,200,205,.28)' : 'rgba(40,90,95,.30)', mudo: escuro ? '#8FB3B3' : '#62797C', apagado: escuro ? '#8DB2B6' : '#6F8587', estado: escuro ? '#3C666B' : '#8FA9AB', tinta: v('--tinta') || '#0F2E33',
         teal: v('--teal') || '#0F4B55', sup: v('--sup') || '#fff', livre: escuro ? '#9CC3C5' : '#5B7C80', escuro
       };
       return this._cores;
@@ -503,11 +503,12 @@
         ctx.fillStyle = c.fora ? P.mudo : P.tinta; ctx.fillText(c.nome, p.x, ty);
       }
       /* …depois os municípios sem entrega, em cinza claro, só para você se situar */
-      if (k >= 45 && this.todas.length) {
+      this._nTodas = 0;
+      if (k >= 28 && this.todas.length) {
         ctx.font = '500 10.5px "Barlow","Barlow Semi Condensed",system-ui,sans-serif';
         let n = 0;
         for (const t of this.todas) {
-          if (n > 420) break;
+          if (n > 650) break;
           if (com.has(t.code)) continue;
           const px = (X(t.lon) - cx) * k + W / 2, py = (Y(t.lat) - cy) * k + H / 2;
           if (px < 10 || py < 10 || px > W - 10 || py > H - 10) continue;
@@ -518,6 +519,7 @@
           ctx.lineWidth = 3; ctx.strokeStyle = P.fundo; ctx.strokeText(t.nome, px, py + 12);
           ctx.fillStyle = P.apagado; ctx.fillText(t.nome, px, py + 12);
         }
+        this._nTodas = n;
       }
       if (this._comTiles) { ctx.font = '500 10px system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = P.escuro ? 'rgba(200,225,225,.75)' : 'rgba(40,60,60,.75)'; ctx.fillText('© OpenFreeMap © OpenMapTiles · dados © OpenStreetMap', W - 8, H - 6); }
       ctx.textAlign = 'start';

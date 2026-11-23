@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.12.0';
+  const VERSAO = '0.13.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -217,13 +217,20 @@
   }
 
   /* ================= cidades pendentes (janela flutuante) ================= */
+  /* Ctrl+V com a janela de pendentes aberta: A–Z → maior volume → maior valor → volta ao A–Z (e fica assim até você mudar) */
+  function ciclarOrdemPend() {
+    const seq = ['nome', 'volume', 'valor'], prox = seq[(seq.indexOf(S.pend.ordem) + 1) % 3];
+    S.pend.ordem = prox; U.pref.gravar('pendOrdem', prox); $('#pend-ordem').value = prox; renderPend();
+    const l = $('#pend-lista'); if (l) l.scrollTop = 0;
+    toast('Cidades pendentes: ' + { nome: 'ordem alfabética (A–Z)', volume: 'maior volume primeiro', valor: 'maior valor primeiro' }[prox] + '.');
+  }
   function renderPend() {
     const lista = $('#pend-lista');
     if (!S.res) { lista.innerHTML = '<li class="pend-vazio">Sem operação.</li>'; $('#pend-qt').textContent = '0'; return; }
     const q = N.norm(S.pend.q), ord = S.pend.ordem;
     const casa = rc => !q || N.norm(rc.cidade.nome).includes(q);
     const ordenar = (a, b) => ord === 'valor' ? b.livres.valor - a.livres.valor || cmp(a.cidade.nome, b.cidade.nome)
-      : ord === 'paradas' ? b.paradasLivres - a.paradasLivres || cmp(a.cidade.nome, b.cidade.nome) : cmp(a.cidade.nome, b.cidade.nome);
+      : ord === 'volume' ? b.livres.vol - a.livres.vol || cmp(a.cidade.nome, b.cidade.nome) : cmp(a.cidade.nome, b.cidade.nome);
     const emRota = S.res.cidades.filter(rc => !rc.fora), fora = S.res.cidades.filter(rc => rc.fora);
     const total = emRota.filter(rc => rc.estado !== 'completa').length;
     $('#pend-qt').textContent = String(total);
@@ -974,7 +981,8 @@
       const li = e.target.closest('li[data-cid]'); if (li) abrirCidade(li.dataset.cid, { centrar: true });
     });
     $('#pend-busca').addEventListener('input', e => { S.pend.q = e.target.value; renderPend(); });
-    $('#pend-ordem').addEventListener('change', e => { S.pend.ordem = e.target.value; renderPend(); });
+    $('#pend-ordem').addEventListener('change', e => { S.pend.ordem = e.target.value; U.pref.gravar('pendOrdem', S.pend.ordem); renderPend(); });
+    $('#pend-ordem').value = S.pend.ordem;
     $('#pend-min').addEventListener('click', () => { const j = $('#jan-pend'); const r = j.classList.toggle('recolhida'); $('#pend-min').textContent = r ? '+' : '–'; U.pref.gravar('pendMin', r); });
     $('#pend-qt').addEventListener('dblclick', () => { S.pend.mostrarTodas = !S.pend.mostrarTodas; renderPend(); toast(S.pend.mostrarTodas ? 'Mostrando também as cidades completas.' : 'Mostrando só as que ainda faltam.'); });
     U.arrastavel($('#jan-pend'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:pend', p));
@@ -1052,7 +1060,10 @@
     /* teclado */
     document.addEventListener('keydown', e => {
       const emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
+      const so = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey, tecla = e.key.toLowerCase();
+      if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
+      else if (so && tecla === 'l' && !S.modoMapa && !document.querySelector('.fundo')) { e.preventDefault(); RT.sit.abrirBusca(); } // Ctrl+L: abre a busca de nota
+      else if (so && tecla === 'v' && !emCampo && !S.modoMapa && tela === 'rotas' && !$('#jan-pend').hidden && !document.querySelector('.fundo')) { e.preventDefault(); ciclarOrdemPend(); } // Ctrl+V: A–Z → maior volume → maior valor → A–Z
       else if (e.key === 'Escape' && !document.querySelector('.fundo')) {
         if (!$('#mural').hidden) muralFechar(); else if (S.cidadeAberta) fecharCidade();
       }
@@ -1093,7 +1104,7 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false);
+    await carregarCfg(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');
@@ -1102,7 +1113,7 @@
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }
     { const v = U.pref.ler('vias', true); S.mapa.setVias(v); $('#bt-vias').setAttribute('aria-pressed', String(v)); atualizarVias(); }
     { const e = U.pref.ler('estradas', true); S.mapa.setEstradas(e); $('#bt-estradas').setAttribute('aria-pressed', String(e)); }
-    if (S.mun) S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3] })));
+    if (S.mun) { const rota = new Set(); for (const r of ((S.reg && S.reg.regioes) || [])) if (r.grupo !== 'fora') for (const c of r.cidades) rota.add(String(c)); S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3], pri: rota.has(c) ? 1 : 0 })).sort((x, y) => y.pri - x.pri || x.nome.length - y.nome.length)); }
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { });
     if (S.modoMapa) enviar({ t: 'pronto' });

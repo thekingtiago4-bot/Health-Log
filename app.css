@@ -537,3 +537,5 @@ body.modo-mapa .legenda{left:14px;bottom:14px}
 .mapa-base{position:absolute;inset:0;z-index:0;background:var(--papel)}
 .mapa-base .maplibregl-canvas{outline:none}
 .mapa-cv{z-index:1}
+
+.bn.esc{background:var(--tealBg);box-shadow:inset 3px 0 0 var(--teal)}

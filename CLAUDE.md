@@ -41,3 +41,7 @@ Identidade, linguagem e cuidado com dados são os do Health Search. Dono e únic
 
 ## Publicar
 Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os testes; commit e push.
+
+## Atalhos (v0.13)
+- Ctrl+L = abre "Buscar nota" (Enter escolhe e centra o mapa; ↑/↓ navegam). Ctrl+V com a janela de pendentes aberta e fora de qualquer campo = A–Z → maior volume → maior valor → A–Z; a última ordem fica guardada (pref `pendOrdem`). Dentro de campo, Ctrl+V continua sendo colar.
+- Cidades sem rota no dia também têm o nome no mapa, sem destaque.
