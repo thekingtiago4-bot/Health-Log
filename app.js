@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.17.1';
+  const VERSAO = '0.18.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -309,7 +309,7 @@
       const l = rc.estado === 'completa' ? N.somar(c.notas) : rc.livres, tot = N.somar(c.notas); // o que AINDA falta (vai abatendo a cada nota/volume que sai)
       const sub = rc.estado === 'completa' ? 'tudo em veículo' : (rc.paradasLivres + ' parada(s)' + (rc.estado === 'parcial' ? ' · já saíram ' + (tot.notas - l.notas) + ' de ' + tot.notas + ' notas' : '')) + (c.semPosicao ? ' · sem posição no mapa' : '');
       const reg = foraRota ? N.regioesDaCidade(c.code).join(', ') : '';
-      return '<li class="' + (foraRota ? 'fora' : '') + '" data-cid="' + esc(c.key) + '"' + (c.key === S.cidadeAberta ? ' aria-current="true"' : '') + '><span class="pt ' + pt + '">' + (pt === 'parc' ? '!' : '') + '</span><b>' + esc(c.nome) + '<span class="tag" style="margin-left:6px">' + esc(c.uf) + '</span></b><span class="n" title="notas que faltam (de ' + tot.notas + ')">' + l.notas + '</span><span class="v" title="volumes que faltam (de ' + i$(tot.vol) + ')">' + i$(l.vol) + '</span><span class="vl" title="valor que falta (de ' + m$(tot.valor) + ')">' + m$(l.valor) + '</span><small>' + sub + (reg ? ' · ' + esc(reg) : '') + '</small>' +
+      return '<li class="' + (foraRota ? 'fora' : '') + '" data-cid="' + esc(c.key) + '"' + (c.key === S.cidadeAberta ? ' aria-current="true"' : '') + '><span class="pt ' + pt + '">' + (pt === 'parc' ? '!' : '') + '</span><b class="cn"><span class="cn-nome">' + esc(c.nome) + '</span><span class="tag">' + esc(c.uf) + '</span></b><span class="n" title="notas que faltam (de ' + tot.notas + ')">' + l.notas + '</span><span class="v" title="volumes que faltam (de ' + i$(tot.vol) + ')">' + i$(l.vol) + '</span><span class="vl" title="valor que falta (de ' + m$(tot.valor) + ')">' + m$(l.valor) + '</span><small>' + sub + (reg ? ' · ' + esc(reg) : '') + '</small>' +
         (c.code ? '<button type="button" class="bt-fora" data-fora="' + esc(c.key) + '">' + (foraRota ? 'trazer para a rota' : 'marcar fora de rota') + '</button>' : '') + '</li>';
     };
     /* rodapé: quanto ainda falta sair, somando as cidades em rota que não zeraram */
@@ -997,7 +997,20 @@
     const bi = munInfo(S.cfg.base || '3503208'); $('#cfg-base').value = bi ? bi.nome + '/' + bi.uf : ''; $('#cfg-base-st').textContent = bi ? 'Base atual: ' + bi.nome + '/' + bi.uf + '.' : '';
     $('#cfg-md-st').textContent = S.apiKey ? '✓ Há uma Api-Key guardada neste aparelho.' : 'Nenhuma Api-Key guardada. A bipagem funciona sem ela, mas as notas fora dos XMLs vão para o Romaneio Extra para você preencher à mão.';
   }
+  /* volta TODAS as janelas flutuantes ao tamanho e à posição de fábrica */
+  function resetarJanelas() {
+    for (const id of Object.keys(JANS)) {
+      U.pref.apagar('pos:' + id); U.pref.apagar('tam:' + id);
+      const j = $(JANS[id]); if (!j) continue;
+      for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) j.style[p] = '';
+      j.classList.remove('redim', 'recolhida');
+    }
+    U.pref.apagar('pendPos'); ajustarPadMapa(); S.mapa.redimensionar(); S.mapa.marcar();
+    if (S.cidadeAberta) { const k = S.cidadeAberta; abrirCidade(k, { centrar: false }); }
+    toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
+  }
   function ligarConfig() {
+    $('#cfg-jan-reset').onclick = async () => { if (await U.confirmar('Resetar janelas flutuantes?', 'Todas as janelas (cidades pendentes, veículos, busca e clientes da cidade) voltam ao tamanho e ao lugar de fábrica. Seus dados não mudam.', 'Resetar')) resetarJanelas(); };
     for (const r of $$('input[name="cfg-anim"]')) r.onchange = () => { if (!r.checked) return; S.cfg.rotaFixa = r.value === 'fixa'; salvarCfg(); toast(S.cfg.rotaFixa ? 'Linhas das rotas fixas (sem movimento).' : 'Linhas das rotas em movimento.'); };
     $('#cfg-base-ok').onclick = () => {
       const t = $('#cfg-base').value.trim(), [nome, uf] = t.split('/').map(x => x.trim()), r = N.achaMunicipios(nome, uf || '');
@@ -1089,6 +1102,7 @@
     /* janela da cidade */
     const jc = $('#jan-cid');
     U.arrastavel(jc, '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:cid', p));
+    for (const id of Object.keys(JANS)) U.redimensionavel($(JANS[id]), id, $('#mapa-area'), () => { ajustarPadMapa(); S.mapa.redimensionar(); });
     jc.addEventListener('click', e => {
       const t = e.target;
       const a = t.closest('[data-a]');

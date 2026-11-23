@@ -592,3 +592,21 @@ body.modo-mapa .hs-salvar{display:none}
 
 .vei-alerta.ok{color:#1B9A53;background:rgba(27,154,83,.16)}
 .cfg-radio{display:flex;gap:8px;align-items:center;padding:6px 0;cursor:pointer;font-size:1rem}
+
+/* nome da cidade com reticências, UF sempre inteira */
+.pend-lista b.cn{display:flex;align-items:center;gap:6px;overflow:visible;min-width:0}
+.pend-lista .cn-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:0 1 auto}
+.pend-lista .cn .tag{flex:none}
+/* alças para redimensionar as janelas flutuantes */
+.jan-rz{position:absolute;z-index:6;touch-action:none}
+.jan-rz.rz-d{top:14px;bottom:14px;right:-4px;width:9px}
+.jan-rz.rz-b{left:14px;right:14px;bottom:-4px;height:9px}
+.jan-rz.rz-c{right:-5px;bottom:-5px;width:18px;height:18px}
+.jan-rz.rz-c::after{content:"";position:absolute;right:7px;bottom:7px;width:9px;height:9px;border-right:2.5px solid var(--mudo);border-bottom:2.5px solid var(--mudo);border-radius:0 0 4px 0;opacity:.55}
+.jan-rz:hover::after,.jan.movendo .rz-c::after{opacity:1;border-color:var(--teal)}
+.jan.recolhida .jan-rz{display:none}
+.jan.recolhida{height:auto!important}
+.jan.redim>.jan-corpo{flex:1 1 auto}
+.jan.redim :is(.pend-lista,.cid-lista,.car-lista,#busca-res){flex:1 1 auto;min-height:0}
+@media (max-width:860px){.jan-rz{display:none}}
+@media print{.jan-rz{display:none}}
