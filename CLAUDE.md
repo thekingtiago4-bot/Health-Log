@@ -88,3 +88,7 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 ## v0.23 — Feriados e Editor de regiões (Geolocalização)
 - `feriados.js` (`RT.fer`): estaduais e municipais vêm de raw.githubusercontent.com/joaopbini/feriados-brasil (CSP liberada), guardados no IndexedDB (`meta feriados`; estadual 1 h, municipal 6 h); feriados cadastrados/"não é feriado" por cidade em `meta feriadosManual`. Feriado NACIONAL não pinta o mapa. No mapa: cidade com feriado em VERMELHO (hoje mais forte; período hoje/+amanhã/3/7 dias); cartão da cidade lista os feriados e permite incluir/tirar.
 - `geoeditor.js` (`RT.ged`): Editor de regiões (como no HS): clicar nas cidades-limite monta o contorno, "Fechar e aplicar" move as cidades de dentro para a lista (opção de não mexer nas que já são de outra), Lacunas (grava as automáticas), "Não fazemos" (aprend `-`, cinza), cor/nome/apelidos, só/excluir lista, desfazer. App expõe `RT.G` (classe, salvarReg, info, selecionar, render, interceptar).
+
+## v0.23.1
+- Ctrl+F/focar: `focarVeiculo` enquadra os pontos da rota + a base (`enquadrarPontos`, que agora respeita a janela de pendentes), mostra "Focando em…" e manda `{t:'foco'}` pelo BroadcastChannel — o mapa em outra tela (segundo monitor) também enquadra.
+- Configurações: opções liga/desliga são SEMPRE a chave `.chave` (Ligado/Desligado, ou Sim/Não no tema); Instalar é o último cartão e, depois de instalado (`appinstalled`, modo app ou pref `instalado`), o botão fica desativado e cinza; Janelas flutuantes = um só botão "Resetar padrão".

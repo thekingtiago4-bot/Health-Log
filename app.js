@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.23.0';
+  const VERSAO = '0.23.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -106,13 +106,17 @@
     const bs = $('#bt-salvar'); bs.onclick = salvarAgora; bs.oncontextmenu = e => { e.preventDefault(); versoesSalvas(); };
     setInterval(() => { bs.hidden = !(S.op && !S.modoMapa); }, 1000); bs.hidden = !(S.op && !S.modoMapa);
     let evt = null; const bi = $('#bt-instalar');
-    const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-    if (!instalado()) bi.hidden = false;
-    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; bi.hidden = false; });
-    window.addEventListener('appinstalled', () => { bi.hidden = true; toast('Health Log instalado.'); });
+    const emApp = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    /* depois de instalado, o botão fica cinza (ninguém instala de novo) */
+    const marcarBotao = () => { const ja = emApp() || U.pref.ler('instalado', false) === true; bi.disabled = ja; bi.textContent = ja ? '✓ Já instalado neste aparelho' : '⬇ Instalar aplicativo'; bi.classList.toggle('pri', !ja); };
+    if (emApp()) U.pref.gravar('instalado', true);
+    marcarBotao();
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; U.pref.gravar('instalado', false); marcarBotao(); });   // o navegador voltou a oferecer: não está instalado
+    window.addEventListener('appinstalled', () => { U.pref.gravar('instalado', true); marcarBotao(); toast('Health Log. instalado.'); });
     bi.onclick = async () => {
+      if (bi.disabled) return;
       if (evt) { evt.prompt(); try { await evt.userChoice; } catch (er) { /* ok */ } evt = null; return; }
-      U.modal('<h2>Instalar o Health Log</h2><p><b>Computador (Chrome ou Edge):</b> clique no ícone de instalar (um monitor com seta) no fim da barra de endereço, ou no menu ⋮ → “Instalar Health Log”. O ícone da bússola vai para a área de trabalho.</p><p><b>iPhone / iPad (Safari):</b> botão Compartilhar → “Adicionar à Tela de Início”.</p><p><b>Android (Chrome):</b> menu ⋮ → “Instalar aplicativo”.</p><div class="botoes"><button class="btn pri" data-s>Entendi</button></div>', (f, fechar) => { f.querySelector('[data-s]').onclick = () => fechar(true); });
+      U.modal('<h2>Instalar o Health Log.</h2><p><b>Computador (Chrome ou Edge):</b> clique no ícone de instalar (um monitor com seta) no fim da barra de endereço, ou no menu ⋮ → “Instalar Health Log.”. O ícone vai para a área de trabalho.</p><p><b>iPhone / iPad (Safari):</b> botão Compartilhar → “Adicionar à Tela de Início”.</p><p><b>Android (Chrome):</b> menu ⋮ → “Instalar aplicativo”.</p><div class="botoes"><button class="btn pri" data-s>Entendi</button></div>', (f, fechar) => { f.querySelector('[data-s]').onclick = () => fechar(true); });
     };
   }
   /* cópia de segurança ANTES de qualquer coisa destrutiva. Se não conseguir guardar, quem chamou aborta. */
@@ -191,8 +195,12 @@
     const rc = S.res && S.res.carros.find(x => x.carro.id === id); if (!rc) return;
     if (tela !== 'rotas') irPara('rotas');
     selecionarCarro(id); S.mapa.setAtivo(id);
-    if (!rc.carro.cidades.length) { toast(N.nomeCarro(rc.carro) + ' ainda não tem cidades na rota.'); return; }
-    requestAnimationFrame(() => { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); });
+    const pts = rc.carro.cidades.map(k => S.idx.cidades.get(k)).filter(c => c && c.lat != null).map(c => ({ lat: c.lat, lon: c.lon }));
+    if (!pts.length) { toast(N.nomeCarro(rc.carro) + ' ainda não tem cidades na rota.'); return; }
+    if (S.mapa.base && S.mapa.mostrarBase) pts.push({ lat: S.mapa.base.lat, lon: S.mapa.base.lon });   // a rota sai e volta à base: ela entra no enquadramento
+    ajustarPadMapa(); S.mapa.enquadrarPontos(pts); S.mapa.marcar();
+    enviar({ t: 'foco', id, pts });                                                                        // o mapa em outra tela (segundo monitor) também foca
+    toast('Focando em ' + N.rotuloCarro(rc.carro) + ' · ' + rc.carro.cidades.length + ' cidade(s)' + (kmTxt(kmDe(rc.carro)) ? ' · ' + kmTxt(kmDe(rc.carro)) : ''));
   }
   function fecharFocar() { const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true); }
   function teclaFocar(e) {
@@ -1089,6 +1097,7 @@
         if (m.t === 'op' || m.t === 'cfg') recarregarDoBanco(m.id || (S.op && S.op.id));
         else if (m.t === 'sel') { S.cidadeAberta = m.key; S.mapa.setSelecionada(m.key); if (m.key && m.centrar) S.mapa.centrarEm(m.key, 140); }
         else if (m.t === 'tema') aplicarTemaAtual();
+        else if (m.t === 'foco') { S.mapa.setAtivo(m.id); S.mapa.padEsq = 0; S.mapa.enquadrarPontos(m.pts || []); }
       } else { // janela principal
         if (m.t === 'clique' && S.parede) abrirCidade(m.key, { centrar: false });
         else if (m.t === 'pronto') { if (S.op) enviar({ t: 'op', id: S.op.id, rev: S.op.rev }); enviar({ t: 'sel', key: S.cidadeAberta }); }
@@ -1096,7 +1105,8 @@
     };
     if (S.modoMapa) { window.addEventListener('pagehide', () => enviar({ t: 'fechou' })); }
   }
-  function aplicarTemaAtual() { document.documentElement.setAttribute('data-tema', U.pref.ler('tema', 'escuro') === 'claro' ? 'claro' : 'escuro'); S.mapa && S.mapa.temaMudou(); }
+  function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
+  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); }
 
   /* ================= base de saída e fundo de estradas ================= */
   function aplicarBase() {
@@ -1140,8 +1150,13 @@
 
   /* ================= configurações (só deste aparelho) ================= */
   async function carregarApiKey() { try { const r = await DB.get('meta', 'meudanfe'); S.apiKey = (r && r.v) || ''; } catch (e) { S.apiKey = ''; } }
+  /* chaves padrão das Configurações: Ligado/Desligado (ou Sim/Não) */
+  function rotuloChave(el) { const e = el.closest('.chave'); if (e) e.querySelector('.chave-est').textContent = el.checked ? el.dataset.on : el.dataset.off; }
   function renderConfig() {
-    for (const r of $$('input[name="cfg-anim"]')) r.checked = (r.value === 'fixa') === !!S.cfg.rotaFixa;
+    $('#cfg-tema').checked = document.documentElement.getAttribute('data-tema') !== 'claro';
+    $('#cfg-anim').checked = !S.cfg.rotaFixa;
+    $('#cfg-som').checked = U.som.ligado();
+    for (const c of $$('.chave input')) rotuloChave(c);
     $('#cfg-md').value = '';
     $('#cfg-md').placeholder = S.apiKey ? '••••••••••••••••  (chave guardada — cole outra para trocar)' : 'Cole a Api-Key aqui';
     const bi = munInfo(S.cfg.base || '3503208'); $('#cfg-base').value = bi ? bi.nome + '/' + bi.uf : ''; $('#cfg-base-st').textContent = bi ? 'Base atual: ' + bi.nome + '/' + bi.uf + '.' : '';
@@ -1160,10 +1175,11 @@
     toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
   }
   function ligarConfig() {
-    const cs = $('#cfg-som'); cs.checked = U.som.ligado(); cs.onchange = () => { U.som.ligar(cs.checked); if (cs.checked) U.som('ok'); };
+    const cs = $('#cfg-som'); cs.onchange = () => { U.som.ligar(cs.checked); rotuloChave(cs); if (cs.checked) U.som('ok'); };
+    $('#cfg-tema').onchange = e => { const t = e.target.checked ? 'escuro' : 'claro'; U.pref.gravar('tema', t); aplicarTemaPara(t); rotuloChave(e.target); enviar({ t: 'tema' }); };
     $('#cfg-som-ok').onclick = () => U.som('ok', true); $('#cfg-som-pop').onclick = () => U.som('popup', true);
     $('#cfg-jan-reset').onclick = async () => { if (await U.confirmar('Resetar janelas flutuantes?', 'Todas as janelas (cidades pendentes, veículos, busca e clientes da cidade) voltam ao tamanho e ao lugar de fábrica. Seus dados não mudam.', 'Resetar')) resetarJanelas(); };
-    for (const r of $$('input[name="cfg-anim"]')) r.onchange = () => { if (!r.checked) return; S.cfg.rotaFixa = r.value === 'fixa'; salvarCfg(); toast(S.cfg.rotaFixa ? 'Linhas das rotas fixas (sem movimento).' : 'Linhas das rotas em movimento.'); };
+    $('#cfg-anim').onchange = e => { S.cfg.rotaFixa = !e.target.checked; rotuloChave(e.target); salvarCfg(); toast(S.cfg.rotaFixa ? 'Linha da rota desligada: fica inteira e parada.' : 'Linha da rota em movimento.'); };
     $('#cfg-base-ok').onclick = () => {
       const t = $('#cfg-base').value.trim(), [nome, uf] = t.split('/').map(x => x.trim()), r = N.achaMunicipios(nome, uf || '');
       if (!r.length) { toast('Não achei essa cidade. Escreva o nome e a UF (ex.: Araraquara/SP).'); return; }
@@ -1326,9 +1342,7 @@
     });
 
     /* tema */
-    const aplicarTema = t => { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); $('#tema-lbl').textContent = t === 'claro' ? 'Mudar para tema escuro' : 'Mudar para tema claro'; S.mapa && S.mapa.temaMudou(); };
-    $('#bt-tema').onclick = () => { const t = document.documentElement.getAttribute('data-tema') === 'escuro' ? 'claro' : 'escuro'; U.pref.gravar('tema', t); aplicarTema(t); enviar({ t: 'tema' }); };
-    aplicarTema(U.pref.ler('tema', 'escuro'));
+    aplicarTemaPara(U.pref.ler('tema', 'escuro'));
     window.addEventListener('pagehide', () => { /* gravações já são feitas a cada ação */ });
   }
 

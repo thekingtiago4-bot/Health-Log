@@ -165,34 +165,37 @@
         <p class="dica" id="cfg-md-st"></p>
       </div>
       <div class="cfg-card">
-        <h2>Aparência e aplicativo</h2>
-        <p class="sub" style="margin-bottom:10px">Tema da tela e instalação do Health Log. no computador ou celular (ícone das barras).</p>
-        <div class="botoes-linha"><button class="btn" id="bt-tema" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="tema-lbl">Tema escuro</span></button>
-          <button class="btn pri" id="bt-instalar" type="button" title="Instalar o Health Log no computador ou celular, com o ícone da bússola" hidden>⬇ Instalar aplicativo</button></div>
-      </div>
-      <div class="cfg-card">
-        <h2>Sons</h2>
-        <p class="sub" style="margin-bottom:10px">Um som curto quando uma cidade fica com todas as notas em veículos e um aviso sonoro quando aparece uma janela (pop-up). Só toca depois do primeiro clique na tela, regra do navegador.</p>
-        <label class="cfg-radio"><input type="checkbox" id="cfg-som" checked> Sons ligados</label>
-        <div class="botoes-linha"><button class="btn" id="cfg-som-ok" type="button">Ouvir cidade completa</button><button class="btn" id="cfg-som-pop" type="button">Ouvir pop-up</button></div>
-      </div>
-      <div class="cfg-card">
-        <h2>Linha tracejada das rotas</h2>
-        <p class="sub" style="margin-bottom:10px">Como a linha tracejada da rota aparece no mapa. “Em movimento” é o padrão (o tracejado corre no sentido da viagem). “Fixa” deixa a linha inteira, contínua, sem tracejado e sem setas, para quem se incomoda com o movimento. Vale também para o mapa em outra tela.</p>
-        <label class="cfg-radio"><input type="radio" name="cfg-anim" value="movimento" checked> Em movimento (padrão)</label>
-        <label class="cfg-radio"><input type="radio" name="cfg-anim" value="fixa"> Fixa (não se mexe)</label>
-      </div>
-      <div class="cfg-card">
-        <h2>Janelas flutuantes</h2>
-        <p class="sub" style="margin-bottom:10px">Dá para arrastar pelo título e <b>puxar as bordas</b> (direita, de baixo ou o canto) para mudar o tamanho de cada janela. O tamanho e o lugar ficam guardados neste aparelho.</p>
-        <div class="botoes-linha"><button class="btn" id="cfg-jan-reset" type="button">Resetar janelas flutuantes para o padrão</button></div>
-      </div>
-      <div class="cfg-card">
         <h2>Base de saída</h2>
         <p class="sub" style="margin-bottom:10px">As rotas no mapa começam nesta cidade (a base de onde os veículos saem). O padrão é Araraquara (AQA). É só um ponto de partida desenhado no mapa: o app não calcula distância nem tempo.</p>
         <label class="cfg-campo">Cidade da base<input id="cfg-base" list="cfg-base-l" autocomplete="off" placeholder="Ex.: Araraquara/SP"></label><datalist id="cfg-base-l"></datalist>
         <div class="botoes-linha"><button class="btn pri" id="cfg-base-ok" type="button">Salvar base</button></div>
         <p class="dica" id="cfg-base-st"></p>
+      </div>
+          <div class="cfg-card">
+        <h2>Tema</h2>
+        <p class="sub" style="margin-bottom:10px">Cores da tela. O tema escuro é o padrão.</p>
+        <label class="chave"><input type="checkbox" role="switch" id="cfg-tema" data-on="Sim" data-off="Não" checked><span class="trilho" aria-hidden="true"></span><span class="chave-rot">Tema escuro</span><span class="chave-est"></span></label>
+      </div>
+      <div class="cfg-card">
+        <h2>Sons</h2>
+        <p class="sub" style="margin-bottom:10px">Um som curto quando uma cidade fica com todas as notas em veículos e um aviso sonoro quando aparece uma janela (pop-up). Só toca depois do primeiro clique na tela, regra do navegador.</p>
+        <label class="chave"><input type="checkbox" role="switch" id="cfg-som" data-on="Ligado" data-off="Desligado" checked><span class="trilho" aria-hidden="true"></span><span class="chave-rot">Sons</span><span class="chave-est"></span></label>
+        <div class="botoes-linha"><button class="btn" id="cfg-som-ok" type="button">Ouvir cidade completa</button><button class="btn" id="cfg-som-pop" type="button">Ouvir pop-up</button></div>
+      </div>
+      <div class="cfg-card">
+        <h2>Linha da rota</h2>
+        <p class="sub" style="margin-bottom:10px">Ligado: a linha tracejada da rota corre no sentido da viagem (padrão). Desligado: a linha fica inteira e parada, sem tracejado e sem setas, para quem se incomoda com o movimento.</p>
+        <label class="chave"><input type="checkbox" role="switch" id="cfg-anim" data-on="Ligado" data-off="Desligado" checked><span class="trilho" aria-hidden="true"></span><span class="chave-rot">Linha em movimento</span><span class="chave-est"></span></label>
+      </div>
+      <div class="cfg-card">
+        <h2>Janelas flutuantes</h2>
+        <p class="sub" style="margin-bottom:10px">Tamanho e lugar de cada janela ficam guardados neste aparelho.</p>
+        <div class="botoes-linha"><button class="btn" id="cfg-jan-reset" type="button">Resetar padrão</button></div>
+      </div>
+      <div class="cfg-card">
+        <h2>Instalar aplicativo</h2>
+        <p class="sub" style="margin-bottom:10px">Coloca o Health Log. no computador ou no celular, com o ícone das barras. Depois de instalado, este botão fica cinza.</p>
+        <div class="botoes-linha"><button class="btn pri" id="bt-instalar" type="button" title="Instalar o Health Log. no computador ou celular">⬇ Instalar aplicativo</button></div>
       </div>
     </section>
 

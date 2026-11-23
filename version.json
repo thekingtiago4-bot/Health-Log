@@ -1,1 +1,1 @@
-{"versao":"0.23.0","data":"2026-11-23","novidades":"Geolocalizacao: Feriados (cidade em vermelho no mapa, estaduais e municipais da internet + os que voce inclui) e Editor de regioes (delimitar por contorno, lacunas, nao fazemos, cor/nome/apelido, excluir)."}
+{"versao":"0.23.1","data":"2026-11-23","novidades":"Ctrl+F focar: enquadra a rota inteira (com a base), avisa e tambem foca o mapa da outra tela. Ajustes: chaves Ligado/Desligado e Sim/Nao, bloco Instalar separado no fim (cinza depois de instalado), Janelas flutuantes com um unico Resetar padrao."}

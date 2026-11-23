@@ -643,3 +643,13 @@ body.modo-mapa .hs-salvar{display:none}
 body.ged-on .geo-mapa .geo-box{cursor:crosshair}
 @media (max-width:860px){#ged-painel{position:static;width:auto;box-shadow:none}}
 .geo-mapa .ferr{flex-wrap:wrap;row-gap:6px}.geo-auto{white-space:nowrap}
+
+/* chaves Ligado/Desligado (Sim/Não) das Configurações */
+.chave{display:inline-flex;align-items:center;gap:12px;cursor:pointer;margin:2px 0 8px}
+.chave input{position:absolute;opacity:0;width:1px;height:1px}
+.chave .trilho{width:46px;height:26px;border-radius:999px;background:var(--linha);position:relative;transition:background .15s;flex:none;border:1.5px solid var(--linha)}
+.chave .trilho::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:var(--sup);box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .15s}
+.chave input:checked+.trilho{background:var(--teal);border-color:var(--teal)}.chave input:checked+.trilho::after{transform:translateX(20px);background:#fff}
+.chave input:focus-visible+.trilho{outline:3px solid var(--aqua,#4fd1c5);outline-offset:2px}
+.chave-rot{font-weight:600}.chave-est{font-weight:700;color:var(--mudo);min-width:5.5ch}.chave input:checked~.chave-est{color:var(--ok)}
+.btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(1)}
