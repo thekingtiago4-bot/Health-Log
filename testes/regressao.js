@@ -706,6 +706,24 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => !document.querySelector('#bt-instalar').hidden), 'o botão Instalar aparece (fora do app instalado)');
   await p.click('#bt-instalar'); verdade(/bússola|Instalar o Health LOG/.test(await p.innerText('.modal')), 'sem o pedido do navegador, mostra como instalar'); await p.keyboard.press('Escape');
 
+  console.log('\nRastreio no limite e linha fixa');
+  await p.click('.nav button[data-tela="rotas"]');
+  await p.evaluate(() => { RT.S.cfg.limite = 1; RT.A.atualizarTudo(); const j = document.querySelector('#jan-carros'); j.hidden = false; RT.A.atualizarTudo(); });
+  await p.evaluate(() => { const c = RT.S.op.carros.find(x => RT.S.res.carros.find(r => r.carro.id === x.id && r.valor > 1)); c.rastreio = 'nao'; RT.A.atualizarTudo(); });
+  verdade(await p.locator('#car-corpo .vei-alerta:not(.ok)').count() > 0, 'acima do limite e sem rastreio: aviso amarelo');
+  await p.evaluate(() => { for (const c of RT.S.op.carros) c.rastreio = 'sim'; RT.A.atualizarTudo(); });
+  verdade(await p.locator('#car-corpo .vei-alerta.ok').count() > 0 && /Dentro do limite/.test(await p.innerText('#car-corpo .vei-alerta.ok')) && await p.locator('#car-corpo .vei-alerta:not(.ok)').count() === 0, 'com rastreio SIM o aviso fica verde: "Dentro do limite"');
+  await p.evaluate(() => { RT.S.cfg.limite = null; for (const c of RT.S.op.carros) c.rastreio = null; RT.A.atualizarTudo(); });
+  await p.click('.nav button[data-tela="config"]');
+  verdade(await p.evaluate(() => document.querySelector('input[name="cfg-anim"][value="movimento"]').checked), 'configurações: linha em movimento é o padrão');
+  await p.check('input[name="cfg-anim"][value="fixa"]');
+  verdade(await p.evaluate(() => RT.S.mapa.animarRotas === false && RT.S.cfg.rotaFixa === true), 'escolher "Fixa" para o movimento da linha tracejada');
+  await p.waitForFunction(() => RT.DB.get('meta', 'config').then(r => r && r.v && r.v.rotaFixa === true));
+  await p.reload(); await p.waitForFunction(() => window.RT && RT.pronto); await p.click('#mural-x');
+  verdade(await p.evaluate(() => RT.S.mapa.animarRotas === false), 'e a escolha continua depois de recarregar');
+  await p.click('.nav button[data-tela="config"]'); await p.check('input[name="cfg-anim"][value="movimento"]');
+  verdade(await p.evaluate(() => RT.S.cfg.rotaFixa === false && RT.S.mapa.animarRotas === !matchMedia('(prefers-reduced-motion: reduce)').matches), 'voltar para "Em movimento" (respeitando "reduzir movimento" do sistema)');
+
   console.log('\nAgendamentos: regra da MESA e pop-up');
   await p.evaluate(() => { RT.S.op.notas.find(n => n.nf === '000001007').origem = 'MESA.XML'; });
   await p.click('.nav button[data-tela="agenda"]');

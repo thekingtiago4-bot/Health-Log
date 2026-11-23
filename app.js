@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.17.0';
+  const VERSAO = '0.17.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -638,12 +638,18 @@
 
   /* ================= configuração: fora de rota e alerta de valor ================= */
   S.cfg = { fora: {}, limite: null };
+  /* rota tracejada: em movimento (padrão) ou fixa; respeita também "reduzir movimento" do sistema */
+  function aplicarRotaAnim() {
+    if (!S.mapa) return;
+    const reduz = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    S.mapa.animarRotas = !S.cfg.rotaFixa && !reduz; S.mapa.sujo = true; S.mapa._bgSujo = true;
+  }
   async function carregarCfg() {
     try { const r = await DB.get('meta', 'config'); if (r && r.v) S.cfg = Object.assign({ fora: {}, limite: null }, r.v); } catch (e) { /* segue com o padrão */ }
     N.setAjustesRota(S.cfg.fora);
   }
   function salvarCfg() {
-    N.setAjustesRota(S.cfg.fora); reindexar(); atualizarTudo();
+    N.setAjustesRota(S.cfg.fora); aplicarRotaAnim(); reindexar(); atualizarTudo();
     enviar({ t: 'cfg' });
     DB.put('meta', { k: 'config', v: S.cfg }).then(() => enviar({ t: 'cfg' })).catch(e => statusSalvo('erro', 'não consegui salvar as configurações: ' + ((e && e.message) || e)));
   }
@@ -674,7 +680,7 @@
     let h = '<div class="vei' + (c.id === S.carroAtivo ? ' ativo' : '') + '" data-car="' + c.id + '" style="--cor:' + c.cor + '"><div class="vei-cab"><b>' + esc(N.rotuloCarro(c)) + '</b>' +
       '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
       '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)' + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c), true) + '</span>' : '') + '</span>' +
-      (acima ? '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>' : '') + '</div>';
+      (acima ? (c.rastreio === 'sim' ? '<span class="vei-alerta ok" title="Veículo com rastreio: pode passar do limite">✔ Dentro do limite de ' + m$(S.cfg.limite) + '</span>' : '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>') : '') + '</div>';
     if (aberto) {
       h += '<ol class="vei-cid">' + (rc.cidades.length ? '' : '<li style="padding:4px 8px;color:var(--mudo);font-size:.8rem;list-style:none">Nenhuma cidade ainda.</li>');
       rc.cidades.forEach((cid, i) => {
@@ -917,7 +923,7 @@
   async function recarregarDoBanco(id) {
     try {
       const [c, r] = [await DB.get('meta', 'config'), await DB.get('meta', 'regioes')];
-      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora);
+      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora); aplicarRotaAnim();
       if (r && r.v && Array.isArray(r.v.regioes)) { S.reg = r.v; N.setRegioes(S.reg); }
       const op = id ? await DB.get('ops', id) : null;
       if (op) { S.op = op; if (!carroPorId(S.carroAtivo) && op.carros.length) S.carroAtivo = op.carros[0].id; }
@@ -985,12 +991,14 @@
   /* ================= configurações (só deste aparelho) ================= */
   async function carregarApiKey() { try { const r = await DB.get('meta', 'meudanfe'); S.apiKey = (r && r.v) || ''; } catch (e) { S.apiKey = ''; } }
   function renderConfig() {
+    for (const r of $$('input[name="cfg-anim"]')) r.checked = (r.value === 'fixa') === !!S.cfg.rotaFixa;
     $('#cfg-md').value = '';
     $('#cfg-md').placeholder = S.apiKey ? '••••••••••••••••  (chave guardada — cole outra para trocar)' : 'Cole a Api-Key aqui';
     const bi = munInfo(S.cfg.base || '3503208'); $('#cfg-base').value = bi ? bi.nome + '/' + bi.uf : ''; $('#cfg-base-st').textContent = bi ? 'Base atual: ' + bi.nome + '/' + bi.uf + '.' : '';
     $('#cfg-md-st').textContent = S.apiKey ? '✓ Há uma Api-Key guardada neste aparelho.' : 'Nenhuma Api-Key guardada. A bipagem funciona sem ela, mas as notas fora dos XMLs vão para o Romaneio Extra para você preencher à mão.';
   }
   function ligarConfig() {
+    for (const r of $$('input[name="cfg-anim"]')) r.onchange = () => { if (!r.checked) return; S.cfg.rotaFixa = r.value === 'fixa'; salvarCfg(); toast(S.cfg.rotaFixa ? 'Linhas das rotas fixas (sem movimento).' : 'Linhas das rotas em movimento.'); };
     $('#cfg-base-ok').onclick = () => {
       const t = $('#cfg-base').value.trim(), [nome, uf] = t.split('/').map(x => x.trim()), r = N.achaMunicipios(nome, uf || '');
       if (!r.length) { toast('Não achei essa cidade. Escreva o nome e a UF (ex.: Araraquara/SP).'); return; }
@@ -1195,7 +1203,7 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
+    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara('rotas');

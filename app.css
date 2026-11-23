@@ -589,3 +589,6 @@ body.modo-mapa .hs-salvar{display:none}
 .sug-i{border:1.5px solid var(--linha);background:var(--sup);color:var(--tinta);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;display:inline-flex;gap:6px;align-items:center}
 .sug-i span{font-size:.75rem;color:var(--mudo);font-weight:700}.sug-i:hover,.sug-i:focus-visible{border-color:var(--teal);background:var(--tealBg)}
 .chk-cid{display:flex;gap:6px;align-items:center;font-size:.85rem;width:100%}
+
+.vei-alerta.ok{color:#1B9A53;background:rgba(27,154,83,.16)}
+.cfg-radio{display:flex;gap:8px;align-items:center;padding:6px 0;cursor:pointer;font-size:1rem}

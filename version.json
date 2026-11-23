@@ -1,1 +1,1 @@
-{"versao":"0.17.0","data":"2026-11-23","novidades":"Buscar nota: botao editar cidade. Troca a cidade da nota (e opcionalmente das outras do mesmo cliente); a bolinha, pendentes, veiculos e relatorios acompanham. Da para voltar a cidade do XML."}
+{"versao":"0.17.1","data":"2026-11-23","novidades":"Veiculo com rastreio SIM acima do limite: aviso verde 'Dentro do limite'. Configuracoes: linha tracejada da rota em movimento (padrao) ou fixa."}
