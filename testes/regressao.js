@@ -58,7 +58,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
 
   console.log('\nImportação (pré-visualização)');
   await p.click('#mural-x');
-  await p.click('.nav button[data-tela="importar"]');
+  await p.click('.nav button[data-tela="xmls"]');
   await p.setInputFiles('#arq', [
     { name: 'A.XML', mimeType: 'text/xml', buffer: amostra.A },
     { name: 'B.XML', mimeType: 'text/xml', buffer: amostra.B },
@@ -292,7 +292,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual((await estado(p)).carros, [1, 2], 'desfazer traz o carro de volta');
 
   console.log('\nReimportar o mesmo arquivo não duplica');
-  await p.click('.nav button[data-tela="importar"]');
+  await p.click('.nav button[data-tela="xmls"]');
   await p.setInputFiles('#arq', [{ name: 'A.XML', mimeType: 'text/xml', buffer: amostra.A }]);
   await p.waitForSelector('#lote-ok');
   igual(await p.isDisabled('#lote-ok'), true, 'importar de novo: 0 notas novas, botão desabilitado');
@@ -408,7 +408,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   console.log('\nBipar notas');
   const dv43 = c => { let s = 0, pe = 2; for (let i = 42; i >= 0; i--) { s += (+c[i]) * pe; pe = pe === 9 ? 2 : pe + 1; } const r = s % 11; return r < 2 ? 0 : 11 - r; };
   const chaveOk = nf => { const b = '35' + '2611' + '12345678000199' + '55' + '001' + String(nf).padStart(9, '0') + '1' + '12345678'; return b + dv43(b); };
-  await p.click('.nav button[data-tela="importar"]');
+  await p.click('.nav button[data-tela="xmls"]');
   const bipar = async txt => { await p.fill('#bip-in', txt); await p.press('#bip-in', 'Enter'); };
   const nBip = () => p.evaluate(() => Object.keys(RT.S.op.bipes || {}).length);
   await bipar('0'.repeat(40) + '1001');
@@ -470,7 +470,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.fill('#cfg-md', 'CHAVE-DE-TESTE-123'); await p.click('#cfg-md-ok');
   await p.waitForFunction(() => RT.S.apiKey === 'CHAVE-DE-TESTE-123');
   verdade(/guardada/.test(await p.innerText('#cfg-md-st')) && (await p.inputValue('#cfg-md')) === '', 'a Api-Key fica guardada e o campo não mostra a chave de volta');
-  await p.click('.nav button[data-tela="importar"]');
+  await p.click('.nav button[data-tela="xmls"]');
   const nGet = () => reqs.filter(r => r.m === 'GET').length;
   await bipar('0'.repeat(40) + '1004');
   igual(nGet(), 0, 'nota que JÁ está nos XMLs não faz consulta ao Meu Danfe');
@@ -500,7 +500,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('.nav button[data-tela="config"]'); await p.click('#cfg-md-rm'); await p.click('.fundo [data-s]');
   await p.waitForFunction(() => RT.S.apiKey === '');
   verdade(true, 'dá para remover a chave');
-  const antesReq = reqs.length; await p.click('.nav button[data-tela="importar"]'); await bipar(chaveOk(6005));
+  const antesReq = reqs.length; await p.click('.nav button[data-tela="xmls"]'); await bipar(chaveOk(6005));
   igual(reqs.length, antesReq, 'sem chave guardada, não consulta nada');
   verdade(/Configurações/.test(await p.innerText('.bip-aviso')), 'e avisa onde colocar a Api-Key');
   ignorarRede = false;
@@ -707,6 +707,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#bt-salvar', { button: 'right' }); verdade(/Versões salvas/.test(await p.innerText('.modal')) && await p.locator('.modal [data-bk-rest]').count() > 0, 'botão direito no Salvar mostra as versões salvas (como no Health Search)'); await p.keyboard.press('Escape');
   await p.keyboard.press('Control+KeyS'); await p.waitForTimeout(200);
   verdade(await p.evaluate(() => !RT.S.sujo), 'Ctrl+S salva (nada fica pendente)');
+  await p.click('.nav button[data-tela="config"]');
   verdade(await p.evaluate(() => !document.querySelector('#bt-instalar').hidden), 'o botão Instalar aparece (fora do app instalado)');
   await p.click('#bt-instalar'); verdade(/bússola|Instalar o Health Log/.test(await p.innerText('.modal')), 'sem o pedido do navegador, mostra como instalar'); await p.keyboard.press('Escape');
 
@@ -740,6 +741,29 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(await p.evaluate(() => RT.S.carroAtivo), alvo, 'clicar no quadradinho seleciona o veículo');
   verdade(await p.evaluate(id => { const m = RT.S.mapa, c = RT.S.op.carros.find(x => x.id === id); return c.cidades.every(k => { const q = m.posicaoDaCidade(k); return q && q.x > 0 && q.x < m.W && q.y > 0 && q.y < m.H; }); }, alvo), 'e o mapa dá zoom: toda a rota dele fica na tela');
   verdade(await p.evaluate(k => RT.S.mapa.v.k > k, k0), 'aproximando em relação à vista anterior');
+
+  console.log('\nMenu em grupos, instalar/tema em Ajustes e sons');
+  await p.click('.nav button[data-tela="rotas"]');
+  igual(await p.evaluate(() => [...document.querySelectorAll('.nav .nav-grupo')].map(x => x.textContent)), ['Operação', 'Painel de Gestão', 'Ajustes'], 'grupos do menu: Operação · Painel de Gestão · Ajustes');
+  igual(await p.evaluate(() => [...document.querySelectorAll('.nav button')].map(b => b.dataset.tela)), ['rotas', 'notas', 'xmls', 'folha', 'geo', 'relatorios', 'agenda', 'diverg', 'config', 'cadastros'], 'ordem das abas (sem "Mural do dia" e sem "Importar XML")');
+  verdade(/XMLs e Romaneios/.test(await p.innerText('.nav button[data-tela="xmls"]')), '"XMLs e Romaneios" com R maiúsculo');
+  await p.click('#marca'); verdade(await p.evaluate(() => !document.getElementById('mural').hidden), 'clicar na logo abre o Mural do dia'); await p.click('#mural-x');
+  await p.click('.nav button[data-tela="xmls"]');
+  verdade(await p.evaluate(() => { const s = document.querySelector('#t-xmls'); const d = s.querySelector('#drop'), x = s.querySelector('#xm-box'); return !!d && !!x && d.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING; }), 'Importar XML fica no alto da aba "XMLs e Romaneios"');
+  verdade(await p.evaluate(() => !document.querySelector('#t-importar') && !document.querySelector('.rail #bt-tema') && !document.querySelector('.rail #bt-instalar')), 'a aba Importar antiga sumiu e Tema/Instalar saíram do menu lateral');
+  await p.click('.nav button[data-tela="config"]');
+  verdade(await p.evaluate(() => !!document.querySelector('#t-config #bt-tema') && !!document.querySelector('#t-config #bt-instalar')), 'Tema e Instalar aplicativo ficam em Ajustes → Configurações');
+  await p.click('#bt-tema'); const tm = await p.evaluate(() => document.documentElement.getAttribute('data-tema')); await p.click('#bt-tema');
+  verdade(tm === 'claro', 'o botão de tema continua funcionando');
+  await p.click('.nav button[data-tela="rotas"]');
+  await p.evaluate(() => { window.__sons = []; const o = RT.U.som; const f = (t, forcar) => { window.__sons.push(t); }; f.ligado = o.ligado; f.ligar = o.ligar; RT.U.som = f; });
+  await p.evaluate(() => { const c = RT.S.res.cidades.find(x => !x.fora && x.estado === 'pendente'); const car = RT.S.op.carros[0].id; RT.A.mutar('teste som', () => RT.N.alocar(RT.S.op, RT.S.idx, c.cidade.notas.map(n => n.id), car)); });
+  verdade(await p.evaluate(() => window.__sons.includes('ok')), 'som quando a cidade fica com todas as notas em veículos');
+  await p.evaluate(() => { window.__sons.length = 0; RT.A.desfazer(); });
+  verdade(await p.evaluate(() => !window.__sons.includes('ok')), 'desfazer não toca o som de cidade completa');
+  await p.evaluate(() => { RT.U.confirmar('Teste', 'texto', 'Ok'); }); await p.waitForSelector('.fundo');
+  verdade(await p.evaluate(() => window.__sons.includes('popup')), 'som quando aparece um pop-up'); await p.keyboard.press('Escape');
+  await p.evaluate(() => RT.A.atualizarTudo());
 
   console.log('\nRastreio no limite e linha fixa');
   await p.click('.nav button[data-tela="rotas"]');

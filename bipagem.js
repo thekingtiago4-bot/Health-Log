@@ -185,7 +185,7 @@
       [...por.entries()].sort((a, b) => b[1].notas - a[1].notas).map(([k, x]) => '<tr><td>' + esc(k) + '</td><td>' + (motDe(k) ? esc(motDe(k).motorista) + (motDe(k).origem ? ' <span class="tag">' + esc(motDe(k).origem) + '</span>' : '') : '') + '</td><td class="dir">' + i$(x.notas) + '</td><td class="dir">' + i$(x.vol) + '</td><td class="dir">' + m$(x.valor) + '</td><td><span class="bip-prog"><i style="width:' + Math.round(x.bip / x.notas * 100) + '%"></i></span>' + x.bip + ' / ' + x.notas + '</td></tr>').join('') + '</tbody></table></div></div>' +
       '<p class="dica">Bipada = conferida. Isso é diferente de estar num veículo (alocada) e de entregue. Bipe repetido não soma duas vezes. Leitor de código de barras: aponte para a etiqueta com este campo selecionado — ele digita a chave e dá Enter sozinho.</p>';
     box.innerHTML = h;
-    if (emFoco || (!document.activeElement || document.activeElement === document.body)) { const i = $('#bip-in'); if (i && $('#t-importar') && !$('#t-importar').hidden) i.focus(); }
+    if (emFoco || (!document.activeElement || document.activeElement === document.body)) { const i = $('#bip-in'); if (i && $('#t-xmls') && !$('#t-xmls').hidden) i.focus(); }
   }
   RT.bip = { render, processar, consultarMeuDanfe };
 })(typeof window !== 'undefined' ? window : globalThis);

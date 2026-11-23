@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.20.0';
+  const VERSAO = '0.21.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -20,6 +20,10 @@
   function reindexar() {
     if (!S.op) { S.idx = null; S.res = null; return; }
     S.idx = N.indexar(S.op); S.res = N.resumo(S.op, S.idx);
+    /* som: uma cidade que acabou de ficar com TODAS as notas em veículos (não toca ao abrir a operação) */
+    const comp = new Set(S.res.cidades.filter(c => !c.fora && c.estado === 'completa').map(c => c.cidade.key));
+    if (S.compOp === S.op.id && S.comp && !S.modoMapa) { for (const k of comp) if (!S.comp.has(k)) { U.som('ok'); break; } }
+    S.comp = comp; S.compOp = S.op.id;
   }
   const carroPorId = id => (S.op ? S.op.carros.find(c => c.id === id) : null) || null;
   const nomeId = id => { const c = carroPorId(id); return c ? N.nomeCarro(c) : 'Veículo ?'; };
@@ -126,6 +130,7 @@
   let tela = 'rotas';
   function irPara(t) {
     if (t === 'mural') { muralAbrir(); return; }
+    if (t === 'importar') t = 'xmls'; // o Importar XML mora dentro de "XMLs e Romaneios"
     tela = t;
     for (const sec of $$('.tela')) sec.hidden = sec.id !== 't-' + t;
     for (const b of $$('.nav button')) { if (b.dataset.tela === 'mural') continue; if (b.dataset.tela === t) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
@@ -138,10 +143,10 @@
   function renderTelaAtual() {
     if (tela === 'notas') renderNotas();
     else if (tela === 'folha') renderFolha();
-    else if (tela === 'importar') { renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'relatorios') RT.relatorios.render();
     else if (tela === 'config') renderConfig();
-    else if (tela === 'xmls' || tela === 'cadastros') RT.rom.render(tela);
+    else if (tela === 'xmls') { RT.rom.render(tela); renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
+    else if (tela === 'cadastros') RT.rom.render(tela);
     else if (tela === 'agenda' || tela === 'diverg') RT.sit.render(tela);
     else if (tela === 'geo') { renderGeo(); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
@@ -1037,6 +1042,8 @@
     toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
   }
   function ligarConfig() {
+    const cs = $('#cfg-som'); cs.checked = U.som.ligado(); cs.onchange = () => { U.som.ligar(cs.checked); if (cs.checked) U.som('ok'); };
+    $('#cfg-som-ok').onclick = () => U.som('ok', true); $('#cfg-som-pop').onclick = () => U.som('popup', true);
     $('#cfg-jan-reset').onclick = async () => { if (await U.confirmar('Resetar janelas flutuantes?', 'Todas as janelas (cidades pendentes, veículos, busca e clientes da cidade) voltam ao tamanho e ao lugar de fábrica. Seus dados não mudam.', 'Resetar')) resetarJanelas(); };
     for (const r of $$('input[name="cfg-anim"]')) r.onchange = () => { if (!r.checked) return; S.cfg.rotaFixa = r.value === 'fixa'; salvarCfg(); toast(S.cfg.rotaFixa ? 'Linhas das rotas fixas (sem movimento).' : 'Linhas das rotas em movimento.'); };
     $('#cfg-base-ok').onclick = () => {
@@ -1201,7 +1208,7 @@
     });
 
     /* tema */
-    const aplicarTema = t => { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); $('#tema-lbl').textContent = t === 'claro' ? 'Tema escuro' : 'Tema claro'; S.mapa && S.mapa.temaMudou(); };
+    const aplicarTema = t => { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); $('#tema-lbl').textContent = t === 'claro' ? 'Mudar para tema escuro' : 'Mudar para tema claro'; S.mapa && S.mapa.temaMudou(); };
     $('#bt-tema').onclick = () => { const t = document.documentElement.getAttribute('data-tema') === 'escuro' ? 'claro' : 'escuro'; U.pref.gravar('tema', t); aplicarTema(t); enviar({ t: 'tema' }); };
     aplicarTema(U.pref.ler('tema', 'escuro'));
     window.addEventListener('pagehide', () => { /* gravações já são feitas a cada ação */ });

@@ -44,6 +44,28 @@
     });
   })();
 
+  /* ---------- sons (sintetizados, sem arquivo): 'ok' = cidade completa · 'popup' = janela que aparece · 'aviso' ---------- */
+  let ac = null;
+  U.som = function (tipo, forcar) {
+    try {
+      if (!forcar && !U.som.ligado()) return;
+      ac = ac || new (g.AudioContext || g.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume();
+      const seq = {
+        ok: [[523.25, .13, 'sine'], [659.25, .13, 'sine'], [783.99, .13, 'sine'], [1046.5, .38, 'sine']],   // acorde subindo: tudo certo
+        popup: [[880, .09, 'triangle'], [1174.66, .16, 'triangle']],                                      // “plim” curto
+        aviso: [[330, .14, 'square'], [247, .22, 'square']]
+      }[tipo] || [[660, .1, 'sine']];
+      let t = ac.currentTime + .02;
+      for (const [f, d, tp] of seq) {
+        const o = ac.createOscillator(), gn = ac.createGain(); o.type = tp; o.frequency.value = f;
+        gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(tipo === 'aviso' ? .09 : .2, t + .015); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(gn).connect(ac.destination); o.start(t); o.stop(t + d + .02); t += d * .9;
+      }
+    } catch (e) { /* sem áudio: segue em silêncio */ }
+  };
+  U.som.ligado = () => U.pref.ler('som', true) !== false;
+  U.som.ligar = v => U.pref.gravar('som', !!v);
+
   /* ---------- janelas modais (sem alert/confirm/prompt do navegador) ---------- */
   function modal(html, onMontar) {
     return new Promise(res => {
@@ -53,7 +75,7 @@
       const tecla = e => { if (e.key === 'Escape') { e.stopPropagation(); fechar(null); } };
       document.addEventListener('keydown', tecla, true);
       f.addEventListener('mousedown', e => { if (e.target === f) fechar(null); });
-      document.body.appendChild(f);
+      document.body.appendChild(f); U.som('popup');
       onMontar(f, fechar);
     });
   }

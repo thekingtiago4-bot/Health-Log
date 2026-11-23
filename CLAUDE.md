@@ -75,3 +75,7 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - Faixa de carros do topo RETIRADA (pedido do Tiago): escolher/editar/excluir veículo é na janela "Veículos e rotas"; clicar no cartão do veículo seleciona e dá zoom na rota dele.
 - **Ctrl+F** (`abrirFocar`/`focarVeiculo`): pop-up `#pop-focar` com um quadradinho por veículo (número + cor); clique ou digitar o número escolhe o veículo, vai ao mapa e enquadra a rota. Vale em qualquer tela/janela; Esc fecha. Substitui o "buscar na página" do navegador.
 - Buscar nota entra no Ctrl+V (A–Z cliente → maior volume → maior valor; `#busca-ordem`, pref `buscaOrdem`) quando a janela está em foco e o cursor não está no campo de texto.
+
+## v0.21
+- Menu: **Operação** (Montar rotas · Notas · XMLs e Romaneios · Folha de rotas · Geolocalização) · **Painel de Gestão** (Relatórios · Agendamentos · Divergências) · **Ajustes** (Configurações · Cadastros). O Mural do dia abre pela logo (sem item no menu). "Importar XML", bipagem, operações guardadas e cópias ficam no alto de "XMLs e Romaneios" (`irPara('importar')` vira `xmls`). Tema e "Instalar aplicativo" moram em Configurações.
+- Sons (`U.som`, WebAudio sintetizado, pref `som`, liga/desliga em Configurações): `ok` quando uma cidade FICA completa (detectado em `reindexar`, não toca ao abrir operação nem ao desfazer) e `popup` quando abre qualquer janela modal (`U.modal`).

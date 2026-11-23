@@ -19,31 +19,28 @@
 <body>
 <div class="app" id="app">
   <aside class="rail">
-    <div class="marca" id="marca" title="Ver o Mural do dia" role="button" tabindex="0">
+    <div class="marca" id="marca" title="Abrir o Mural do dia" role="button" tabindex="0">
       <img src="icons/marca.png" width="38" height="38" alt="" style="border-radius:9px;flex:none">
       <div class="marca-txt"><b>Health Log.</b><span>Eficiência Máxima<br>Em Roteirização</span></div>
     </div>
     <nav class="nav" aria-label="Seções">
       <div class="nav-grupo">Operação</div>
-      <button data-tela="mural"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M9 9v11"/></svg><span class="lbl">Mural do dia</span></button>
       <button data-tela="rotas" aria-current="page"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span class="lbl">Montar rotas</span><span class="qt lar" id="qt-pend" hidden>0</span></button>
-      <button data-tela="xmls"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="m9.5 15 2 2 3.5-4"/></svg><span class="lbl">XMLs e romaneios</span><span class="qt lar" id="qt-xml" hidden>0</span></button>
-      <button data-tela="agenda"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span class="lbl">Agendamentos</span><span class="qt lar" id="qt-ag" hidden>0</span></button>
-      <button data-tela="diverg"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17.5v.1"/></svg><span class="lbl">Divergências</span><span class="qt" id="qt-dv" hidden>0</span></button>
       <button data-tela="notas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg><span class="lbl">Notas</span><span class="qt" id="qt-notas" hidden>0</span></button>
+      <button data-tela="xmls"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="m9.5 15 2 2 3.5-4"/></svg><span class="lbl">XMLs e Romaneios</span><span class="qt lar" id="qt-xml" hidden>0</span></button>
       <button data-tela="folha"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9h17M3.5 14.5h17M9.5 9v11"/></svg><span class="lbl">Folha de rotas</span></button>
       <button data-tela="geo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 4 5.3 4 8.5s-1.4 6.1-4 8.5c-2.6-2.4-4-5.3-4-8.5s1.4-6.1 4-8.5z"/></svg><span class="lbl">Geolocalização</span></button>
+      <div class="nav-grupo">Painel de Gestão</div>
       <button data-tela="relatorios"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="lbl">Relatórios</span></button>
-      <div class="nav-grupo">Dados</div>
-      <button data-tela="cadastros"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg><span class="lbl">Cadastros</span></button>
+      <button data-tela="agenda"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span class="lbl">Agendamentos</span><span class="qt lar" id="qt-ag" hidden>0</span></button>
+      <button data-tela="diverg"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17.5v.1"/></svg><span class="lbl">Divergências</span><span class="qt" id="qt-dv" hidden>0</span></button>
+      <div class="nav-grupo">Ajustes</div>
       <button data-tela="config"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Configurações</span></button>
-      <button data-tela="importar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Importar XML</span></button>
+      <button data-tela="cadastros"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg><span class="lbl">Cadastros</span></button>
     </nav>
     <div class="resumo">
       <dl><dt>Operação</dt><dd id="r-op">—</dd><dt>Notas</dt><dd id="r-nf">0</dd><dt>Volumes</dt><dd id="r-vol">0</dd><dt>Alocadas</dt><dd id="r-aloc">0%</dd><dt>Carros</dt><dd id="r-car">0</dd></dl>
       <div class="salvo"><i id="r-salvo-i"></i><span id="r-salvo">Abrindo…</span></div>
-      <button class="btn mini rail-bt" id="bt-instalar" type="button" title="Instalar o Health Log no computador ou celular, com o ícone da bússola" hidden>⬇ Instalar aplicativo</button>
-      <button class="tema" id="bt-tema" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="tema-lbl">Tema escuro</span></button>
       <div class="autoria">Desenvolvido por <b>Tiago</b><br>© 2026 Health Log · uso interno<br><span id="versao"></span></div>
     </div>
   </aside>
@@ -157,6 +154,18 @@
         <p class="dica" id="cfg-md-st"></p>
       </div>
       <div class="cfg-card">
+        <h2>Aparência e aplicativo</h2>
+        <p class="sub" style="margin-bottom:10px">Tema da tela e instalação do Health Log. no computador ou celular (ícone das barras).</p>
+        <div class="botoes-linha"><button class="btn" id="bt-tema" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="tema-lbl">Tema escuro</span></button>
+          <button class="btn pri" id="bt-instalar" type="button" title="Instalar o Health Log no computador ou celular, com o ícone da bússola" hidden>⬇ Instalar aplicativo</button></div>
+      </div>
+      <div class="cfg-card">
+        <h2>Sons</h2>
+        <p class="sub" style="margin-bottom:10px">Um som curto quando uma cidade fica com todas as notas em veículos e um aviso sonoro quando aparece uma janela (pop-up). Só toca depois do primeiro clique na tela, regra do navegador.</p>
+        <label class="cfg-radio"><input type="checkbox" id="cfg-som" checked> Sons ligados</label>
+        <div class="botoes-linha"><button class="btn" id="cfg-som-ok" type="button">Ouvir cidade completa</button><button class="btn" id="cfg-som-pop" type="button">Ouvir pop-up</button></div>
+      </div>
+      <div class="cfg-card">
         <h2>Linha tracejada das rotas</h2>
         <p class="sub" style="margin-bottom:10px">Como a linha tracejada da rota aparece no mapa. “Em movimento” é o padrão (o tracejado corre no sentido da viagem). “Fixa” deixa a linha inteira, contínua, sem tracejado e sem setas, para quem se incomoda com o movimento. Vale também para o mapa em outra tela.</p>
         <label class="cfg-radio"><input type="radio" name="cfg-anim" value="movimento" checked> Em movimento (padrão)</label>
@@ -177,7 +186,26 @@
     </section>
 
     <!-- XMLs E ROMANEIOS -->
-    <section class="tela" id="t-xmls" aria-labelledby="h-xm" hidden><h1 id="h-xm">XMLs e romaneios</h1><p class="sub">Joga o romaneio (PDF) aqui: o app lê só o cabeçalho (motorista, placa, origem) e liga ao XML do mesmo título — ou pelas mesmas notas e volumes. <b>Verde</b>: tem romaneio e XML. <b>Amarelo</b>: só o XML. <b>Vermelho</b>: só o romaneio, o XML não entrou.</p><div id="xm-box"></div></section>
+    <section class="tela" id="t-xmls" aria-labelledby="h-xm" hidden><h1 id="h-xm">XMLs e Romaneios</h1>
+      <h2 style="margin:6px 0 6px">Importar XML</h2>
+      <p class="sub">Relatório de notas da SoftLog (XML). Você pode escolher vários arquivos de uma vez. Nada entra na operação antes de você conferir o resumo e confirmar.</p>
+      <div class="drop" id="drop" tabindex="0">
+        <b>Arraste os XMLs (e os romaneios em PDF) aqui</b><span>ou</span>
+        <label class="btn pri" for="arq">Escolher arquivos</label>
+        <input type="file" id="arq" accept=".xml,.XML,.pdf,text/xml,application/xml,application/pdf" multiple hidden>
+      </div>
+      <div id="lote"></div>
+      <h2 style="margin-top:34px">Romaneios (PDF)</h2>
+      <p class="sub">Joga o romaneio (PDF) aqui: o app lê só o cabeçalho (motorista, placa, origem) e liga ao XML do mesmo título — ou pelas mesmas notas e volumes. <b>Verde</b>: tem romaneio e XML. <b>Amarelo</b>: só o XML. <b>Vermelho</b>: só o romaneio, o XML não entrou.</p><div id="xm-box"></div>
+      <h2 style="margin-top:34px">Bipar notas</h2>
+      <div id="bip-box"></div>
+      <h2 style="margin-top:34px">Operações guardadas</h2>
+      <div id="lista-ops"></div>
+      <h2 style="margin-top:30px">Cópias de segurança</h2>
+      <p class="sub" style="margin-bottom:10px">O app guarda uma cópia sozinho antes de importar por cima, excluir uma operação ou excluir um carro com notas.</p>
+      <div id="lista-bk"></div>
+      <div class="botoes-linha"><label class="btn" for="arq-bk">Restaurar de um arquivo .json…</label><input type="file" id="arq-bk" accept=".json,application/json" hidden></div>
+    </section>
 
     <!-- CADASTROS -->
     <section class="tela" id="t-cadastros" aria-labelledby="h-cd" hidden><h1 id="h-cd">Cadastros</h1><div id="cd-box"></div></section>
@@ -207,25 +235,7 @@
       <div id="folha"></div>
     </section>
 
-    <!-- IMPORTAR -->
-    <section class="tela" id="t-importar" aria-labelledby="h-importar" hidden>
-      <h1 id="h-importar">Importar XML</h1>
-      <p class="sub">Relatório de notas da SoftLog (XML). Você pode escolher vários arquivos de uma vez. Nada entra na operação antes de você conferir o resumo e confirmar.</p>
-      <div class="drop" id="drop" tabindex="0">
-        <b>Arraste os XMLs (e os romaneios em PDF) aqui</b><span>ou</span>
-        <label class="btn pri" for="arq">Escolher arquivos</label>
-        <input type="file" id="arq" accept=".xml,.XML,.pdf,text/xml,application/xml,application/pdf" multiple hidden>
-      </div>
-      <div id="lote"></div>
-      <h2 style="margin-top:34px">Bipar notas</h2>
-      <div id="bip-box"></div>
-      <h2 style="margin-top:34px">Operações guardadas</h2>
-      <div id="lista-ops"></div>
-      <h2 style="margin-top:30px">Cópias de segurança</h2>
-      <p class="sub" style="margin-bottom:10px">O app guarda uma cópia sozinho antes de importar por cima, excluir uma operação ou excluir um carro com notas.</p>
-      <div id="lista-bk"></div>
-      <div class="botoes-linha"><label class="btn" for="arq-bk">Restaurar de um arquivo .json…</label><input type="file" id="arq-bk" accept=".json,application/json" hidden></div>
-    </section>
+
   </main>
 </div>
 
