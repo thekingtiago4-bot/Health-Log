@@ -309,15 +309,18 @@
     }
     _desenharGeo() {
       const { ctx, dpr, W, H } = this, { cx, cy, k } = this.v, P = this._paleta(), G = this.geo;
-      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
+      const sobreMapa = this.fundoOk && this.estradas && !!this.fundoMl;   // com "Estradas" ligado, as regiões ficam translúcidas sobre o mapa de ruas (como no Health Search)
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (sobreMapa) ctx.clearRect(0, 0, this.cv.width, this.cv.height); else { ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height); }
       const x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
       ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k));
-      ctx.lineJoin = 'round'; ctx.lineWidth = (k > 400 ? 1 : 0.7) / k; ctx.strokeStyle = P.linha;
+      ctx.lineJoin = 'round'; ctx.lineWidth = (k > 400 ? 1 : 0.7) / k; ctx.strokeStyle = sobreMapa ? P.linhaT : P.linha;
       for (const [code, pl] of this.poli) {
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
         const cor = G.cor.get(code);
         const auto = G.auto && G.auto.has(code);
-        ctx.fillStyle = cor || P.terra; ctx.globalAlpha = cor ? (auto ? 0.3 : (P.escuro ? 0.7 : 0.78)) : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.stroke(pl.path);
+        if (cor || !sobreMapa) { ctx.fillStyle = cor || P.terra; ctx.globalAlpha = cor ? (auto ? (sobreMapa ? 0.16 : 0.3) : (sobreMapa ? 0.4 : (P.escuro ? 0.7 : 0.78))) : 1; ctx.fill(pl.path); ctx.globalAlpha = 1; }
+        ctx.stroke(pl.path);
         if (auto) { ctx.save(); ctx.lineWidth = 1.6 / k; ctx.strokeStyle = cor; ctx.setLineDash([4 / k, 3 / k]); ctx.stroke(pl.path); ctx.restore(); }   // automática: preenchimento claro, contorno tracejado
         else if (G.ens && G.ens.has(code)) { ctx.save(); ctx.lineWidth = 1.8 / k; ctx.strokeStyle = P.tinta; ctx.stroke(pl.path); ctx.restore(); }          // ensinada por você: contorno escuro
         if (G.nf && G.nf.has(code)) { ctx.fillStyle = P.escuro ? '#3B4A4E' : '#8A979A'; ctx.fill(pl.path); ctx.stroke(pl.path); }                         // "Não fazemos": cinza

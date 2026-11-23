@@ -1,1 +1,1 @@
-{"versao":"0.24.0","data":"2026-11-23","novidades":"Rotas pelo Valhalla (caminho mais direto, com pedagio ou nao), $ marca os trechos com pedagio no mapa, botao Evitar pedagio, botao Menor KM (↯) para reordenar as cidades do veiculo, menu lateral sem rolagem."}
+{"versao":"0.25.0","data":"2026-11-23","novidades":"Rota mais curta agora e o padrao (sem botao). Legenda do mapa atualizada. Folha de rotas sem CONF. e com Emitida as hh:mm:ss. Geolocalizacao: Estradas por baixo e Abrir em outra janela."}

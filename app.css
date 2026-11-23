@@ -672,3 +672,13 @@ body.ged-on .geo-mapa .geo-box{cursor:crosshair}
 @media (min-width:861px) and (max-height:820px){.autoria{display:none}}
 @media (min-width:861px) and (max-height:700px){.resumo dl dt:nth-of-type(n+3),.resumo dl dd:nth-of-type(n+3){display:none}}
 @media (min-width:861px) and (max-height:600px){.resumo dl{display:none}.marca-txt span{display:none}}
+
+.lg-fora{background:#4A3412;border:2px dashed #FFB454}
+.lg-ped{background:#F5A400;color:#1b1200}
+.lg-rota{background:transparent!important;border-radius:2px!important;width:20px!important;height:0!important;border-top:3px dashed #7B3FE4}
+.legenda{flex-wrap:wrap;max-width:min(560px,calc(100% - 24px));gap:6px 14px}
+
+/* janela só com a Geolocalização (?geo=1, segundo monitor) */
+body.so-geo .rail,body.so-geo .rail-seta,body.so-geo .hs-salvar,body.so-geo #t-geo>*:not(.geo-grid){display:none!important}
+body.so-geo .app{grid-template-columns:1fr}body.so-geo #principal{padding:10px}
+body.so-geo .geo-box{height:calc(100vh - 150px)}

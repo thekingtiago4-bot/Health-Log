@@ -3,16 +3,16 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.24.0';
+  const VERSAO = '0.25.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
   const S = RT.S = {
     op: null, idx: null, res: null, carroAtivo: null,
-    cidadeAberta: null, ordemCar: 'nome', janFoco: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
+    cidadeAberta: null, ordemCar: 'nome', janFoco: null, ordPrev: new Map(), ordOp: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
     hist: [], mapa: null, precisaEnquadrar: true, lote: null, destino: 'atual',
     nf: { q: '', carro: '', origem: '', ord: 'nf', dir: 1 },
-    canal: null, ext: null, parede: false, modoMapa: /[?&]mapa=1/.test(location.search),
+    canal: null, ext: null, parede: false, modoMapa: /[?&]mapa=1/.test(location.search), soGeo: /[?&]geo=1/.test(location.search),
     fila: Promise.resolve(), ultimoSalvo: null, ultimoBackup: null, pend: { q: '', ordem: 'nome', mostrarTodas: false }
   };
 
@@ -24,6 +24,7 @@
     const comp = new Set(S.res.cidades.filter(c => !c.fora && c.estado === 'completa').map(c => c.cidade.key));
     if (S.compOp === S.op.id && S.comp && !S.modoMapa) { for (const k of comp) if (!S.comp.has(k)) { U.som('ok'); break; } }
     S.comp = comp; S.compOp = S.op.id;
+    if (S.ordOp !== S.op.id) { S.ordPrev = new Map(S.op.carros.map(c => [c.id, new Set(c.cidades)])); S.ordOp = S.op.id; }   // ponto de partida da ordem automática
   }
   const carroPorId = id => (S.op ? S.op.carros.find(c => c.id === id) : null) || null;
   const nomeId = id => { const c = carroPorId(id); return c ? N.nomeCarro(c) : 'Veículo ?'; };
@@ -35,7 +36,7 @@
   }
   function mutar(rotulo, fn) {
     empurrarHist(rotulo); fn(); S.op.rev++;
-    reindexar(); salvar(); atualizarTudo();
+    reindexar(); if (otimizarOrdens()) reindexar(); salvar(); atualizarTudo();
   }
   function desfazer() {
     if (!S.op) return;
@@ -44,7 +45,7 @@
     const s = JSON.parse(h.snap);
     S.op.atrib = s.atrib; S.op.carros = s.carros; S.op.proxCarro = s.proxCarro; S.op.status = s.status || {}; S.op.agIgnorar = s.agIgnorar || {}; S.op.rev++;
     if (!carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros.length ? S.op.carros[0].id : null;
-    reindexar(); resetDraft(); salvar(); atualizarTudo();
+    S.ordOp = null; reindexar(); resetDraft(); salvar(); atualizarTudo();
     toast('Desfeito: ' + h.rotulo);
   }
 
@@ -251,13 +252,14 @@
   }
   /* lápis do veículo: motorista + cor (algumas cores da lista inicial são fracas no mapa) */
   const PALETA_CARRO = ['#7B3FE4', '#1C6DD0', '#E8590C', '#D6336C', '#0B8FA6', '#8D5A2B', '#C92A2A', '#4C5DDC', '#B23BC4', '#2FA0F5', '#F5B700', '#2E9E48', '#FF3EA5', '#00C2A8', '#FF7A00', '#111111'];
-  /* "Menor KM": reordena as cidades do veículo saindo e voltando à base, pelo menor percurso em LINHA RETA entre elas
-     (com até 9 cidades testa todas as ordens; acima disso usa vizinho mais próximo + trocas 2-opt). O KM real pelas rodovias aparece depois. */
+  /* Rota mais curta = PADRÃO (sem botão): ao mudar as cidades de um veículo, a ordem é refeita saindo/voltando à base pelo menor percurso
+     em linha reta (até 8 cidades testa todas as ordens; acima, vizinho mais próximo + trocas 2-opt). Se você mexer na ordem à mão
+     (arrastar ou ▲▼), aquele veículo passa a respeitar a SUA ordem e as cidades novas entram no melhor lugar dela. */
   function ordenarCurto(base, pts) {
     const n = pts.length, rad = Math.PI / 180, d = (a, b) => { const x = (a.lon - b.lon) * Math.cos((a.lat + b.lat) / 2 * rad), y = a.lat - b.lat; return Math.hypot(x, y) * 111; };
     const custo = o => { let s = 0, p = base; for (const i of o) { s += d(p, pts[i]); p = pts[i]; } return s + d(p, base); };
     let melhor = [...Array(n).keys()];
-    if (n <= 9) {
+    if (n <= 8) {
       let bc = Infinity; const perm = (arr, k) => { if (k === arr.length) { const c = custo(arr); if (c < bc) { bc = c; melhor = arr.slice(); } return; } for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; perm(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; } };
       perm(melhor.slice(), 0);
     } else {
@@ -266,16 +268,29 @@
     }
     return { ordem: melhor, antes: custo([...Array(n).keys()]), depois: custo(melhor) };
   }
-  function ordemMaisCurta(id) {
-    const c = carroPorId(id); if (!c) return; const base = S.mapa.base;
-    if (!base) { toast('Sem base definida: ajuste a base em Configurações.'); return; }
-    const cids = c.cidades.map(k => S.idx.cidades.get(k)).filter(x => x && x.lat != null);
-    if (cids.length < 3) { toast(N.nomeCarro(c) + ' tem menos de 3 cidades: não há o que reorganizar.'); return; }
-    const r = ordenarCurto(base, cids.map(x => ({ lat: x.lat, lon: x.lon })));
-    if (r.depois >= r.antes - 0.5) { toast(N.nomeCarro(c) + ': a ordem atual já é a mais curta (em linha reta).'); return; }
-    const nova = r.ordem.map(i => cids[i].key), resto = c.cidades.filter(k => !nova.includes(k));
-    mutar('ordem mais curta de ' + N.nomeCarro(c), () => { c.cidades = nova.concat(resto); });
-    toast(N.nomeCarro(c) + ': ordem reorganizada — percurso em linha reta de ' + Math.round(r.antes) + ' para ' + Math.round(r.depois) + ' km. O KM real pelas rodovias aparece em instantes. Ctrl+Z desfaz.');
+  /* coloca a cidade nova no ponto da ordem manual que menos aumenta o percurso */
+  function insercaoBarata(base, lista, nova) {
+    const rad = Math.PI / 180, d = (a, b) => Math.hypot((a.lon - b.lon) * Math.cos((a.lat + b.lat) / 2 * rad), a.lat - b.lat) * 111; let bi = lista.length, bc = Infinity;
+    for (let i = 0; i <= lista.length; i++) { const p = i ? lista[i - 1] : base, q = i < lista.length ? lista[i] : base, c = d(p, nova) + d(nova, q) - d(p, q); if (c < bc) { bc = c; bi = i; } }
+    return bi;
+  }
+  function otimizarOrdens() {
+    const base = S.mapa && S.mapa.base; if (!base || !S.op) return false; let mudou = false;
+    for (const c of S.op.carros) {
+      const antes = S.ordPrev.get(c.id), atual = new Set(c.cidades);
+      const igual = antes && antes.size === atual.size && [...atual].every(k => antes.has(k)); S.ordPrev.set(c.id, atual);
+      if (!antes || igual) continue;
+      const geo = k => { const x = S.idx.cidades.get(k); return x && x.lat != null ? { key: k, lat: x.lat, lon: x.lon } : null; };
+      if (c.ordemManual) {                                   // ordem do usuário: só encaixa as cidades novas no melhor lugar
+        const velhas = c.cidades.filter(k => antes.has(k)), novas = c.cidades.filter(k => !antes.has(k)); let lista = velhas.slice();
+        for (const k of novas) { const g = geo(k); if (!g) { lista.push(k); continue; } const pts = lista.map(geo).filter(Boolean); lista.splice(insercaoBarata(base, pts, g), 0, k); }
+        if (lista.join() !== c.cidades.join()) { c.cidades = lista; mudou = true; }
+      } else {
+        const gs = c.cidades.map(geo); if (gs.some(x => !x) || gs.length < 3) continue;
+        const r = ordenarCurto(base, gs); if (r.depois < r.antes - 0.5) { c.cidades = r.ordem.map(i => c.cidades[i]); mudou = true; }
+      }
+    }
+    return mudou;
   }
   async function renomearCarro(id) {
     const c = carroPorId(id); if (!c) return;
@@ -577,14 +592,14 @@
     const tot = cars.reduce((t, c) => ({ vol: t.vol + c.vol, par: t.par + c.paradas, val: t.val + c.valor }), { vol: 0, par: 0, val: 0 });
     const faltam = S.res.rota.notas - S.res.alocRota.notas;
     let h = (faltam ? '<div class="folha-aviso">⚠ Esta folha ainda não está completa: faltam ' + faltam + ' nota(s) (' + m$(S.res.rota.valor - S.res.alocRota.valor) + ') sem carro.</div>' : '') +
-      '<div class="folha"><div class="f-cab"><b>ROTA ' + U.dataBR(S.op.data) + '</b><span>Emitida em ' + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span></div>';
+      '<div class="folha"><div class="f-cab"><b>ROTA ' + U.dataBR(S.op.data) + '</b><span>Emitida às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</span></div>';
     for (let i = 0; i < cars.length; i += 7) {
       const bl = cars.slice(i, i + 7), pad = n => Array.from({ length: 7 - bl.length }, () => n);
       const cel = (fn, tag) => bl.map(fn).concat(pad('')).map(x => '<' + (tag || 'td') + '>' + (x || '') + '</' + (tag || 'td') + '>').join('');
       h += '<div class="f-blk"><table><tr><th class="lbl"></th>' + cel(c => esc((c.carro.motorista || N.nomeCarro(c.carro)).toUpperCase()), 'th') + '</tr>' +
         '<tr><td class="lbl"></td>' + bl.map(c => '<td class="cidades">' + c.cidades.map(x => esc(N.norm(x.nome))).join('<br>') + '</td>').concat(pad('<td class="cidades"></td>')).join('') + '</tr>' +
         '<tr class="vol"><td class="lbl">VOLUMES</td>' + cel(c => i$(c.vol)) + '</tr><tr class="par"><td class="lbl">PARADAS</td>' + cel(c => c.paradas) + '</tr>' +
-        '<tr class="val"><td class="lbl">VALOR</td>' + cel(c => m$(c.valor)) + '</tr><tr><td class="lbl">CONF.</td>' + cel(() => '') + '</tr></table></div>';
+        '<tr class="val"><td class="lbl">VALOR</td>' + cel(c => m$(c.valor)) + '</tr></table></div>';
     }
     h += '<div class="f-tot"><div>TOTAL (' + cars.length + ' rotas)</div><div>VOLUMES: ' + i$(tot.vol) + '</div><div>PARADAS: ' + i$(tot.par) + '</div><div>VALOR: ' + m$(tot.val) + '</div></div></div>';
     box.innerHTML = h;
@@ -753,7 +768,7 @@
     const c = rc.carro, aberto = S.carAberto.has(c.id), acima = S.cfg.limite != null && rc.valor > S.cfg.limite;
     const rastro = c.rastreio === 'sim' ? 'Rastreio: SIM' : c.rastreio === 'nao' ? 'Rastreio: NÃO' : 'Rastreio: —';
     let h = '<div class="vei' + (c.id === S.carroAtivo ? ' ativo' : '') + '" data-car="' + c.id + '" style="--cor:' + c.cor + '"><div class="vei-cab"><b>' + esc(N.rotuloCarro(c)) + '</b>' +
-      '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-otim="' + c.id + '" title="Menor KM: reorganiza a ordem das cidades para a rota ficar mais curta (estimativa em linha reta; Ctrl+Z desfaz)" aria-label="Ordem mais curta">↯</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
+      '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
       '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)' + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c), true) + '</span>' : '') + '</span>' +
       (acima ? (c.rastreio === 'sim' ? '<span class="vei-alerta ok" title="Veículo com rastreio: pode passar do limite">✔ Dentro do limite de ' + m$(S.cfg.limite) + '</span>' : '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>') : '') + '</div>';
     if (aberto) {
@@ -810,11 +825,10 @@
       const t = e.target;
       let m;
       if ((m = t.closest('[data-rast]'))) { const c = carroPorId(+m.dataset.rast); const prox = { null: 'sim', sim: 'nao', nao: null }[String(c.rastreio || null)]; return mutar('rastreio de ' + N.nomeCarro(c), () => { c.rastreio = prox; }); }
-      if ((m = t.closest('[data-otim]'))) return ordemMaisCurta(+m.dataset.otim);
       if ((m = t.closest('[data-ren]'))) return renomearCarro(+m.dataset.ren);
       if ((m = t.closest('[data-del]'))) return excluirCarro(+m.dataset.del);
-      if ((m = t.closest('[data-up]'))) { const [id, i] = m.dataset.up.split('|').map(Number); return mutar('ordem das paradas', () => N.moverCidade(S.op, id, i, i - 1)); }
-      if ((m = t.closest('[data-dn]'))) { const [id, i] = m.dataset.dn.split('|').map(Number); return mutar('ordem das paradas', () => N.moverCidade(S.op, id, i, i + 1)); }
+      if ((m = t.closest('[data-up]'))) { const [id, i] = m.dataset.up.split('|').map(Number); return mutar('ordem das paradas', () => { N.moverCidade(S.op, id, i, i - 1); carroPorId(id).ordemManual = true; }); }
+      if ((m = t.closest('[data-dn]'))) { const [id, i] = m.dataset.dn.split('|').map(Number); return mutar('ordem das paradas', () => { N.moverCidade(S.op, id, i, i + 1); carroPorId(id).ordemManual = true; }); }
       if ((m = t.closest('[data-ex]'))) { const k = m.dataset.ex; S.carExp.has(k) ? S.carExp.delete(k) : S.carExp.add(k); return renderJanCarros(); }
       if ((m = t.closest('[data-go]'))) { return abrirCidade(m.dataset.go, { centrar: true }); }
       if ((m = t.closest('[data-mv]'))) {
@@ -837,7 +851,7 @@
     let arr = null;
     corpo.addEventListener('dragstart', e => { const li = e.target.closest('li.cid'); if (!li) return; arr = { car: +li.dataset.car, i: +li.dataset.i }; li.classList.add('arrastando'); try { e.dataTransfer.setData('text/plain', 'cidade'); e.dataTransfer.effectAllowed = 'move'; } catch (x) { /* ok */ } });
     corpo.addEventListener('dragover', e => { const li = e.target.closest('li.cid'); if (!arr || !li || +li.dataset.car !== arr.car) return; e.preventDefault(); $$('li.cid.alvo', corpo).forEach(x => x.classList.remove('alvo')); li.classList.add('alvo'); });
-    corpo.addEventListener('drop', e => { const li = e.target.closest('li.cid'); if (!arr || !li || +li.dataset.car !== arr.car) { arr = null; return; } e.preventDefault(); const de = arr.i, para = +li.dataset.i, car = arr.car; arr = null; if (de !== para) mutar('ordem das paradas', () => N.moverCidade(S.op, car, de, para)); else renderJanCarros(); });
+    corpo.addEventListener('drop', e => { const li = e.target.closest('li.cid'); if (!arr || !li || +li.dataset.car !== arr.car) { arr = null; return; } e.preventDefault(); const de = arr.i, para = +li.dataset.i, car = arr.car; arr = null; if (de !== para) mutar('ordem das paradas', () => { N.moverCidade(S.op, car, de, para); carroPorId(car).ordemManual = true; }); else renderJanCarros(); });
     corpo.addEventListener('dragend', () => { arr = null; $$('li.cid.arrastando,li.cid.alvo', corpo).forEach(x => x.classList.remove('arrastando', 'alvo')); });
   }
 
@@ -904,7 +918,8 @@
       onClique: h => { if (h) geoSelecionar(h.code, false); },
       onHover: (h, e) => { const t = $('#geo-tip'); if (!h) { t.hidden = true; return; } const c = geoClasse(h.code, S.geo.tipo), ids = c.ids.map(id => (S.reg.regioes.find(r => r.id === id) || {}).nome).filter(Boolean); t.innerHTML = '<b>' + esc(h.nome) + (h.uf ? '/' + esc(h.uf) : '') + '</b>' + (ids.length ? '<br>' + esc(ids.join(' · ')) + (c.fonte === 'auto' ? ' (automático)' : c.fonte === 'aprendido' ? ' (ensinado)' : '') : '<br>sem lista') + ((S.geo.fer && S.geo.fer.get(h.code)) ? '<br><b style="color:#ff8787">Feriado ' + dm(S.geo.fer.get(h.code).iso) + ': ' + esc(S.geo.fer.get(h.code).n) + '</b>' : ''); t.hidden = false; const a = $('#geo-box').getBoundingClientRect(); t.style.left = Math.min(a.width - 180, Math.max(4, e.clientX - a.left + 14)) + 'px'; t.style.top = Math.max(4, e.clientY - a.top + 14) + 'px'; },
       onMover: () => { $('#geo-tip').hidden = true; }
-    }, { semBase: true });
+    }, { semBase: false });
+    m.setEstradas(U.pref.ler('geoEstradas', true) !== false); { const be = $('#geo-estradas'); if (be) be.setAttribute('aria-pressed', String(m.estradas)); }
     m.setPoligonosDe(S.mapa);
     if (S.mun) m.setTodas(Object.entries(S.mun).filter(([c]) => S.mapa.poli.has(c)).map(([c, v]) => ({ code: c, nome: v[0], uf: v[1], lat: v[2], lon: v[3] })));
     return m;
@@ -1030,6 +1045,8 @@
     q.addEventListener('blur', () => setTimeout(() => { sug.hidden = true; }, 150));
     for (const b of $$('[data-geo-tipo]')) b.onclick = () => { S.geo.tipo = b.dataset.geoTipo; S.geo.foco = null; S.geo.ocultos.clear(); renderGeo(); };
     $('#geo-auto').onchange = () => renderGeo();
+    $('#geo-estradas').onclick = () => { const v = $('#geo-estradas').getAttribute('aria-pressed') !== 'true'; $('#geo-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('geoEstradas', v); if (S.geo.mapa) S.geo.mapa.setEstradas(v); renderGeo(); };
+    $('#geo-janela').onclick = () => { const w = window.open(location.pathname + '?geo=1', 'hr-geo', 'popup=yes,width=1400,height=900'); if (!w) toast('O navegador bloqueou a nova janela. Libere pop-ups para este site.'); };
     const fon = $('#fer-map-on'), fat = $('#fer-map-ate'); fon.checked = U.pref.ler('ferMapaOn', true) !== false; fat.value = String(U.pref.ler('ferMapaAte', 0));
     if (!['0', '1', '3', '7'].includes(fat.value)) fat.value = '0';
     fon.onchange = () => { U.pref.gravar('ferMapaOn', fon.checked); renderGeo(); }; fat.onchange = () => { U.pref.gravar('ferMapaAte', +fat.value); renderGeo(); };
@@ -1114,6 +1131,15 @@
     (async () => { try { if (window.getScreenDetails) { const d = await window.getScreenDetails(), o = d.screens.find(s => s !== d.currentScreen); if (o) { w.moveTo(o.availLeft, o.availTop); w.resizeTo(o.availWidth, o.availHeight); } } } catch (e) { /* sem permissão: tudo bem */ } })();
     const t = setInterval(() => { if (!S.ext || S.ext.closed) { clearInterval(t); if (S.parede) { entrarParede(false); toast('A janela do mapa foi fechada. O mapa voltou para esta tela.'); } S.ext = null; } }, 700);
   }
+  /* outra janela (ex.: Geolocalização em outra janela) mudou regiões/configurações: relê SÓ isso (a operação desta janela não é trocada) */
+  async function recarregarRegioes() {
+    try {
+      const [c, r] = [await DB.get('meta', 'config'), await DB.get('meta', 'regioes')];
+      if (c && c.v) { S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora); }
+      if (r && r.v && Array.isArray(r.v.regioes)) { S.reg = r.v; if (!S.reg.aprend) S.reg.aprend = {}; S.geoCls = null; N.setRegioes(S.reg); }
+      reindexar(); atualizarTudo(); renderGeo();
+    } catch (e) { console.warn('não consegui reler as regiões', e); }
+  }
   async function recarregarDoBanco(id) {
     try {
       const [c, r] = [await DB.get('meta', 'config'), await DB.get('meta', 'regioes')];
@@ -1135,7 +1161,8 @@
         else if (m.t === 'tema') aplicarTemaAtual();
         else if (m.t === 'foco') { S.mapa.setAtivo(m.id); S.mapa.padEsq = 0; S.mapa.enquadrarPontos(m.pts || []); }
       } else { // janela principal
-        if (m.t === 'clique' && S.parede) abrirCidade(m.key, { centrar: false });
+        if (m.t === 'cfg') recarregarRegioes();
+        else if (m.t === 'clique' && S.parede) abrirCidade(m.key, { centrar: false });
         else if (m.t === 'pronto') { if (S.op) enviar({ t: 'op', id: S.op.id, rev: S.op.rev }); enviar({ t: 'sel', key: S.cidadeAberta }); }
       }
     };
@@ -1397,7 +1424,7 @@
     });
     RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
     ligar(); ligarCanal();
-    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Log. · Mapa'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
+    if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Log. · Mapa'; } else if (S.soGeo) { document.body.classList.add('so-geo'); document.title = 'Health Log. · Geolocalização'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
     const okDb = await DB.abrir();
     if (!okDb) { statusSalvo('erro', DB.erro || 'banco indisponível'); }
     try {
@@ -1418,7 +1445,7 @@
     await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
-    irPara('rotas');
+    irPara(S.soGeo ? 'geo' : 'rotas');
     await malha; S.mapa.marcar();
     aplicarBase();
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }

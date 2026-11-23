@@ -74,6 +74,9 @@
           <span><i class="lg-cor"></i>Em carro</span>
           <span><i class="lg-am">!</i>Falta nota</span>
           <span><i class="lg-vd"></i>Completa</span>
+          <span><i class="lg-fora"></i>Fora de rota</span>
+          <span><i class="lg-ped">$</i>Pedágio</span>
+          <span><i class="lg-rota"></i>Rota do veículo</span>
         </div>
         <button type="button" class="aviso-fora" id="aviso-fora" hidden title="Clique para enquadrar todas as cidades"></button>
         <div class="msg-parede">O mapa está aberto na outra tela. Arraste as janelas para onde quiser — como post-its na parede.</div>
@@ -138,7 +141,7 @@
         <div class="geo-mapa" id="geo-mapa">
           <div class="ferr"><span class="seg" role="group" aria-label="Camada"><button type="button" data-geo-tipo="regiao" aria-pressed="true">Regiões</button><button type="button" data-geo-tipo="base" aria-pressed="false">Bases</button></span>
             <label class="geo-auto"><input type="checkbox" id="geo-auto" checked> Mostrar etiquetas automáticas</label><span style="flex:1"></span>
-            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button><label class="fer-map" title="Cidades com feriado ficam em vermelho"><input type="checkbox" id="fer-map-on" checked><i></i>Feriados</label><select id="fer-map-ate" class="filtro" aria-label="Feriados de quais dias"><option value="0">hoje</option><option value="1">hoje + amanhã</option><option value="3">próximos 3 dias</option><option value="7">próximos 7 dias</option></select><button class="btn mini pri" type="button" id="ged-abrir" title="Delimitar regiões e bases no mapa">Editor de regiões</button><button class="btn mini" type="button" id="geo-cheia" title="Mapa em tela cheia">Tela cheia</button></div>
+            <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button><button class="btn mini" type="button" id="geo-estradas" aria-pressed="true" title="Mostra ou esconde o mapa de ruas e rodovias por baixo">Estradas</button><button class="btn mini" type="button" id="geo-janela" title="Abre o mapa da Geolocalização em outra janela (segundo monitor)">Abrir em outra janela</button><label class="fer-map" title="Cidades com feriado ficam em vermelho"><input type="checkbox" id="fer-map-on" checked><i></i>Feriados</label><select id="fer-map-ate" class="filtro" aria-label="Feriados de quais dias"><option value="0">hoje</option><option value="1">hoje + amanhã</option><option value="3">próximos 3 dias</option><option value="7">próximos 7 dias</option></select><button class="btn mini pri" type="button" id="ged-abrir" title="Delimitar regiões e bases no mapa">Editor de regiões</button><button class="btn mini" type="button" id="geo-cheia" title="Mapa em tela cheia">Tela cheia</button></div>
           <div class="geo-box" id="geo-box"><div class="dica-mapa" id="geo-tip" hidden></div></div>
           <div class="geo-leg" id="geo-leg"></div>
           <p class="fer-st" id="fer-st"></p>

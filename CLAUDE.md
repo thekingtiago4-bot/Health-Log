@@ -98,5 +98,11 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 
 ## v0.24 — rotas, pedágio, ordem e menu
 - `vias.js`: Valhalla (costing auto, `use_tolls` 1.0 = caminho mais direto com ou sem pedágio; 0.0 = "Evitar pedágio"), reserva OSRM (sem dado de pedágio, não é gravada no cache). Trechos guardados em `meta via:<chave>` com `mv:2`; o modo "evitar" tem chave própria (`#sempedagio`). Pedágio vem dos `maneuvers[].toll` do Valhalla: o ícone `$` (âmbar) fica no COMEÇO de cada trecho pedagiado (a praça está nesse trecho; não se inventa a posição exata) e o rótulo do km diz "· pedágio". Chip "Evitar pedágio" (`#bt-pedagio`, `cfg.evitarPedagio`, vale no mapa em outra tela). CSP liberou valhalla1.openstreetmap.de.
-- Botão ↯ no cartão do veículo = "Menor KM" (`ordemMaisCurta`/`ordenarCurto`): reordena as cidades saindo/voltando à base pelo menor percurso em LINHA RETA (até 9 cidades testa tudo; acima, vizinho mais próximo + 2-opt). Ctrl+Z desfaz. O `optimized_route` do Valhalla público não serve (limite de 150 km).
+- (v0.25: o botão ↯ foi RETIRADO — ver abaixo.) O `optimized_route` do Valhalla público não serve (limite de 150 km).
 - Menu lateral sem rolagem em qualquer altura de tela (espaços encolhem; abaixo de 820/700/600 px de altura some autoria, linhas do resumo e o subtítulo).
+
+## v0.25
+- **Rota mais curta é o PADRÃO** (sem botão): em `mutar`, `otimizarOrdens()` refaz a ordem das cidades do veículo (base → cidades → base, menor percurso em linha reta; até 8 cidades testa todas as ordens, acima vizinho mais próximo + 2-opt) sempre que o CONJUNTO de cidades muda. Mexer na ordem à mão (arrastar/▲▼) marca `carro.ordemManual`: aí o veículo respeita a ordem do usuário e as cidades novas entram no melhor ponto dela (`insercaoBarata`). Abrir operação/desfazer não reordena (`S.ordPrev`/`S.ordOp`).
+- Legenda do mapa: Sem carro · Em carro · Falta nota · Completa · Fora de rota · Pedágio · Rota do veículo.
+- Folha de rotas: sem a linha CONF.; cabeçalho "ROTA dd/mm/aaaa" (data da operação) e "Emitida às hh:mm:ss".
+- Geolocalização: botão "Estradas" (mapa de ruas por baixo; regiões translúcidas, como no HS) e "Abrir em outra janela" (`?geo=1` = só o mapa; mudanças de região/config avisam as outras janelas por `{t:'cfg'}` → `recarregarRegioes`, que NÃO troca a operação aberta).

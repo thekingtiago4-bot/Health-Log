@@ -1,3 +1,3 @@
 /* Health Log. · início: tema antes de pintar a tela (sem piscar) e abertura animada. Fica em arquivo próprio para a página não precisar de script embutido (CSP). */
 try { var t = JSON.parse(localStorage.getItem('hr:tema') || 'null'); document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); } catch (e) { document.documentElement.setAttribute('data-tema', 'escuro'); }
-if (!/[?&]mapa=1/.test(location.search)) document.addEventListener('DOMContentLoaded', function () { var s = document.createElement('script'); s.src = 'abertura.js'; document.body.appendChild(s); });
+if (!/[?&](mapa|geo)=1/.test(location.search)) document.addEventListener('DOMContentLoaded', function () { var s = document.createElement('script'); s.src = 'abertura.js'; document.body.appendChild(s); });
