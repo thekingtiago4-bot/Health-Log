@@ -77,7 +77,7 @@
   const descDiv = (n, st) => st.div === 'parcial' ? 'volumes parciais (chegaram ' + (st.rec || 0) + ' de ' + i$(n.vol) + ')' : 'sem volumes';
   let escolha = 0;
   function marcarEscolha(irAoMapa) {
-    const linhas = [...document.querySelectorAll('#busca-res .bn')]; linhas.forEach((l, i) => l.classList.toggle('esc', i === escolha));
+    const linhas = $$('#busca-res .bn'); linhas.forEach((l, i) => l.classList.toggle('esc', i === escolha));
     const l = linhas[escolha]; if (!l) return; l.scrollIntoView({ block: 'nearest' });
     if (irAoMapa && S().idx) { const k = S().idx.chaveCidadeDaNota.get(l.dataset.nota); if (k) { S().mapa.setSelecionada(k); S().mapa.centrarEm(k, 110); } }
   }
@@ -89,6 +89,7 @@
     setTimeout(() => { const i = $('#busca-q'); i.focus(); i.select(); }, 20);
   }
   function renderBusca() {
+    if (S().modoMapa) return;
     const box = $('#busca-res'); if (!box) return;
     if (!S().op) { box.innerHTML = '<p class="dica" style="padding:12px">Abra uma operação.</p>'; return; }
     const r = achar(consulta);
@@ -98,7 +99,7 @@
     if (aberta) focarForm();
   }
   /* formulário aberto dentro da nota (editar cidade, agendamento, divergência): o cursor já cai no primeiro campo */
-  function focarForm() { const f = document.querySelector('#busca-res .bf'); if (f && !f.contains(document.activeElement)) { const c = f.querySelector('input,select,textarea'); if (c) c.focus(); } }
+  function focarForm() { const f = $('#busca-res .bf'); if (f && !f.contains(document.activeElement) && !f.contains(f.ownerDocument.activeElement)) { const c = f.querySelector('input,select,textarea'); if (c) c.focus(); } }
   function marcar(tipo, id, f) {
     const o = S().op, n = o.notas.find(x => x.id === id); if (!n) return;
     const v = k => ((f.querySelector('[data-f="' + k + '"]') || {}).value || '').trim();
@@ -137,7 +138,7 @@
     $('#busca-q').addEventListener('keydown', e => {
       if (e.key === 'Escape') { A().janVer('busca', false); return; }
       if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
-      const linhas = [...document.querySelectorAll('#busca-res .bn')]; if (!linhas.length) return;
+      const linhas = $$('#busca-res .bn'); if (!linhas.length) return;
       e.preventDefault();
       if (e.key === 'ArrowDown') escolha = Math.min(linhas.length - 1, escolha + 1); else if (e.key === 'ArrowUp') escolha = Math.max(0, escolha - 1); else escolha = Math.max(0, escolha);
       marcarEscolha(e.key === 'Enter');

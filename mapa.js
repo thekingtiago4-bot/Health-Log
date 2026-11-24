@@ -153,11 +153,11 @@
       /* esq = faixa à esquerda ocupada pela janela de pendentes: centraliza no espaço que sobra */
       this._ir({ cx: (x0 + x1) / 2 - (esq / 2) / k, cy: (y0 + y1) / 2, k }, false);
     }
-    enquadrarPontos(pts) {
+    enquadrarPontos(pts, margem) {
       if (!pts.length || !this.W) return;
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (const c of pts) { const x = X(c.lon), y = Y(c.lat); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-      const pad = 40, esq = this.padEsq || 0, dx = Math.max(x1 - x0, 0.25), dy = Math.max(y1 - y0, 0.25);
+      const pad = margem || 40, esq = this.padEsq || 0, dx = Math.max(x1 - x0, 0.25), dy = Math.max(y1 - y0, 0.25);
       const k = Math.max(KMIN, Math.min(KMAX, Math.min((this.W - esq - pad * 2) / dx, (this.H - pad * 2) / dy)));
       this._ir({ cx: (x0 + x1) / 2 - (esq / 2) / k, cy: (y0 + y1) / 2, k }, false);
     }

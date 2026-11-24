@@ -350,6 +350,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('[data-dn="3|0"]');
   igual(await ordem(), ['JAU|SP', 'SAO CARLOS|SP'], '▼ troca a ordem das paradas');
   igual(await p.evaluate(() => RT.S.mapa.rotas.find(r => r.id === 3).pontos.map(x => x.key + ':' + x.n)), ['JAU|SP:1', 'SAO CARLOS|SP:2'], 'o mapa recebe a nova ordem (linha tracejada e números 1, 2)');
+  await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 15000 }); await p.waitForTimeout(250);   // espera o km das rotas chegar (a janela se redesenha quando chega)
   await p.locator('.vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('.vei[data-car="3"] li.cid').nth(1));
   if ((await ordem()).join() !== 'SAO CARLOS|SP,JAU|SP') { await p.waitForTimeout(300); await p.locator('.vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('.vei[data-car="3"] li.cid').nth(1)); }   // o arraste às vezes precisa de uma 2ª tentativa em máquina lenta
   igual(await ordem(), ['SAO CARLOS|SP', 'JAU|SP'], 'arrastar e soltar também muda a ordem');
@@ -590,7 +591,31 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(await pop.evaluate(() => RT.S.mapa.sel), 'JAU|SP', 'e o mapa destaca a cidade escolhida');
   igual(await pop.evaluate(() => RT.S.op.rev === undefined ? 0 : 1) && await pop.evaluate(() => RT.S.modoMapa), true, 'a janela do mapa não grava nada (só a principal grava)');
   await p.click('#jan-cid [data-a=fechar]');
+  /* janelas flutuantes na SEGUNDA TELA */
+  verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#jan-pend .jan-ext')).display !== 'none'), 'com o mapa na outra tela, cada janela ganha o botão para ir à segunda tela');
+  await p.click('#jan-pend .jan-ext'); await pop.waitForSelector('#jan-pend');
+  verdade(await p.evaluate(() => !document.querySelector('#jan-pend') && RT.S.janExt.has('pend')), 'a janela de pendentes sai da tela principal...');
+  verdade(await pop.evaluate(() => { const j = document.querySelector('#jan-pend'); return j.classList.contains('na-ext') && getComputedStyle(j).display !== 'none' && j.getBoundingClientRect().width > 200; }), '...e aparece na segunda tela, inteira');
+  verdade(await pop.locator('#pend-lista li[data-cid]').count() > 0, 'com a lista de cidades pendentes');
+  const ord0 = await p.evaluate(() => RT.S.pend.ordem);
+  await pop.locator('#jan-pend .jan-cab').click({ position: { x: 4, y: 4 } }); await pop.keyboard.press('Control+KeyV');
+  verdade(await p.evaluate(o => RT.S.pend.ordem !== o, ord0), 'Ctrl+V funciona na segunda tela (janela em foco ordena a lista de lá)');
+  await p.evaluate(() => { RT.S.pend.ordem = 'nome'; RT.U.pref.gravar('pendOrdem', 'nome'); const s = RT.U.$('#pend-ordem'); if (s) s.value = 'nome'; RT.A.atualizarTudo(); });   // volta ao A–Z (o teste não deixa a ordem mudada)
+  const pos0 = await pop.locator('#jan-pend').boundingBox(), cabE = await pop.locator('#jan-pend .jan-cab b').boundingBox();
+  await pop.mouse.move(cabE.x + 10, cabE.y + 8); await pop.mouse.down(); await pop.mouse.move(cabE.x + 150, cabE.y + 90, { steps: 4 }); await pop.mouse.up();
+  const pos1 = await pop.locator('#jan-pend').boundingBox();
+  verdade(Math.abs(pos1.x - pos0.x - 140) < 8 && Math.abs(pos1.y - pos0.y - 82) < 8, 'dá para arrastar a janela pela segunda tela');
+  await pop.locator('#pend-lista li[data-cid]').first().click();
+  await pop.waitForSelector('#jan-cid:not([hidden]) .cli');
+  verdade(await p.evaluate(() => !document.querySelector('#jan-cid') && RT.S.janExt.has('cid')), 'clicar numa cidade dessa janela abre a janela da cidade também na segunda tela');
+  await pop.click('#jan-cid [data-a=fechar]');
+  await pop.click('#jan-pend .jan-ext');
+  await p.waitForFunction(() => !!document.querySelector('#jan-pend') && !RT.S.janExt.has('pend'));
+  verdade(await p.evaluate(() => !document.querySelector('#jan-pend').classList.contains('na-ext')), 'o botão da segunda tela traz a janela de volta para a principal');
+  await p.click('#jan-pend .jan-ext'); await pop.waitForSelector('#jan-pend');
   await pop.close();
+  await p.waitForFunction(() => !!document.querySelector('#jan-pend') && RT.S.janExt.size === 0, null, { timeout: 6000 });
+  verdade(await p.evaluate(() => !document.querySelector('#jan-pend').classList.contains('na-ext') && !document.querySelector('#jan-pend').hidden), 'fechar o mapa da segunda tela traz as janelas de volta para a tela principal');
   await p.waitForFunction(() => !RT.S.parede, null, { timeout: 6000 });
   verdade(await p.$eval('#mapa-area', e => !e.classList.contains('parede')), 'fechar a janela do mapa traz o mapa de volta para esta tela');
 
@@ -887,6 +912,14 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => /Focando em/.test(document.querySelector('#toast').textContent)), 'e o app avisa "Focando em Carro N"');
   verdade(await p.evaluate(id => { const m = RT.S.mapa, c = RT.S.op.carros.find(x => x.id === id); return c.cidades.every(k => { const q = m.posicaoDaCidade(k); return q && q.x > 0 && q.x < m.W && q.y > 0 && q.y < m.H; }); }, alvo), 'e o mapa dá zoom: toda a rota dele fica na tela');
   verdade(await p.evaluate(k => RT.S.mapa.v.k > k, k0), 'aproximando em relação à vista anterior');
+  verdade(await p.evaluate(id => { const m = RT.S.mapa, v = m.v, c = RT.S.op.carros.find(x => x.id === id), seq = [m.base, ...c.cidades.map(k => RT.S.idx.cidades.get(k))]; seq.push(m.base); let n = 0, fora = 0; for (let i = 1; i < seq.length; i++) { if (RT.vias.igual(seq[i - 1], seq[i])) continue; const per = m.pernas.get(RT.vias.chave(seq[i - 1], seq[i])); if (!per) continue; for (let k = 0; k < per.w.length; k += 2) { const x = (per.w[k] - v.cx) * v.k + m.W / 2, y = (per.w[k + 1] - v.cy) * v.k + m.H / 2; n++; if (x < -2 || y < -2 || x > m.W + 2 || y > m.H + 2) fora++; } } return n > 0 && fora === 0; }, alvo), 'a ROTA inteira (estrada, não só as cidades) cabe na tela depois do foco');
+  await p.click('.nav button[data-tela="notas"]');
+  verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#pop-focar')).display === 'none'), 'o pop-up do focar some quando você abre outra aba (só aparece junto do mapa)');
+  await p.click('.nav button[data-tela="rotas"]');
+  verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#pop-focar')).display !== 'none'), 'e volta quando você retorna ao mapa');
+  await p.evaluate(() => { const pf = document.querySelector('#pop-focar'); pf.style.width = '420px'; pf.style.height = '300px'; });
+  await p.waitForFunction(() => { const v = RT.U.pref.ler('tam:focar', null); return v && v.w >= 400; }, null, { timeout: 4000 });
+  verdade(true, 'o pop-up do focar é redimensionável (o tamanho fica guardado)');
   verdade(await p.evaluate(id => window.__foco && window.__foco.id === id && window.__foco.pts.length >= 2, alvo), 'o mapa em outra tela (segundo monitor) recebe o pedido de foco e inclui a base');
   const nq = await p.evaluate(() => document.querySelectorAll('#pop-focar .pf-q').length);
   await p.evaluate(() => RT.A.mutar('teste novo carro', () => RT.N.novoCarro(RT.S.op, '', 'van')));

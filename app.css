@@ -419,7 +419,7 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 .mapa-area.parede .mapa-cv,.mapa-area.parede .zoom-bt,.mapa-area.parede .legenda,.mapa-area.parede .dica-mapa,.mapa-area.parede .aviso-fora,.mapa-area.parede .vazio-mapa{display:none!important}
 .mapa-area .msg-parede{display:none}
 .mapa-area.parede .msg-parede{display:block;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:#9FC1EE;font-size:.85rem;letter-spacing:.02em;pointer-events:none;text-align:center}
-body.modo-mapa .rail,body.modo-mapa .barra-carros,body.modo-mapa .faixa-carro,body.modo-mapa .jan,body.modo-mapa #mural,body.modo-mapa .faixa-erro{display:none!important}
+body.modo-mapa .rail,body.modo-mapa .barra-carros,body.modo-mapa .faixa-carro,body.modo-mapa .jan:not(.na-ext),body.modo-mapa #mural,body.modo-mapa .faixa-erro{display:none!important}
 body.modo-mapa .app{grid-template-columns:1fr}
 body.modo-mapa .mapa-area{min-height:100vh}
 body.modo-mapa .legenda{left:14px;bottom:14px}
@@ -704,3 +704,10 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .geo-hs{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;border:1px solid var(--linha);background:var(--tealBg);border-radius:10px;padding:10px 14px;margin-top:12px}
 .geo-hs b{font-family:"Barlow Semi Condensed";font-size:1rem}.geo-hs span{flex:1 1 280px;color:var(--mudo);font-size:.85rem}
 .geo-mapa .attrib{position:absolute;right:6px;bottom:4px;font-size:.62rem;color:#fff;opacity:.7;pointer-events:none}
+
+/* botão ⇥ para mandar a janela à segunda tela (só aparece com o mapa lá) */
+.jan-ext{display:none!important}.tem-ext .jan-ext{display:grid!important}
+.jan.na-ext{z-index:40}
+
+#pop-focar{resize:both;overflow:auto;min-width:240px;min-height:150px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px)}
+.pf-grade{align-content:start}

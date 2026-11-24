@@ -6,8 +6,10 @@
   const RT = (g.RT = g.RT || {});
   const U = (RT.U = {});
 
-  const $ = (s, r) => (r || document).querySelector(s);
-  const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+  /* Janelas flutuantes podem estar na SEGUNDA TELA (outro document, mesma origem): sem `r`, a busca olha esta tela e depois a outra. */
+  const docExt = () => { try { const S = RT.S, w = S && S.ext; return w && !w.closed && S.janExt && S.janExt.size ? w.document : null; } catch (e) { return null; } };
+  const $ = (s, r) => { if (r) return r.querySelector(s); const a = document.querySelector(s); if (a) return a; const d = docExt(); return d ? d.querySelector(s) : null; };
+  const $$ = (s, r) => { if (r) return [...r.querySelectorAll(s)]; const d = docExt(); return [...document.querySelectorAll(s), ...(d ? d.querySelectorAll(s) : [])]; };
   U.$ = $; U.$$ = $$;
   U.esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -109,7 +111,7 @@
     jan.addEventListener('pointerdown', e => {
       const h = e.target.closest(alca);
       if (!h || !jan.contains(h) || e.target.closest('button,input,select,a')) return;
-      const r = jan.getBoundingClientRect(), a = area.getBoundingClientRect();
+      const r = jan.getBoundingClientRect(), a = (jan.parentElement || area).getBoundingClientRect();
       d = { dx: e.clientX - r.left, dy: e.clientY - r.top, a, id: e.pointerId };
       jan.setPointerCapture(e.pointerId); jan.classList.add('movendo'); e.preventDefault();
     });
@@ -120,7 +122,7 @@
       const y = Math.max(4, Math.min(d.a.height - Math.min(h, 60) - 4, e.clientY - d.a.top - d.dy));
       jan.style.left = x + 'px'; jan.style.top = y + 'px'; jan.style.right = 'auto'; jan.style.bottom = 'auto';
     });
-    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo'); aoSoltar && aoSoltar({ x: parseFloat(jan.style.left), y: parseFloat(jan.style.top) }); };
+    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo'); if (!jan.classList.contains('na-ext')) aoSoltar && aoSoltar({ x: parseFloat(jan.style.left), y: parseFloat(jan.style.top) }); };
     jan.addEventListener('pointerup', fim); jan.addEventListener('pointercancel', fim);
   };
   /* ---------- redimensionar janela flutuante (bordas direita e de baixo + canto) ----------
@@ -129,7 +131,7 @@
   U.redimensionavel = function (jan, chave, area, aoSoltar) {
     const MIN_W = 250, MIN_H = 150;
     const aplicar = (w, h) => {
-      const a = area.getBoundingClientRect();
+      const a = (jan.parentElement || area).getBoundingClientRect();
       if (w != null) jan.style.width = Math.max(MIN_W, Math.min(a.width - 8, w)) + 'px';
       if (h != null) jan.style.height = Math.max(MIN_H, Math.min(a.height - 8, h)) + 'px';
       jan.style.maxHeight = 'none'; jan.style.maxWidth = 'none'; jan.classList.add('redim');
@@ -145,7 +147,7 @@
     let d = null;
     jan.addEventListener('pointerdown', e => {
       const h = e.target.closest && e.target.closest('.jan-rz'); if (!h || h.parentElement !== jan) return;
-      const r = jan.getBoundingClientRect(), a = area.getBoundingClientRect();
+      const r = jan.getBoundingClientRect(), a = (jan.parentElement || area).getBoundingClientRect();
       /* passa a posicionar por esquerda/topo, para a borda esquerda e o topo ficarem parados */
       jan.style.left = (r.left - a.left) + 'px'; jan.style.top = (r.top - a.top) + 'px'; jan.style.right = 'auto'; jan.style.bottom = 'auto';
       d = { x0: e.clientX, y0: e.clientY, w0: r.width, h0: r.height, modo: h.dataset.rz, id: e.pointerId };
@@ -158,15 +160,16 @@
     });
     const fim = e => {
       if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo');
-      U.pref.gravar('tam:' + chave, { w: jan.offsetWidth, h: jan.offsetHeight }); aoSoltar && aoSoltar();
+      if (!jan.classList.contains('na-ext')) U.pref.gravar('tam:' + chave, { w: jan.offsetWidth, h: jan.offsetHeight }); aoSoltar && aoSoltar();
     };
     jan.addEventListener('pointerup', fim); jan.addEventListener('pointercancel', fim);
   };
   /* a janela em que você mexeu vem para a frente (como post-it na parede) */
   U.z = 30;
-  document.addEventListener('pointerdown', e => { const j = e.target.closest && e.target.closest('.jan'); if (j && j.style.zIndex !== String(U.z)) j.style.zIndex = String(++U.z); }, true);
+  U.ligarZ = doc => doc.addEventListener('pointerdown', e => { const j = e.target.closest && e.target.closest('.jan'); if (j && j.style.zIndex !== String(U.z)) j.style.zIndex = String(++U.z); }, true);
+  U.ligarZ(document);
   U.posicionar = function (jan, area, x, y) {
-    const w = jan.offsetWidth, h = jan.offsetHeight, a = area.getBoundingClientRect();
+    const w = jan.offsetWidth, h = jan.offsetHeight, a = (jan.parentElement || area).getBoundingClientRect();
     x = Math.max(4, Math.min(a.width - w - 4, x)); y = Math.max(4, Math.min(a.height - h - 4, y));
     jan.style.left = x + 'px'; jan.style.top = y + 'px'; jan.style.right = 'auto'; jan.style.bottom = 'auto';
   };

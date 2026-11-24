@@ -3,13 +3,13 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.28.1';
+  const VERSAO = '0.29.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
   const S = RT.S = {
     op: null, idx: null, res: null, carroAtivo: null,
-    cidadeAberta: null, ordemCar: 'nome', janFoco: null, ordPrev: new Map(), ordOp: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
+    cidadeAberta: null, ordemCar: 'nome', janFoco: null, janExt: new Set(), ordPrev: new Map(), ordOp: null, draft: new Set(), draft0: new Set(), expand: new Set(), ordemCli: 'nome',
     hist: [], mapa: null, precisaEnquadrar: true, lote: null, destino: 'atual',
     nf: { q: '', carro: '', origem: '', ord: 'nf', dir: 1 },
     canal: null, ext: null, parede: false, modoMapa: /[?&]mapa=1/.test(location.search), soGeo: /[?&]geo=1/.test(location.search),
@@ -134,6 +134,7 @@
   /* ================= navegação ================= */
   let tela = 'rotas';
   function irPara(t) {
+    { const pf = $('#pop-focar'); if (pf) pf.style.display = (t === 'rotas' || t === 'mural') ? '' : 'none'; }   // o pop-up do focar só aparece junto do mapa
     if (t === 'mural') { muralAbrir(); return; }
     if (t === 'importar') t = 'xmls'; // o Importar XML mora dentro de "XMLs e Romaneios"
     tela = t;
@@ -156,7 +157,8 @@
     else if (tela === 'geo') { renderGeo(); RT.fer.atualizar(false); if (!document.activeElement || /^(BODY|BUTTON)$/.test(document.activeElement.tagName)) setTimeout(() => { const q = $('#geo-q'); if (q && tela === 'geo' && !matchMedia('(pointer:coarse)').matches) q.focus(); }, 60); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
   function atualizarTudo() {
-    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), !$('#jan-busca').hidden && RT.sit.renderBusca());
+    if (S.parede || document.documentElement.classList.contains('tem-ext')) atualizarBotoesExt();
+    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), (() => { const jb = $('#jan-busca'); return jb && !jb.hidden && RT.sit.renderBusca(); })());
     if (tela !== 'rotas') renderTelaAtual();
     if (!$('#mural').hidden) renderMural();
   }
@@ -176,6 +178,7 @@
 
   /* ================= carros ================= */
   function renderCarros() {
+    if (S.modoMapa) return;
     const op = S.op;
     if (!op) { $('#faixa-carro').innerHTML = '<span>Abra uma operação para montar as rotas.</span>'; return; }
     const f = $('#faixa-carro'), rc = S.res.carros.find(x => x.carro.id === S.carroAtivo);
@@ -196,13 +199,14 @@
     const rc = S.res && S.res.carros.find(x => x.carro.id === id); if (!rc) return;
     if (tela !== 'rotas') irPara('rotas');
     selecionarCarro(id); S.mapa.setAtivo(id);
-    const pts = rc.carro.cidades.map(k => S.idx.cidades.get(k)).filter(c => c && c.lat != null).map(c => ({ lat: c.lat, lon: c.lon }));
-    if (!pts.length) { toast(N.nomeCarro(rc.carro) + ' ainda não tem cidades na rota.'); return; }
-    if (S.mapa.base && S.mapa.mostrarBase) pts.push({ lat: S.mapa.base.lat, lon: S.mapa.base.lon });   // a rota sai e volta à base: ela entra no enquadramento
-    ajustarPadMapa(); S.mapa.enquadrarPontos(pts); S.mapa.marcar();
+    const seq = seqDoVeiculo(rc.carro), pts = seq.map(c => ({ lat: c.lat, lon: c.lon }));
+    if (!rc.carro.cidades.length || !pts.length) { toast(N.nomeCarro(rc.carro) + ' ainda não tem cidades na rota.'); return; }
+    for (const [a, b] of pernasDe(seq, true)) { const p = S.mapa.pernas.get(RT.vias.chave(a, b)); if (p && p.w) for (let i = 0; i < p.w.length; i += 2) pts.push(mercatorParaLatLon(p.w[i], p.w[i + 1])); }   // a estrada também entra (ela pode se afastar das cidades)
+    ajustarPadMapa(); S.mapa.enquadrarPontos(pts, 70); S.mapa.marcar();
     enviar({ t: 'foco', id, pts });                                                                        // o mapa em outra tela (segundo monitor) também foca
     toast('Focando em ' + N.rotuloCarro(rc.carro) + ' · ' + rc.carro.cidades.length + ' cidade(s)' + (kmTxt(kmDe(rc.carro)) ? ' · ' + kmTxt(kmDe(rc.carro)) : ''));
   }
+  const mercatorParaLatLon = (x, y) => ({ lon: x, lat: (2 * Math.atan(Math.exp(-y * Math.PI / 180)) - Math.PI / 2) * 180 / Math.PI });
   /* O pop-up fica na tela (móvel) até você fechar no ✕ ou apertar Ctrl+F de novo; acompanha os veículos que forem criados/alterados. */
   function fecharFocar() { const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true); }
   function teclaFocar(e) {   // digitar o número (1–9) vale com o pop-up aberto, desde que o cursor não esteja num campo de texto
@@ -216,7 +220,8 @@
       : '<p class="pf-vazio">Ainda não há veículos. Use + Carro, + Van ou + Caminhão: eles aparecem aqui.</p>';
   }
   function abrirFocar() {
-    if ($('#pop-focar')) { fecharFocar(); return; }          // Ctrl+F de novo = fecha
+    if ($('#pop-focar')) { if (tela !== 'rotas') { irPara('rotas'); return; } fecharFocar(); return; }   // Ctrl+F de novo = fecha (se estava escondido noutra aba, só volta ao mapa)
+    if (tela !== 'rotas') irPara('rotas');                    // o pop-up só existe junto do mapa
     if (!S.op || !S.res) { toast('Abra uma operação primeiro.'); return; }
     const p = document.createElement('div'); p.id = 'pop-focar'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Focar num veículo');
     p.innerHTML = '<div class="pf-cab"><b>Focar na rota do veículo</b><button type="button" class="jan-x" data-fx aria-label="Fechar">✕</button></div><div class="pf-grade"></div><p class="pf-dica">Clique no quadradinho (ou digite o número). Fica aberto até você fechar no ✕ ou apertar Ctrl+F de novo.</p>';
@@ -227,6 +232,8 @@
     document.body.appendChild(p); document.addEventListener('keydown', teclaFocar, true); desenharFocar();
     /* o pop-up é móvel: arraste pelo título; o lugar fica guardado (pref pos:focar) */
     const pos = (x, y) => { const w = p.offsetWidth, h = p.offsetHeight; p.style.transform = 'none'; p.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px'; p.style.top = Math.max(4, Math.min(innerHeight - Math.min(h, 80) - 4, y)) + 'px'; };
+    const tm = U.pref.ler('tam:focar', null); if (tm && isFinite(tm.w) && isFinite(tm.h)) { p.style.width = Math.min(innerWidth - 8, Math.max(240, tm.w)) + 'px'; p.style.height = Math.min(innerHeight - 8, Math.max(150, tm.h)) + 'px'; }
+    if (typeof ResizeObserver === 'function') { let ini = true; new ResizeObserver(() => { if (ini) { ini = false; return; } clearTimeout(p._rt); p._rt = setTimeout(() => { if (p.isConnected) U.pref.gravar('tam:focar', { w: p.offsetWidth, h: p.offsetHeight }); }, 250); }).observe(p); }
     const sv = U.pref.ler('pos:focar', null); if (sv && isFinite(sv.x) && isFinite(sv.y)) pos(sv.x, sv.y);
     let d = null; const cab = p.querySelector('.pf-cab');
     cab.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; const r = p.getBoundingClientRect(); d = { dx: e.clientX - r.left, dy: e.clientY - r.top, id: e.pointerId }; cab.setPointerCapture(e.pointerId); p.classList.add('movendo'); e.preventDefault(); });
@@ -384,6 +391,7 @@
     toast('Cidades pendentes: ' + { nome: 'ordem alfabética (A–Z)', volume: 'maior volume primeiro', valor: 'maior valor primeiro' }[prox] + '.');
   }
   function renderPend() {
+    if (S.modoMapa) return;
     const lista = $('#pend-lista');
     if (!S.res) { lista.innerHTML = '<li class="pend-vazio">Sem operação.</li>'; $('#pend-qt').textContent = '0'; return; }
     const q = N.norm(S.pend.q), ord = S.pend.ordem;
@@ -438,7 +446,9 @@
     if (S.carroAtivo == null || !carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros[0].id;
     S.cidadeAberta = key; S.expand = new Set(); resetDraft();
     S.mapa.setSelecionada(key); enviar({ t: 'sel', key, centrar: !!o.centrar });
-    const area = $('#mapa-area'), jan = $('#jan-cid');
+    const jan = $('#jan-cid');
+    if (S.parede && S.janExt.size && !S.janExt.has('cid')) janParaOutraTela('cid', true);   // quem trabalha com janelas na 2ª tela quer a da cidade lá também
+    const area = jan.parentElement;
     jan.hidden = false; renderJanCidade(); renderCarros(); renderPend();
     const W = area.clientWidth, H = area.clientHeight;
     if (o.centrar) S.mapa.centrarEm(key, 140);
@@ -462,6 +472,7 @@
     return [...carros.entries()].map(([id, q]) => { const c = carroPorId(id); return c ? '<span class="chip-pos" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + (q > 1 ? ' · ' + q : '') + '</span>' : ''; }).join('');
   }
   function renderJanCidade() {
+    if (S.modoMapa) return;
     const jan = $('#jan-cid');
     if (!S.cidadeAberta || !S.idx) { return; }
     const c = S.idx.cidades.get(S.cidadeAberta);
@@ -807,10 +818,24 @@
   const ordemVeiculos = (a, b) => S.ordemCar === 'volume' ? (b.vol - a.vol || a.carro.id - b.carro.id) : S.ordemCar === 'valor' ? (b.valor - a.valor || a.carro.id - b.carro.id) : 0;
   /* a janela de veículos é redesenhada quando chega um trecho de rota (km); se o clique/arraste do usuário está no meio, espera soltar
      (senão o botão sumia debaixo do mouse e o clique se perdia) */
-  document.addEventListener('pointerdown', e => { S.ptrCar = !!(e.target.closest && e.target.closest('#jan-carros')); }, true);
-  document.addEventListener('pointerup', () => { if (S.ptrCar) { S.ptrCar = false; if (S.carPend) { S.carPend = false; setTimeout(renderJanCarros, 0); } } }, true);
-  document.addEventListener('pointercancel', () => { if (S.ptrCar) { S.ptrCar = false; if (S.carPend) { S.carPend = false; setTimeout(renderJanCarros, 0); } } }, true);
-  document.addEventListener('dragend', () => { S.ptrCar = false; if (S.carPend) { S.carPend = false; renderJanCarros(); } }, true);
+  const onPtrDown = e => { S.ptrCar = !!(e.target.closest && e.target.closest('#jan-carros')); };
+  const onPtrUp = () => { if (S.ptrCar) { S.ptrCar = false; if (S.carPend) { S.carPend = false; setTimeout(renderJanCarros, 0); } } };
+  const onDragEnd = () => { S.ptrCar = false; if (S.carPend) { S.carPend = false; renderJanCarros(); } };
+  const onFocoDown = e => {
+    const j = e.target.closest && e.target.closest('.jan'); const id = j ? j.id : null;
+    if (id === S.janFoco) return; S.janFoco = id;
+    $$('.jan').forEach(x => x.classList.toggle('foco', x.id === id));
+  };
+  /* ouvintes que valem em QUALQUER tela onde haja janela flutuante (esta e a segunda tela) */
+  const docsLigados = new WeakSet();
+  function ligarDocumento(doc) {
+    if (S.modoMapa || docsLigados.has(doc)) return; docsLigados.add(doc);   // (WeakSet desta janela: a janela do mapa tem a sua própria cópia do app e marca o mesmo document)
+    doc.addEventListener('pointerdown', onPtrDown, true); doc.addEventListener('pointerup', onPtrUp, true); doc.addEventListener('pointercancel', onPtrUp, true); doc.addEventListener('dragend', onDragEnd, true);
+    doc.addEventListener('pointerdown', onFocoDown, true); U.ligarZ && doc !== document && U.ligarZ(doc);
+    if (doc !== document) doc.addEventListener('keydown', e => { if (S.onTecla) S.onTecla(e); });   // (nesta janela o teclado já é ligado no boot)
+    doc.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jan-ext'); if (b) { const j = b.closest('.jan'); if (j) janParaOutraTela(j.id.replace('jan-', ''), !j.classList.contains('na-ext')); } });
+  }
+  ligarDocumento(document);
   function renderJanCarros() {
     const jan = $('#jan-carros'); if (jan.hidden) return;
     if (S.ptrCar) { S.carPend = true; return; }
@@ -1093,21 +1118,54 @@
 
   /* ================= mapa em outra tela (segundo monitor) ================= */
   const enviar = m => { try { if (S.canal) S.canal.postMessage(m); } catch (e) { /* sem canal: segue sozinho */ } };
+  /* ---------- janelas flutuantes na SEGUNDA TELA ----------
+     A janela (elemento) é "adotada" pelo document do mapa da outra tela: continua sendo a mesma, com os mesmos botões; quem a controla
+     segue sendo esta janela principal (a operação e as gravações ficam num lugar só). Fechou/recarregou o mapa: elas voltam para cá. */
+  function janParaOutraTela(id, paraExt) {
+    const j = $(JANS[id]); if (!j) return;
+    if (paraExt) {
+      if (!S.parede || !S.ext || S.ext.closed) { toast('Abra o mapa na segunda tela primeiro (botão “Mapa em outra tela”).'); return; }
+      let d; try { d = S.ext.document; } catch (e) { return; } const alvo = d.getElementById('mapa-area'); if (!alvo) { toast('A janela do mapa ainda está abrindo. Tente de novo em instantes.'); return; }
+      ligarDocumento(d); const n = S.janExt.size;
+      S.janProx = S.janProx || {}; S.janProx[id] = j.nextElementSibling ? j.nextElementSibling.id : '';   // lugar original na ordem das janelas (quem vem depois cobre quem vem antes)
+      const el = d.adoptNode(j); el.classList.add('na-ext'); alvo.appendChild(el); S.janExt.add(id);
+      el.style.left = (24 + n * 34) + 'px'; el.style.top = (56 + n * 34) + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.zIndex = String(++U.z);
+      d.documentElement.classList.add('tem-ext');
+    } else {
+      const el = document.adoptNode(j); el.classList.remove('na-ext'); S.janExt.delete(id);
+      const alvo = document.getElementById('mapa-area'), prox = S.janProx && S.janProx[id] ? alvo.querySelector('#' + S.janProx[id]) : null; alvo.insertBefore(el, prox); el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = ''; el.style.zIndex = '';
+      const pos = posJan(id); if (pos) U.posicionar(el, alvo, pos.x, pos.y);
+    }
+    U.pref.gravar('janExt', [...S.janExt]); ajustarPadMapa(); atualizarBotoesExt(); atualizarTudo();
+  }
+  function devolverJanelas() { for (const id of [...S.janExt]) { try { janParaOutraTela(id, false); } catch (e) { S.janExt.delete(id); } } }
+  function moverSalvasParaExt() { if (!S.parede) return; for (const id of U.pref.ler('janExt', [])) if (JANS[id] && !S.janExt.has(id)) janParaOutraTela(id, true); }
+  /* botão ⧉ no título de cada janela (só aparece com o mapa na segunda tela) */
+  function atualizarBotoesExt() {
+    document.documentElement.classList.toggle('tem-ext', !!S.parede);
+    for (const id of Object.keys(JANS)) {
+      const j = $(JANS[id]); if (!j) continue; const cab = j.querySelector('.jan-cab'); if (!cab) continue;
+      let b = cab.querySelector('.jan-ext');
+      if (!b) { b = j.ownerDocument.createElement('button'); b.type = 'button'; b.className = 'jan-x jan-ext'; const x = cab.querySelector('.jan-x'); cab.insertBefore(b, x || null); }
+      const fora = j.classList.contains('na-ext'); b.textContent = fora ? '⇤' : '⇥'; b.title = fora ? 'Trazer esta janela de volta para a tela principal' : 'Mandar esta janela para a segunda tela'; b.setAttribute('aria-label', b.title);
+    }
+  }
   function entrarParede(sim) {
-    S.parede = !!sim;
+    if (!sim) devolverJanelas();
+    S.parede = !!sim; atualizarBotoesExt();
     $('#mapa-area').classList.toggle('parede', S.parede);
     S.mapa.setPausado(S.parede);
     const b = $('#bt-mapa-fora'); b.textContent = S.parede ? 'Trazer o mapa de volta' : 'Mapa em outra tela'; b.setAttribute('aria-pressed', String(S.parede));
     if (!S.parede) { requestAnimationFrame(() => { S.mapa.redimensionar(); S.mapa.marcar(); }); }
   }
   function abrirMapaExterno() {
-    if (S.parede && S.ext && !S.ext.closed) { try { S.ext.close(); } catch (e) { /* ok */ } entrarParede(false); S.ext = null; return; }
+    if (S.parede && S.ext && !S.ext.closed) { devolverJanelas(); try { S.ext.close(); } catch (e) { /* ok */ } entrarParede(false); S.ext = null; return; }
     const w = window.open(location.pathname + '?mapa=1', 'hr-mapa', 'popup=yes,width=1400,height=900');
     if (!w) { toast('O navegador bloqueou a nova janela. Libere pop-ups para este endereço e tente de novo.'); return; }
     S.ext = w; entrarParede(true); toast('Mapa aberto em outra janela. Arraste-a para o outro monitor (a tela cheia é F11).');
     /* melhor esforço: se o navegador deixar, leva a janela para o outro monitor */
     (async () => { try { if (window.getScreenDetails) { const d = await window.getScreenDetails(), o = d.screens.find(s => s !== d.currentScreen); if (o) { w.moveTo(o.availLeft, o.availTop); w.resizeTo(o.availWidth, o.availHeight); } } } catch (e) { /* sem permissão: tudo bem */ } })();
-    const t = setInterval(() => { if (!S.ext || S.ext.closed) { clearInterval(t); if (S.parede) { entrarParede(false); toast('A janela do mapa foi fechada. O mapa voltou para esta tela.'); } S.ext = null; } }, 700);
+    const t = setInterval(() => { if (!S.ext || S.ext.closed) { clearInterval(t); devolverJanelas(); if (S.parede) { entrarParede(false); toast('A janela do mapa foi fechada. O mapa voltou para esta tela.'); } S.ext = null; } }, 700);
   }
   /* outra janela (ex.: Geolocalização em outra janela) mudou regiões/configurações: relê SÓ isso (a operação desta janela não é trocada) */
   async function recarregarRegioes() {
@@ -1142,7 +1200,7 @@
       } else { // janela principal
         if (m.t === 'cfg') recarregarRegioes();
         else if (m.t === 'clique' && S.parede) abrirCidade(m.key, { centrar: false });
-        else if (m.t === 'pronto') { if (S.op) enviar({ t: 'op', id: S.op.id, rev: S.op.rev }); enviar({ t: 'sel', key: S.cidadeAberta }); }
+        else if (m.t === 'pronto') { if (S.op) enviar({ t: 'op', id: S.op.id, rev: S.op.rev }); enviar({ t: 'sel', key: S.cidadeAberta }); moverSalvasParaExt(); }
       }
     };
     if (S.modoMapa) { window.addEventListener('pagehide', () => enviar({ t: 'fechou' })); }
@@ -1375,7 +1433,7 @@
     });
 
     /* teclado */
-    document.addEventListener('keydown', e => {
+    S.onTecla = e => {
       const emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
       const so = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey, tecla = e.key.toLowerCase();
       if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: abre/fecha o pop-up de focar (vale com qualquer janela aberta)
@@ -1386,7 +1444,8 @@
       else if (e.key === 'Escape' && !document.querySelector('.fundo')) {
         if (!$('#mural').hidden) muralFechar(); else if (S.cidadeAberta) fecharCidade();
       }
-    });
+    };
+    document.addEventListener('keydown', S.onTecla);
 
     /* tema */
     aplicarTemaPara(U.pref.ler('tema', 'escuro'));
@@ -1436,15 +1495,13 @@
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').then(r => { r.update().catch(() => { }); setInterval(() => r.update().catch(() => { }), 10 * 60 * 1000); }).catch(() => { });
     /* versão nova assumiu: recarrega sozinho (o trabalho já está gravado); se houver gravação pendente, avisa */
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) { let recarregou = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (recarregou) return; const ir = () => { recarregou = true; window.__hsRecarregando = true; location.reload(); }; if (!S.sujo) ir(); else toast('Há uma versão nova do Health Log.', { rotulo: 'Atualizar agora', fn: ir }); }); }
-    if (S.modoMapa) enviar({ t: 'pronto' });
+    if (S.modoMapa) {
+      $$('.jan').forEach(e => e.remove());   // a janela do mapa só tem o mapa; as janelas flutuantes vêm da principal quando você mandar
+      window.addEventListener('pagehide', () => { try { if (window.opener && window.opener.RT && window.opener.RT.A.devolverJanelas) window.opener.RT.A.devolverJanelas(); } catch (e) { /* ok */ } });
+      enviar({ t: 'pronto' });
+    }
     RT.pronto = true;
   }
-  /* clicar numa janela flutuante (em qualquer ponto, inclusive na moldura) a deixa em foco: borda destacada e atalhos valem nela */
-  document.addEventListener('pointerdown', e => {
-    const j = e.target.closest && e.target.closest('.jan'); const id = j ? j.id : null;
-    if (id === S.janFoco) return; S.janFoco = id;
-    $$('.jan').forEach(x => x.classList.toggle('foco', x.id === id));
-  }, true);
-  RT.A = { encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();
