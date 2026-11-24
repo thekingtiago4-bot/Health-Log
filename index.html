@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://api.meudanfe.com.br https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://server.arcgisonline.com; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://server.arcgisonline.com https://api.meudanfe.com.br https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F4B55">
 <title>Health Log. · Eficiência Máxima Em Roteirização</title>
@@ -137,6 +137,7 @@
             <textarea id="geo-c-txt" placeholder="Uma cidade por linha (pode ter /UF no fim)"></textarea>
           </div>
         </details>
+        <div class="geo-hs"><b>Trazer o mapa do Health Search</b><span>Escolha o backup do banco do Health Search (.json ou .json.gz): as regiões, bases e cidades ensinadas vêm iguais.</span><label class="btn" for="geo-hs-arq">Importar do Health Search…</label><input type="file" id="geo-hs-arq" accept=".json,.gz,application/json,application/gzip" class="sr"></div>
         <div id="geo-status" role="status"></div>
         <div id="geo-prevs"></div>
         <div class="barra"><h2>Listas cadastradas</h2><button class="btn mini" id="geo-orig" type="button" title="Volta as listas que vieram com o programa, sem apagar as que você alimentou">Restaurar listas originais</button></div>
@@ -151,7 +152,7 @@
           <div class="ferr"><span class="seg" role="group" aria-label="Camada"><button type="button" data-geo-tipo="regiao" aria-pressed="true">Regiões</button><button type="button" data-geo-tipo="base" aria-pressed="false">Bases</button></span>
             <label class="geo-auto"><input type="checkbox" id="geo-auto" checked> Mostrar etiquetas automáticas</label><span style="flex:1"></span>
             <button class="btn mini" type="button" id="geo-z-mais" aria-label="Aproximar">+</button><button class="btn mini" type="button" id="geo-z-menos" aria-label="Afastar">−</button><button class="btn mini" type="button" id="geo-ver-tudo">Ver tudo</button><button class="btn mini" type="button" id="geo-estradas" aria-pressed="true" title="Mostra ou esconde o mapa de ruas e rodovias por baixo">Estradas</button><button class="btn mini" type="button" id="geo-janela" title="Abre o mapa da Geolocalização em outra janela (segundo monitor)">Abrir em outra janela</button><label class="fer-map" title="Cidades com feriado ficam em vermelho"><input type="checkbox" id="fer-map-on" checked><i></i>Feriados</label><select id="fer-map-ate" class="filtro" aria-label="Feriados de quais dias"><option value="0">hoje</option><option value="1">hoje + amanhã</option><option value="3">próximos 3 dias</option><option value="7">próximos 7 dias</option></select><button class="btn mini pri" type="button" id="ged-abrir" title="Delimitar regiões e bases no mapa">Editor de regiões</button><button class="btn mini" type="button" id="geo-cheia" title="Mapa em tela cheia">Tela cheia</button></div>
-          <div class="geo-box" id="geo-box"><div class="dica-mapa" id="geo-tip" hidden></div></div>
+          <div class="geo-box" id="geo-box"><div class="dica-mapa" id="geo-tip" hidden></div><div class="attrib" id="geo-attrib">Mapa: Esri, HERE, Garmin, © OpenStreetMap</div></div>
           <div class="geo-leg" id="geo-leg"></div>
           <p class="fer-st" id="fer-st"></p>
         </div>

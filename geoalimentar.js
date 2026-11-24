@@ -175,7 +175,37 @@
       l.map(x => { const o = G().info(x.c), cor = (lista(x.r.ids[0]) || {}).cor || '#888', nm = (lista(x.r.ids[0]) || {}).nome || ''; return '<tr><td class="forte">' + esc(o.nome) + '/' + esc(o.uf) + '</td><td>' + (x.tipo === 'base' ? 'Base' : 'Região') + '</td><td><span class="geo-cor" style="background:' + esc(cor) + '"></span> ' + esc(nm) + '</td><td class="num">' + x.r.conf + '%</td><td style="text-align:right;white-space:nowrap"><button class="btn mini pri" type="button" data-geo-conf1="' + esc(x.c) + '|' + x.tipo + '">Confirmar</button> <button class="btn mini" type="button" data-geo-ir="' + esc(x.c) + '">Abrir</button></td></tr>'; }).join('') + '</tbody></table></div>'
       : '<div class="vazio-lista">Nada para conferir: as cidades da operação já estão nas listas ou foram confirmadas.</div>';
   }
-  RT.gal = { render() { renderListas(); renderConferir(); }, previa, alimentar, casar, paraConferir, prevs };
+  /* ---------- trazer o mapa do Health Search (backup do banco) ---------- */
+  async function lerJsonOuGz(f) {
+    let buf = await f.arrayBuffer(); const u8 = new Uint8Array(buf);
+    if (u8[0] === 0x1f && u8[1] === 0x8b) { if (typeof DecompressionStream === 'undefined') throw new Error('este navegador não abre .gz — use o Chrome ou o Edge'); buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(); }
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  function acharGeo(o, prof) {   // procura {listas:[{cidades:[…]}], aprend:{…}} em qualquer lugar do arquivo
+    if (!o || typeof o !== 'object' || (prof || 0) > 7) return null;
+    if (Array.isArray(o.listas) && o.listas.length && o.listas.every(l => l && Array.isArray(l.cidades))) return o;
+    if (typeof o === 'string') return null;
+    for (const k of Object.keys(o)) { let v = o[k]; if (typeof v === 'string' && /^\s*[{[]/.test(v) && v.length > 50 && /listas/.test(v.slice(0, 4000) + v.slice(-200))) { try { v = JSON.parse(v); } catch (e) { continue; } } const r = acharGeo(v, (prof || 0) + 1); if (r) return r; }
+    return null;
+  }
+  const FORA = /LKR|TRI[AÂ]NGULO|\bBH\b|CONTAGEM|BELO HORIZONTE|CAJAMAR|\bCAJ\b/i;
+  async function importarHS(f) {
+    const st = $('#geo-status'); st.innerHTML = '<span class="gira"></span> Lendo ' + esc(f.name) + '…';
+    try {
+      const geo = acharGeo(await lerJsonOuGz(f));
+      if (!geo) { st.textContent = ''; toast('Não achei as regiões neste arquivo. Use o “Backup do banco” do Health Search.'); return; }
+      const regioes = geo.listas.map(l => ({ id: String(l.id || slug(l.nome)), nome: String(l.nome || 'Lista').slice(0, 60), tipo: l.tipo === 'base' ? 'base' : 'regiao', grupo: (l.grupo === 'fora' || FORA.test(String(l.nome) + ' ' + (l.alias || []).join(' '))) ? 'fora' : 'rota',
+        alias: (l.alias || []).map(x => String(x).slice(0, 30)), cidades: [...new Set(l.cidades.map(String))].filter(c => S().mun[c]), cor: /^#[0-9a-fA-F]{6}$/.test(l.cor) ? l.cor : CORES[0], fonte: 'importado do Health Search' }));
+      const aprend = {}; for (const k in (geo.aprend || {})) { const v = geo.aprend[k] || {}, o = {}; for (const tp of ['regiao', 'base']) if (v[tp] && (v[tp] === '-' || regioes.some(r => r.id === v[tp]))) o[tp] = String(v[tp]); if (Object.keys(o).length && S().mun[k]) aprend[String(k)] = o; }
+      const nCid = new Set(regioes.flatMap(r => r.cidades)).size;
+      st.textContent = '';
+      if (!(await U.confirmar('Trazer o mapa do Health Search?', regioes.length + ' listas (' + regioes.filter(r => r.tipo === 'regiao').length + ' regiões e ' + regioes.filter(r => r.tipo === 'base').length + ' bases), ' + nCid.toLocaleString('pt-BR') + ' cidades nas listas e ' + Object.keys(aprend).length + ' ensinadas. As regiões e bases de hoje são SUBSTITUÍDAS (fica uma cópia de segurança).', 'Trazer o mapa'))) return;
+      if (!(await G().backup())) return;
+      S().geo.desfazer = JSON.stringify(S().reg); S().reg = { fonte: 'Health Search', regioes, aprend }; G().garantirMatriz(); S().geo.ocultos.clear(); S().geo.foco = null; G().salvarReg();
+      toast('Mapa do Health Search trazido: ' + regioes.length + ' listas e ' + nCid.toLocaleString('pt-BR') + ' cidades.');
+    } catch (e) { console.error(e); st.textContent = ''; toast('Não consegui ler ' + f.name + ': ' + ((e && e.message) || e)); }
+  }
+  RT.gal = { importarHS, render() { renderListas(); renderConferir(); }, previa, alimentar, casar, paraConferir, prevs };
 
   /* ---------- eventos ---------- */
   function ligar() {
@@ -185,6 +215,7 @@
     sol.addEventListener('dragover', e => { e.preventDefault(); sol.classList.add('sobre'); }); sol.addEventListener('dragleave', () => sol.classList.remove('sobre'));
     sol.addEventListener('drop', e => { e.preventDefault(); sol.classList.remove('sobre'); const f = [...e.dataTransfer.files]; if (f.length) alimentar(f); });
     sol.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); arq.click(); } });
+    const hs = $('#geo-hs-arq'); if (hs) hs.addEventListener('change', e => { if (e.target.files[0]) importarHS(e.target.files[0]); e.target.value = ''; });
     $('#geo-c-ok').onclick = () => {
       const nome = $('#geo-c-nome').value.trim() || 'Lista colada', txt = $('#geo-c-txt').value;
       if (!txt.trim()) { toast('Cole a lista de cidades (uma por linha).'); return; }

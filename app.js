@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.27.0';
+  const VERSAO = '0.28.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -889,10 +889,10 @@
     try { const r = await DB.get('meta', 'regioes'); if (r && r.v && Array.isArray(r.v.regioes)) usar = r.v; } catch (e) { /* usa as originais */ }
     S.reg = usar || (base ? JSON.parse(JSON.stringify(base)) : { regioes: [] });
     if (!S.reg.aprend) S.reg.aprend = {};
-    /* MATRIZ: opção fixa do Health Search (uma região e uma base), sempre disponível para classificar cidades */
-    for (const tp of ['regiao', 'base']) { const id = tp === 'base' ? 'matriz-base' : 'matriz'; if (!S.reg.regioes.some(l => l.id === id)) S.reg.regioes.push({ id, nome: 'MATRIZ', tipo: tp, grupo: 'rota', alias: [], cidades: [], cor: '#455A64', fonte: 'opção fixa' }); }
-    N.setRegioes(S.reg);
+    garantirMatriz(); N.setRegioes(S.reg);
   }
+  /* MATRIZ: opção fixa do Health Search (uma região e uma base), sempre disponível para classificar cidades */
+  function garantirMatriz() { for (const tp of ['regiao', 'base']) { const id = tp === 'base' ? 'matriz-base' : 'matriz'; if (!S.reg.regioes.some(l => l.id === id)) S.reg.regioes.push({ id, nome: 'MATRIZ', tipo: tp, grupo: 'rota', alias: [], cidades: [], cor: '#455A64', fonte: 'opção fixa' }); } }
   function salvarReg() {
     S.geoCls = null; N.setRegioes(S.reg);
     DB.put('meta', { k: 'regioes', v: S.reg }).then(() => enviar({ t: 'cfg' })).catch(e => statusSalvo('erro', 'não consegui salvar as regiões: ' + ((e && e.message) || e)));
@@ -942,7 +942,7 @@
       onClique: h => { if (h) geoSelecionar(h.code, false); },
       onHover: (h, e) => { const t = $('#geo-tip'); if (!h) { t.hidden = true; return; } const c = geoClasse(h.code, S.geo.tipo), ids = c.ids.map(id => (S.reg.regioes.find(r => r.id === id) || {}).nome).filter(Boolean); t.innerHTML = '<b>' + esc(h.nome) + (h.uf ? '/' + esc(h.uf) : '') + '</b>' + (ids.length ? '<br>' + esc(ids.join(' · ')) + (c.fonte === 'auto' ? ' (automático)' : c.fonte === 'aprendido' ? ' (ensinado)' : '') : '<br>sem lista') + ((S.geo.fer && S.geo.fer.get(h.code)) ? '<br><b style="color:#ff8787">Feriado ' + dm(S.geo.fer.get(h.code).iso) + ': ' + esc(S.geo.fer.get(h.code).n) + '</b>' : ''); t.hidden = false; const a = $('#geo-box').getBoundingClientRect(); t.style.left = Math.min(a.width - 180, Math.max(4, e.clientX - a.left + 14)) + 'px'; t.style.top = Math.max(4, e.clientY - a.top + 14) + 'px'; },
       onMover: () => { $('#geo-tip').hidden = true; }
-    }, { semBase: false });
+    }, { semBase: false, fundo: 'arcgis' });
     m.setEstradas(U.pref.ler('geoEstradas', true) !== false); { const be = $('#geo-estradas'); if (be) be.setAttribute('aria-pressed', String(m.estradas)); }
     m.setPoligonosDe(S.mapa);
     if (S.mun) m.setTodas(Object.entries(S.mun).filter(([c]) => S.mapa.poli.has(c)).map(([c, v]) => ({ code: c, nome: v[0], uf: v[1], lat: v[2], lon: v[3] })));
@@ -1008,6 +1008,7 @@
     if (ferOn) for (const [c, f] of RT.fer.mapa(ferAte)) fer.set(c, { iso: f.iso, n: f.n, hoje: f.iso === hoje });
     S.geo.fer = fer;
     m.setGeo({ cor, auto: autoSet, ens, nf, fer, rotulos, sel: S.geo.sel, ed: RT.ged && RT.ged.paraMapa ? RT.ged.paraMapa() : null });
+    { const at = $('#geo-attrib'); if (at) at.hidden = !m.estradas; }
     $('#fer-st').textContent = ferOn ? RT.fer.status() + (fer.size ? ' · ' + fer.size.toLocaleString('pt-BR') + ' cidade(s) em vermelho.' : ' Nenhuma cidade com feriado no período.') : '';
     for (const b of $$('[data-geo-tipo]')) b.setAttribute('aria-pressed', String(b.dataset.geoTipo === tipo));
     $('#geo-leg').innerHTML = regs.filter(r => r.tipo === tipo).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR')).map(r => { const c = cont[r.id] || { l: 0, a: 0 }; return '<button type="button" data-geo-leg="' + esc(r.id) + '" aria-pressed="' + !S.geo.ocultos.has(r.id) + '" title="Mostrar ou esconder"><i style="background:' + esc(r.cor || '#888') + '"></i>' + esc(r.nome) + ' · ' + c.l.toLocaleString('pt-BR') + (c.a ? ' + ' + c.a.toLocaleString('pt-BR') + ' auto' : '') + '</button>'; }).join('') +
@@ -1029,7 +1030,7 @@
     }
     if (RT.gal) RT.gal.render();   // listas cadastradas e "Para conferir" (geoalimentar.js)
   }
-  RT.G = { S, ensinar: geoEnsinar, classe: geoClasse, salvarReg, info: munInfo, selecionar: geoSelecionar, render: renderGeo, ufs: GEO_UFS, interceptar: null };
+  RT.G = { S, garantirMatriz, backup: () => backupReg(), ensinar: geoEnsinar, classe: geoClasse, salvarReg, info: munInfo, selecionar: geoSelecionar, render: renderGeo, ufs: GEO_UFS, interceptar: null };
   function ligarGeo() {
     const q = $('#geo-q'), sug = $('#geo-sug');
     const achar = () => {

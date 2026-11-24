@@ -14,7 +14,7 @@
 
   class Mapa {
     constructor(el, cb, opts) {
-      this.el = el; this.cb = cb || {}; this.semBase = !!(opts && opts.semBase);
+      this.el = el; this.cb = cb || {}; this.semBase = !!(opts && opts.semBase); this.tipoFundo = (opts && opts.fundo) || null;
       this.baseEl = document.createElement('div'); this.baseEl.className = 'mapa-base'; if (this.semBase) this.baseEl.style.display = 'none'; el.insertBefore(this.baseEl, el.firstChild);
       this.cv = document.createElement('canvas');
       this.cv.className = 'mapa-cv';
@@ -116,7 +116,7 @@
     setPedagio(v) { this.mostrarPedagio = !!v; this.sujo = true; this._bgSujo = true; }
     setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }
-    temaMudou() { this._cores = null; if (this.fundoMl) RT.fundo.trocarTema(this.fundoMl, this._paleta().escuro).catch(e => console.warn(e)); this._bgSujo = this.sujo = true; }
+    temaMudou() { this._cores = null; if (this.fundoMl) RT.fundo.trocarTema(this.fundoMl, this._paleta().escuro, this.tipoFundo).catch(e => console.warn(e)); this._bgSujo = this.sujo = true; }
 
     /* ---------- vista ---------- */
     redimensionar() {
@@ -366,7 +366,10 @@
         for (const r of G.rotulos) {
           const px = (X(r.lon) - cx) * k + W / 2, py = (Y(r.lat) - cy) * k + H / 2;
           if (px < -60 || py < -20 || px > W + 60 || py > H + 20) continue;
-          ctx.lineWidth = 4.5; ctx.strokeStyle = P.escuro ? 'rgba(4,16,20,.92)' : 'rgba(255,255,255,.95)'; ctx.strokeText(r.nome, px, py); ctx.fillStyle = P.escuro ? '#fff' : r.cor; ctx.fillText(r.nome, px, py);
+          const w = ctx.measureText(r.nome).width + 14, h = 22;
+          ctx.fillStyle = P.escuro ? 'rgba(10,26,30,.92)' : 'rgba(255,255,255,.94)'; this._pilula(ctx, px - w / 2, py - h / 2, w, h, 6); ctx.fill();
+          ctx.lineWidth = 1; ctx.strokeStyle = P.escuro ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.18)'; ctx.stroke();
+          ctx.fillStyle = P.escuro ? '#fff' : '#10242a'; ctx.fillText(r.nome, px, py + 0.5);
         }
         ctx.textBaseline = 'alphabetic';
       }
@@ -620,7 +623,7 @@
       this._criandoFundo = true;
       try {
         const escuro = this._paleta().escuro;
-        const map = await RT.fundo.criar(this.baseEl, escuro);
+        const map = await RT.fundo.criar(this.baseEl, escuro, this.tipoFundo);
         this.fundoMl = map; this.fundoOk = true; this._ultSync = null; try { map.resize(); } catch (e) { /* ok */ } this._bgSujo = this.sujo = true;
       } catch (e) { this.fundoOk = false; console.warn('o fundo de estradas não carregou; o mapa segue só com os contornos', e); }
       this._criandoFundo = false;

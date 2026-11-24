@@ -40,6 +40,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
       const enc = pts => { let la = 0, lo = 0, s = ''; const e1 = v => { v = v < 0 ? ~(v << 1) : v << 1; let o = ''; while (v >= 32) { o += String.fromCharCode((32 | (v & 31)) + 63); v >>= 5; } return o + String.fromCharCode(v + 63); }; for (const [x, y] of pts) { const ila = Math.round(y * 1e6), ilo = Math.round(x * 1e6); s += e1(ila - la) + e1(ilo - lo); la = ila; lo = ilo; } return s; };
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ trip: { summary: { length: km + (evita ? 7 : 0), time: km * 55, has_toll: toll }, legs: [{ shape: enc([a, mid, b]), maneuvers: [{ begin_shape_index: 0, end_shape_index: 1, length: km / 2, toll: false, street_names: ['Rua A'] }, { begin_shape_index: 1, end_shape_index: 2, length: km / 2, toll, street_names: ['SP-255'] }] }] } }) });
     });
+    await ctx.route(/arcgisonline\.com/, r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') }));   // mapa de ruas da Geolocalização SIMULADO (1 pixel)
     await ctx.route(/raw\.githubusercontent\.com/, r => { // feriados SIMULADOS: um estadual (MG) e um municipal (Araraquara) HOJE
       const d = new Date(), br = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
       const corpo = /municipal/.test(r.request().url()) ? [{ codigo_ibge: 3503208, data: br, nome: 'Aniversário de Araraquara (teste)' }] : [{ uf: 'MG', data: br, nome: 'Feriado estadual de teste' }];
@@ -691,6 +692,24 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.evaluate(() => RT.A.geoSelecionar('3541406', false));
   verdade(await p.evaluate(() => !(RT.S.reg.aprend['3541406'] || {}).regiao), 'e clicar de novo desmarca');
   await p.click('#ged-sair'); verdade(await p.evaluate(() => !document.querySelector('#ged-painel') && !RT.G.interceptar), 'Fechar editor');
+
+  console.log('\nTrazer o mapa do Health Search');
+  await p.click('.nav button[data-tela="geo"]');
+  const copia = await p.evaluate(() => JSON.stringify(RT.S.reg));
+  const hsGeo = { tabelas: { hs_sync: [{ chave: 's:geo', valor: { listas: [
+    { id: 'a1', nome: 'REGIÃO TESTE HS', tipo: 'regiao', alias: ['XX'], cidades: [3503208, 3541406], cor: '#112233', fonte: 'alimentado' },
+    { id: 'bh', nome: 'BASE CONTAGEM (BH)', tipo: 'base', alias: ['BH'], cidades: [3106200], cor: '#445566' }], aprend: { '3550308': { regiao: 'a1' } }, em: '2026-11-24T00:00:00Z' } }] } };
+  await p.click('#geo-bt-alim');
+  await p.setInputFiles('#geo-hs-arq', { name: 'Backup_banco_HealthSearch.json.gz', mimeType: 'application/gzip', buffer: require('zlib').gzipSync(Buffer.from(JSON.stringify(hsGeo))) });
+  await p.waitForSelector('.fundo .modal [data-s]');
+  verdade(/2 listas/.test(await p.innerText('.fundo .modal')) && /SUBSTITUÍDAS/.test(await p.innerText('.fundo .modal')), 'importar do Health Search (.json.gz): mostra o resumo e avisa que substitui as listas de hoje');
+  await p.click('.fundo .modal [data-s]');
+  await p.waitForFunction(() => RT.S.reg.regioes.some(r => r.id === 'a1'));
+  verdade(await p.evaluate(() => { const r = RT.S.reg; const a1 = r.regioes.find(x => x.id === 'a1'), bh = r.regioes.find(x => x.id === 'bh'); return a1.cidades.length === 2 && a1.alias[0] === 'XX' && a1.cor === '#112233' && bh.grupo === 'fora' && r.aprend['3550308'].regiao === 'a1' && r.regioes.some(x => x.id === 'matriz'); }), 'as listas, apelidos, cores, "fora de rota" (BH) e as cidades ensinadas vêm iguais, e a MATRIZ fixa existe');
+  verdade(await p.evaluate(async () => (await RT.DB.todos('bk')).some(b => b.opId === 'regioes')), 'e deixa cópia de segurança das regiões de antes');
+  await p.evaluate(c => { RT.S.reg = JSON.parse(c); RT.G.salvarReg(); }, copia);
+  verdade(await p.evaluate(() => !!document.querySelector('#geo-attrib') && getComputedStyle(document.querySelector('#geo-attrib')).display !== 'none'), 'mapa de ruas (Esri) com a atribuição, como no Health Search');
+  verdade(await p.evaluate(() => RT.S.geo.mapa.tipoFundo === 'arcgis'), 'a Geolocalização usa o mesmo mapa de ruas do Health Search');
 
   console.log('\nAtalhos: Ctrl+L (buscar nota) e Ctrl+V (ordem das pendentes)');
   await p.click('.nav button[data-tela="notas"]');

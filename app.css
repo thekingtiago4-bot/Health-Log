@@ -700,3 +700,7 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .geo-alim th{text-align:left;padding:7px 10px;border-bottom:1.5px solid var(--linha);background:var(--sup2);position:sticky;top:0}.geo-alim td{padding:6px 10px;border-bottom:1px solid var(--linha2)}
 .geo-alim .num{text-align:right}.geo-alim .forte{font-weight:600}.geo-alim .sec{color:var(--mudo)}
 .geo-cor{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
+
+.geo-hs{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;border:1px solid var(--linha);background:var(--tealBg);border-radius:10px;padding:10px 14px;margin-top:12px}
+.geo-hs b{font-family:"Barlow Semi Condensed";font-size:1rem}.geo-hs span{flex:1 1 280px;color:var(--mudo);font-size:.85rem}
+.geo-mapa .attrib{position:absolute;right:6px;bottom:4px;font-size:.62rem;color:#fff;opacity:.7;pointer-events:none}
