@@ -1,1 +1,1 @@
-{"versao":"0.30.0","data":"2026-11-24","novidades":"Cada veiculo tem a sua propria janela (movel e redimensionavel). A listagem de todos os carros agora e o botao Rotas. Cada cidade tem um quadrado para selecionar todas as notas e clientes no mesmo carro de uma vez."}
+{"versao":"0.30.1","data":"2026-11-24","novidades":"Rotas pelo caminho de MENOR DISTANCIA (inclui estradas menores). Trechos antigos sao recalculados."}
