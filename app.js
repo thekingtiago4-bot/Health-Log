@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.29.0';
+  const VERSAO = '0.29.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -1206,7 +1206,10 @@
     if (S.modoMapa) { window.addEventListener('pagehide', () => enviar({ t: 'fechou' })); }
   }
   function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
-  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); }
+  /* mapa de fundo das ROTAS: "Ruas" = mapa de ruas completo, com todas as estradas, sinais e nomes (padrão) · "Rodoviário" = nosso estilo limpo só de rodovias */
+  const fundoRotas = () => (U.pref.ler('fundoRotas', 'arcgis') === 'arcgis' ? 'arcgis' : null);
+  const rotuloFundo = () => 'Mapa: ' + (fundoRotas() ? 'Ruas' : 'Rodoviário');
+  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); const bf = $('#bt-fundo'); if (bf) bf.textContent = rotuloFundo(); } }
 
   /* ================= base de saída e fundo de estradas ================= */
   function aplicarBase() {
@@ -1324,6 +1327,7 @@
     $('#bt-estradas').onclick = () => { const v = $('#bt-estradas').getAttribute('aria-pressed') !== 'true'; $('#bt-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('estradas', v); S.mapa.setEstradas(v); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
+    $('#bt-fundo').onclick = () => { U.pref.gravar('fundoRotas', fundoRotas() ? 'rodoviario' : 'arcgis'); S.mapa.setTipoFundo(fundoRotas()); $('#bt-fundo').textContent = rotuloFundo(); enviar({ t: 'tema' }); toast(fundoRotas() ? 'Mapa de ruas completo: todas as estradas, sinais e nomes.' : 'Mapa rodoviário limpo: só as rodovias, com o número.'); };
     $('#bt-pedagio').onclick = () => {
       const v = $('#bt-pedagio').getAttribute('aria-pressed') !== 'true'; $('#bt-pedagio').setAttribute('aria-pressed', String(v));
       S.cfg.evitarPedagio = v; RT.vias.definirEvitar(v); S.mapa.pernas.clear(); salvarCfg();   // salvarCfg redesenha e pede os trechos do outro modo
@@ -1459,7 +1463,8 @@
       onClique: h => { if (S.modoMapa) { if (h) enviar({ t: 'clique', key: h.key }); return; } if (h) abrirCidade(h.key, { centrar: false }); else if (S.cidadeAberta && !draftSujo()) fecharCidade(true); },
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
       onFora: nomes => { const b = $('#aviso-fora'); b.hidden = !nomes.length; b.textContent = nomes.length ? '+' + nomes.length + ' fora do quadro: ' + nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? '…' : '') : ''; }
-    });
+    }, { fundo: fundoRotas() });
+    { const bf = $('#bt-fundo'); if (bf) bf.textContent = rotuloFundo(); }
     RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
     ligar(); ligarCanal();
     if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Log. · Mapa'; } else if (S.soGeo) { document.body.classList.add('so-geo'); document.title = 'Health Log. · Geolocalização'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search

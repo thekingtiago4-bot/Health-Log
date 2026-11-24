@@ -60,6 +60,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const estado = p => p.evaluate(() => ({ rev: RT.S.op && RT.S.op.rev, atrib: RT.S.op && RT.S.op.atrib, carros: RT.S.op && RT.S.op.carros.map(c => c.id), cont: RT.S.res && RT.S.res.cont, nnotas: RT.S.op && RT.S.op.notas.length }));
 
   const { ctx, p } = await novaPagina();
+  await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('hr-teste-fundo')) { localStorage.setItem('hr:fundoRotas', '"rodoviario"'); sessionStorage.setItem('hr-teste-fundo', '1'); } } catch (e) { /* ok */ } });   // os testes antigos falam do estilo rodoviário limpo; o padrão novo (ruas) tem teste próprio
   await abrir(p);
 
   console.log('\nNúmeros exatos');
@@ -1014,6 +1015,11 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.evaluate(async () => { for (const r of await RT.DB.todos('meta')) if (String(r.k).startsWith('via:')) await RT.DB.apagar('meta', r.k); RT.vias.mem.clear(); RT.S.mapa.pernas.clear(); RT.A.atualizarTudo(); });
 
   verdade(await p.evaluate(() => /Fora de rota/.test(document.querySelector('#legenda').innerText) && /Pedágio/.test(document.querySelector('#legenda').innerText) && /Completa/.test(document.querySelector('#legenda').innerText)), 'legenda do mapa atualizada (fora de rota e pedágio)');
+  console.log('\nMapa de ruas completo nas rotas');
+  verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === null && document.querySelector('#bt-fundo').textContent === 'Mapa: Rodoviário'), 'botão do mapa de fundo das rotas: Rodoviário (limpo) ou Ruas (completo)');
+  await p.click('#bt-fundo'); verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === 'arcgis' && document.querySelector('#bt-fundo').textContent === 'Mapa: Ruas'), 'Ruas: mapa de ruas completo com todas as estradas, sinais e nomes');
+  await p.click('#bt-fundo'); verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === null), 'e dá para voltar ao rodoviário limpo');
+  verdade(reqsValhalla.length > 0 && reqsValhalla.every(c => c.alternates === 2 && c.costing_options.auto.use_highways === undefined), 'caminho mais direto: sem forçar rodovia (isso alongava o caminho) e pedindo alternativas para ficar com a de menos km');
   console.log('\nRota mais curta como padrão');
   verdade(await p.evaluate(() => !document.querySelector('[data-otim]')), 'não existe botão de ordem mais curta (é o padrão)');
   const oc = await p.evaluate(() => RT.A.ordenarCurto({ lat: 0, lon: 0 }, [{ lat: 0, lon: 3 }, { lat: 0, lon: 1 }, { lat: 0, lon: 4 }, { lat: 0, lon: 2 }]));

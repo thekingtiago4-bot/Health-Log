@@ -113,6 +113,8 @@
     setMostrarBase(v) { this.mostrarBase = !!v; this._lanesSujo = true; this.sujo = true; }
     setRealce(v) { this.realce = v; this._bgSujo = this.sujo = true; }
     setEstradas(v) { this.estradas = !!v && !this.semBase; this.baseEl.style.display = this.estradas ? '' : 'none'; if (this.estradas) { this._iniciarFundo(); this._ultSync = null; } this._bgSujo = this.sujo = true; }
+    /* troca o mapa de fundo: nosso estilo rodoviário (null) ou mapa de ruas completo, com nomes e sinais ("arcgis") */
+    setTipoFundo(t) { t = t || null; if (t === this.tipoFundo) return; this.tipoFundo = t; if (this.fundoMl) RT.fundo.trocarTema(this.fundoMl, this._paleta().escuro, t).catch(e => console.warn(e)); this._bgSujo = this.sujo = true; }
     setPedagio(v) { this.mostrarPedagio = !!v; this.sujo = true; this._bgSujo = true; }
     setPausado(v) { this.pausado = !!v; if (!v) { this.redimensionar(); this.sujo = true; } }
     marcar() { this.sujo = true; }

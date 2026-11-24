@@ -1,1 +1,1 @@
-{"versao":"0.29.0","data":"2026-11-24","novidades":"Janelas flutuantes podem ir para a segunda tela (botao na janela). Focar (Ctrl+F): enquadra a rota inteira, some ao sair do mapa e e redimensionavel."}
+{"versao":"0.29.1","data":"2026-11-24","novidades":"Rotas sobre mapa de ruas completo (todas as estradas, sinais e nomes; botao Mapa: Ruas/Rodoviario). Caminho mais direto: sem forcar rodovia e escolhendo entre alternativas a de menos km."}

@@ -41,23 +41,30 @@
   async function viaValhalla(a, b) {
     const ac = new AbortController(), to = setTimeout(() => ac.abort(), 25000);
     try {
-      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: V.evitar ? 0.0 : 1.0, use_highways: 1.0, use_ferry: 0.0 } }, directions_options: { units: 'kilometers', language: 'pt-BR' } };
+      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: V.evitar ? 0.0 : 1.0, use_ferry: 0.0 } }, alternates: 2, directions_options: { units: 'kilometers', language: 'pt-BR' } };   // sem forçar rodovia (isso alongava o caminho); pede alternativas para escolher a mais curta
       const r = await fetch(VAL, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'health-log' }, signal: ac.signal, redirect: 'error' });
       clearTimeout(to);
       if (r.status === 429 || r.status >= 500) return { erro: 'o serviço de rotas respondeu ' + r.status, repetir: true };
       const j = await r.json().catch(() => null);
       if (!r.ok) return { erro: j && j.error_code === 442 ? 'não há estrada ligando essas duas cidades' : 'o serviço de rotas respondeu ' + r.status };
-      const lg = j && j.trip && j.trip.legs && j.trip.legs[0];
-      if (!lg || typeof lg.shape !== 'string' || !j.trip.summary || !isFinite(j.trip.summary.length)) return { erro: 'resposta do serviço de rotas inválida' };
-      const coords = decodificar(lg.shape); if (coords.length < 2) return { erro: 'resposta do serviço de rotas inválida' };
-      const porRef = new Map(), ped = []; let run = null;
-      for (const m of (lg.maneuvers || [])) {
-        const nome = (m.street_names || []).map(refDe).find(Boolean) || '';
-        if (nome) porRef.set(nome, (porRef.get(nome) || 0) + (m.length || 0) * 1000);
-        if (m.toll) { if (!run) { run = { i: m.begin_shape_index || 0, km: 0, n: nome }; ped.push(run); } run.km += m.length || 0; if (!run.n) run.n = nome; } else run = null;
-      }
-      const refs = [...porRef.entries()].filter(x => x[1] >= 3000).sort((x, y) => y[1] - x[1]).slice(0, 2).map(x => x[0]);
-      return { ok: { coords, km: j.trip.summary.length, min: (j.trip.summary.time || 0) / 60, refs, pedagios: ped.filter(p => coords[p.i]).map(p => ({ lon: coords[p.i][0], lat: coords[p.i][1], km: Math.round(p.km * 10) / 10, n: p.n })), temPedagio: !!j.trip.summary.has_toll, mv: MV, em: Date.now() } };
+      const monta = trip => {
+        const lg = trip && trip.legs && trip.legs[0];
+        if (!lg || typeof lg.shape !== 'string' || !trip.summary || !isFinite(trip.summary.length)) return null;
+        const coords = decodificar(lg.shape); if (coords.length < 2) return null;
+        const porRef = new Map(), ped = []; let run = null;
+        for (const m of (lg.maneuvers || [])) {
+          const nome = (m.street_names || []).map(refDe).find(Boolean) || '';
+          if (nome) porRef.set(nome, (porRef.get(nome) || 0) + (m.length || 0) * 1000);
+          if (m.toll) { if (!run) { run = { i: m.begin_shape_index || 0, km: 0, n: nome }; ped.push(run); } run.km += m.length || 0; if (!run.n) run.n = nome; } else run = null;
+        }
+        const refs = [...porRef.entries()].filter(x => x[1] >= 3000).sort((x, y) => y[1] - x[1]).slice(0, 2).map(x => x[0]);
+        return { coords, km: trip.summary.length, min: (trip.summary.time || 0) / 60, refs, pedagios: ped.filter(p => coords[p.i]).map(p => ({ lon: coords[p.i][0], lat: coords[p.i][1], km: Math.round(p.km * 10) / 10, n: p.n })), temPedagio: !!trip.summary.has_toll, mv: MV, em: Date.now() };
+      };
+      const cand = [monta(j && j.trip), ...((j && j.alternates) || []).map(a => monta(a && a.trip))].filter(Boolean);
+      if (!cand.length) return { erro: 'resposta do serviço de rotas inválida' };
+      /* caminho mais DIRETO: entre as opções que não demoram mais de 25% além da mais rápida, a de menos km */
+      const rapida = Math.min(...cand.map(c => c.min)), ok = cand.filter(c => c.min <= rapida * 1.25).sort((a, b) => a.km - b.km)[0];
+      return { ok };
     } catch (e) { clearTimeout(to); return { erro: navigator.onLine === false ? 'sem internet' : 'não consegui falar com o serviço de rotas', repetir: true }; }
   }
   /* reserva: OSRM (só no modo padrão; não sabe de pedágio) */
