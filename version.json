@@ -1,1 +1,1 @@
-{"versao":"0.28.0","data":"2026-11-24","novidades":"Geolocalizacao igual a do Health Search: mapa de ruas Esri por baixo, nomes das regioes em pilula escura e importacao do mapa do Health Search (backup do banco) com as mesmas listas, cores e cidades ensinadas."}
+{"versao":"0.28.1","data":"2026-11-24","novidades":"Todas as rotas tracejadas com a mesma espessura e opacidade (antes so a do veiculo ativo ficava forte)."}

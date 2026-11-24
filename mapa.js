@@ -451,7 +451,7 @@
       this.rotas.forEach((r, ri) => {
         const trechos = this._trechosDe(r); if (!trechos.length) return;
         const forte = !temAtivo || r.id === this.ativo;
-        dados.push({ r, trechos, forte, sinal: ri % 2 ? -1 : 1, alfa: forte ? 1 : 0.26, pista: trechos.filter(t => t.per), reta: trechos.filter(t => !t.per) });
+        dados.push({ r, trechos, forte, sinal: ri % 2 ? -1 : 1, alfa: 1, pista: trechos.filter(t => t.per), reta: trechos.filter(t => !t.per) });
       });
       const visivel = t => !t.per || !(t.per.b[2] < vx0 || t.per.b[0] > vx1 || t.per.b[3] < vy0 || t.per.b[1] > vy1);
       const pts = (t, rid) => {
@@ -474,10 +474,10 @@
       };
       ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       /* 1) o contorno claro de todas as linhas; 2) as linhas tracejadas por cima — assim nenhuma faixa apaga a vizinha */
-      for (const d of dados) { ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, true, d.forte ? 7 : 5, claro, []); if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, true, d.forte ? 5 : 3.5, claro, []); } }
+      for (const d of dados) { ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, true, d.forte && temAtivo ? 8.4 : 7, claro, []); if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.85; traco(d, d.reta, true, d.forte && temAtivo ? 6 : 5, claro, []); } }
       for (const d of dados.slice().sort((a, b) => (a.forte ? 1 : 0) - (b.forte ? 1 : 0))) { // o veículo em destaque por cima
-        ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, false, d.forte ? 3.8 : 2.4, d.r.cor, this.rotaFixa ? [] : (d.forte ? [11, 9] : [8, 8]));
-        if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.65; traco(d, d.reta, false, d.forte ? 2.6 : 1.8, d.r.cor, this.rotaFixa ? [] : [2, 8]); }
+        ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, false, d.forte && temAtivo ? 4.8 : 3.8, d.r.cor, this.rotaFixa ? [] : [11, 9]);
+        if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.9; traco(d, d.reta, false, d.forte && temAtivo ? 3.4 : 2.8, d.r.cor, this.rotaFixa ? [] : [3, 7]); }
       }
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
       for (const d of dados) for (const t of (this.rotaFixa ? [] : d.trechos)) { // seta no meio de cada trecho: mostra o sentido
@@ -485,7 +485,7 @@
         let mx, my, ang;
         if (t.per) { const q = pts(t, d.r.id), i = Math.max(0, Math.floor(q.length / 2) - 1), a = q[i], b = q[Math.min(q.length - 1, i + 1)]; mx = (a.x + b.x) / 2; my = (a.y + b.y) / 2; ang = Math.atan2(b.y - a.y, b.x - a.x); }
         else { const a = this.para(t.a), b = this.para(t.b), c1 = curva(a, b, d.sinal); if (Math.hypot(b.x - a.x, b.y - a.y) < 52) continue; mx = 0.25 * a.x + 0.5 * c1.x + 0.25 * b.x; my = 0.25 * a.y + 0.5 * c1.y + 0.25 * b.y; ang = Math.atan2(b.y - a.y, b.x - a.x); }
-        const sz = d.forte ? 8 : 5.5; ctx.globalAlpha = d.alfa;
+        const sz = d.forte && temAtivo ? 9 : 8; ctx.globalAlpha = d.alfa;
         ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(sz, 0); ctx.lineTo(-sz * 0.75, -sz * 0.85); ctx.lineTo(-sz * 0.35, 0); ctx.lineTo(-sz * 0.75, sz * 0.85); ctx.closePath();
         ctx.fillStyle = d.r.cor; ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#041014' : '#fff'; ctx.stroke(); ctx.fill(); ctx.restore();
       }
