@@ -53,7 +53,7 @@
     const s = S(); if (!s.op || !s.res) { toast('Abra ou importe uma operação primeiro.'); return; }
     const f = fotografar(), antes = await guardados(s.op.id);
     const html = '<h2>Final de Turno</h2><pre class="turno-txt" id="turno-txt">' + esc(texto(f)) + '</pre>' +
-      '<p class="dica" id="turno-st">' + (antes.length ? 'Esta operação já tem ' + antes.length + ' final(is) de turno guardado(s); o último foi em ' + new Date(antes[0].quando).toLocaleString('pt-BR') + '.' : 'Nada guardado ainda para esta operação.') + ' Ao guardar, fica uma cópia de segurança da operação e os números do dia para os relatórios.</p>' +
+      '<p class="dica" id="turno-st">' + (antes.length ? 'Esta operação já tem ' + antes.length + ' final(is) de turno guardado(s); o último foi em ' + new Date(antes[0].quando).toLocaleString('pt-BR') + '.' : 'Nada guardado ainda para esta operação.') + ' Ao guardar, ficam a cópia de segurança e os números do dia para os relatórios, e o mapa e os XMLs são limpos para a próxima operação.</p>' +
       '<div class="botoes"><button class="btn" data-a="x">Fechar</button><button class="btn" data-a="h">Ver guardados (' + antes.length + ')</button><button class="btn" data-a="c">Copiar</button><button class="btn" data-a="w">WhatsApp</button><button class="btn pri" data-a="g" id="turno-g">Guardar final de turno</button></div>';
     return U.modal(html, (fm, fechar) => {
       let guardou = null;
@@ -68,9 +68,14 @@
         }
         if (a === 'g') {
           if (guardou) { toast('Este final de turno já foi guardado.'); return; }
+          const ok = await U.confirmar('Guardar o turno e começar uma nova operação?', 'Os números do dia ficam guardados para os Relatórios e a operação (XMLs, notas, veículos) fica salva em “Operações guardadas”. Em seguida o mapa e os XMLs são LIMPOS, para você importar a próxima operação. Uma cópia de segurança é feita antes.', 'Guardar e começar nova');
+          if (!ok) return;
           const novo = fotografar(); if (!(await A().backup(s.op, 'Final de turno'))) return;
-          try { await RT.DB.put('meta', { k: novo.k, v: novo }); guardou = novo; fm.querySelector('#turno-txt').textContent = texto(novo); b.disabled = true; b.textContent = '✓ Guardado'; fm.querySelector('#turno-st').textContent = 'Final de turno guardado às ' + new Date(novo.quando).toLocaleTimeString('pt-BR').slice(0, 5) + ' e cópia de segurança feita.'; }
-          catch (er) { toast('⚠ Não consegui guardar o final de turno: ' + ((er && er.message) || er)); }
+          try {
+            await RT.DB.put('meta', { k: novo.k, v: novo }); guardou = novo; b.disabled = true;
+            await A().encerrarOperacao(); fechar(true);
+            toast('✔ Turno guardado (' + new Date(novo.quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '). A operação ficou nos Relatórios e a tela está limpa: importe os XMLs da próxima.');
+          } catch (er) { toast('⚠ Não consegui guardar o final de turno: ' + ((er && er.message) || er)); b.disabled = false; }
         }
       });
     });

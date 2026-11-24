@@ -1,1 +1,1 @@
-{"versao":"0.26.0","data":"2026-11-24","novidades":"Geolocalizacao: Alimentar as referencias identico ao do Health Search (PDF/TXT/colar, previa editavel, corrige a grafia, Salvar lista, listas cadastradas e Para conferir em tabela, MATRIZ fixa)."}
+{"versao":"0.27.0","data":"2026-11-24","novidades":"Guardar turno: confirma, guarda os numeros para os Relatorios e LIMPA XMLs e mapa para a proxima operacao (a operacao continua guardada). Janela de veiculos nao perde clique quando chega km de rota."}

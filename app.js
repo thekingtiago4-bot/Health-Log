@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.26.0';
+  const VERSAO = '0.27.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -693,6 +693,21 @@
     statusSalvo('ok'); atualizarTudo();
     if (tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
   }
+  /* Final de turno confirmado: a operação fica guardada (os Relatórios leem as operações guardadas) e a tela é LIMPA — sem XMLs, notas,
+     veículos nem rotas no mapa — para começar a próxima operação. Devolve o id da operação encerrada. */
+  async function encerrarOperacao() {
+    if (!S.op) return null;
+    await salvar(); await S.fila;
+    if (S.sujo) throw new Error('não consegui gravar a operação antes de limpar');
+    const id = S.op.id;
+    if (S.cidadeAberta) fecharCidade(true);
+    S.op = null; S.idx = null; S.res = null; S.carroAtivo = null; S.hist = []; S.ordOp = null; S.comp = null; S.compOp = null; S.sujo = false;
+    S.draft.clear(); S.expand.clear(); S.carAberto.clear(); S.carExp.clear(); S.selMov.clear(); S.mapa.pernas.clear();
+    try { await DB.apagar('meta', 'ativa'); } catch (e) { /* ok */ }
+    statusSalvo('sem'); enviar({ t: 'fim' }); atualizarTudo(); irPara('xmls');
+    return id;
+  }
+  async function abrirPorId(id) { const op = await DB.get('ops', id); if (!op) throw new Error('operação não encontrada'); await abrirOperacao(op); renderOps(); }
   async function restaurarObjeto(op, sufixo) {
     if (!op || !Array.isArray(op.notas) || !Array.isArray(op.carros) || typeof op.atrib !== 'object' || !op.atrib) throw new Error('arquivo não parece uma operação do Health Route');
     const novo = N.sanearOp(structuredClone(op)); novo.id = 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -790,8 +805,15 @@
     return h + '</div>';
   }
   const ordemVeiculos = (a, b) => S.ordemCar === 'volume' ? (b.vol - a.vol || a.carro.id - b.carro.id) : S.ordemCar === 'valor' ? (b.valor - a.valor || a.carro.id - b.carro.id) : 0;
+  /* a janela de veículos é redesenhada quando chega um trecho de rota (km); se o clique/arraste do usuário está no meio, espera soltar
+     (senão o botão sumia debaixo do mouse e o clique se perdia) */
+  document.addEventListener('pointerdown', e => { S.ptrCar = !!(e.target.closest && e.target.closest('#jan-carros')); }, true);
+  document.addEventListener('pointerup', () => { if (S.ptrCar) { S.ptrCar = false; if (S.carPend) { S.carPend = false; setTimeout(renderJanCarros, 0); } } }, true);
+  document.addEventListener('pointercancel', () => { if (S.ptrCar) { S.ptrCar = false; if (S.carPend) { S.carPend = false; setTimeout(renderJanCarros, 0); } } }, true);
+  document.addEventListener('dragend', () => { S.ptrCar = false; if (S.carPend) { S.carPend = false; renderJanCarros(); } }, true);
   function renderJanCarros() {
     const jan = $('#jan-carros'); if (jan.hidden) return;
+    if (S.ptrCar) { S.carPend = true; return; }
     const corpo = $('#car-corpo'), op = S.op;
     if (!op || !S.res) { corpo.innerHTML = '<div class="vazio-lista">Sem operação aberta.</div>'; $('#car-qt').textContent = '0'; return; }
     const r = S.res, antes = $('.car-lista', corpo), rol = antes ? antes.scrollTop : 0;
@@ -1114,6 +1136,7 @@
         if (m.t === 'op' || m.t === 'cfg') recarregarDoBanco(m.id || (S.op && S.op.id));
         else if (m.t === 'sel') { S.cidadeAberta = m.key; S.mapa.setSelecionada(m.key); if (m.key && m.centrar) S.mapa.centrarEm(m.key, 140); }
         else if (m.t === 'tema') aplicarTemaAtual();
+        else if (m.t === 'fim') { S.op = null; S.idx = null; S.res = null; S.carroAtivo = null; S.cidadeAberta = null; S.mapa.pernas.clear(); atualizarTudo(); }
         else if (m.t === 'foco') { S.mapa.setAtivo(m.id); S.mapa.padEsq = 0; S.mapa.enquadrarPontos(m.pts || []); }
       } else { // janela principal
         if (m.t === 'cfg') recarregarRegioes();
@@ -1421,6 +1444,6 @@
     if (id === S.janFoco) return; S.janFoco = id;
     $$('.jan').forEach(x => x.classList.toggle('foco', x.id === id));
   }, true);
-  RT.A = { ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();
