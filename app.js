@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.25.1';
+  const VERSAO = '0.26.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -867,6 +867,8 @@
     try { const r = await DB.get('meta', 'regioes'); if (r && r.v && Array.isArray(r.v.regioes)) usar = r.v; } catch (e) { /* usa as originais */ }
     S.reg = usar || (base ? JSON.parse(JSON.stringify(base)) : { regioes: [] });
     if (!S.reg.aprend) S.reg.aprend = {};
+    /* MATRIZ: opção fixa do Health Search (uma região e uma base), sempre disponível para classificar cidades */
+    for (const tp of ['regiao', 'base']) { const id = tp === 'base' ? 'matriz-base' : 'matriz'; if (!S.reg.regioes.some(l => l.id === id)) S.reg.regioes.push({ id, nome: 'MATRIZ', tipo: tp, grupo: 'rota', alias: [], cidades: [], cor: '#455A64', fonte: 'opção fixa' }); }
     N.setRegioes(S.reg);
   }
   function salvarReg() {
@@ -1003,35 +1005,9 @@
         ferBloco(i) +
         (S.geo.desfazer ? '<div class="geo-linha"><button type="button" class="btn mini" data-geo-desf="1">↶ Desfazer a última mudança</button></div>' : '');
     }
-    /* listas cadastradas */
-    $('#geo-listas').innerHTML = regs.map(r => '<div class="geo-lista" style="--cor:' + (r.cor || '#888') + '"><i></i><span><b>' + esc(r.nome) + '</b> <small>' + (r.tipo === 'base' ? 'base' : 'região') + ' · ' + r.cidades.length + ' cidades</small></span>' +
-      '<select class="filtro" data-geo-grupo="' + esc(r.id) + '" aria-label="Conta como" style="min-height:30px;padding:2px 6px"><option value="rota"' + (r.grupo !== 'fora' ? ' selected' : '') + '>Em rota</option><option value="fora"' + (r.grupo === 'fora' ? ' selected' : '') + '>Fora de rota</option></select>' +
-      '<button type="button" class="btn mini" data-geo-ver="' + esc(r.id) + '">' + (S.geo.foco === r.id ? 'Ver todas' : 'Ver no mapa') + '</button><button type="button" class="btn mini perigo" data-geo-del="' + esc(r.id) + '">Excluir</button></div>').join('');
-    /* para conferir: cidades da operação com etiqueta automática */
-    const conf = []; if (S.idx) for (const c of S.idx.lista) { if (!c.code) continue; for (const tp of ['regiao', 'base']) { const r = geoClasse(c.code, tp); if (r.fonte === 'auto') conf.push({ c, tp, r }); } }
-    $('#geo-conferir').innerHTML = conf.length ? conf.map(x => '<div class="geo-lista" style="--cor:' + geoCorLista(x.r.ids[0]) + '"><i></i><span><b>' + esc(x.c.nome) + '/' + esc(x.c.uf) + '</b> <small>' + (x.tp === 'base' ? 'base' : 'região') + ' → ' + esc(geoNomeLista(x.r.ids[0])) + ' · ' + x.r.conf + '% de certeza</small></span><button type="button" class="btn mini" data-geo-ir="' + esc(x.c.code) + '">Ver</button><button type="button" class="btn mini pri" data-geo-conf1="' + esc(x.c.code) + '|' + x.tp + '">Confirmar</button></div>').join('') : '<p class="dica">Nenhuma cidade da operação aberta precisa de conferência.</p>';
-    $('#geo-conf-todas').disabled = !conf.length;
+    if (RT.gal) RT.gal.render();   // listas cadastradas e "Para conferir" (geoalimentar.js)
   }
-  RT.G = { S, classe: geoClasse, salvarReg, info: munInfo, selecionar: geoSelecionar, render: renderGeo, ufs: GEO_UFS, interceptar: null };
-  async function geoColarLista() {
-    const nome = $('#geo-c-nome').value.trim(), txt = $('#geo-c-txt').value, res = $('#geo-c-res');
-    if (!nome) { res.textContent = 'Dê um nome para a lista.'; return; }
-    const codes = [], naoAchei = [], ambiguas = [];
-    for (const lin of txt.split(/\r?\n/)) {
-      const t = lin.trim(); if (!t) continue;
-      const [cn, uf] = t.split('/').map(x => x.trim());
-      const r = N.achaMunicipios(cn, uf || '');
-      if (!r.length) naoAchei.push(t); else if (r.length > 1) { ambiguas.push(cn + ' (' + r.map(x => x.uf).join('/') + ')'); } else if (!codes.includes(r[0].code)) codes.push(r[0].code);
-    }
-    if (!codes.length) { res.textContent = 'Não achei nenhuma cidade no texto.'; return; }
-    const tipo = $('#geo-c-tipo').value, grupo = $('#geo-c-grupo').value;
-    const ex = S.reg.regioes.find(r => N.norm(r.nome) === N.norm(nome));
-    if (ex && !(await U.confirmar('Já existe "' + ex.nome + '"', 'Substituir a lista pelas ' + codes.length + ' cidades coladas?', 'Substituir'))) return;
-    if (ex) { ex.cidades = codes; ex.tipo = tipo; ex.grupo = grupo; }
-    else S.reg.regioes.push({ id: 'l' + Date.now().toString(36), nome, tipo, grupo, cor: CORES_REG[S.reg.regioes.length % CORES_REG.length], cidades: codes });
-    salvarReg();
-    res.innerHTML = '<b>' + codes.length + '</b> cidade(s) na lista “' + esc(nome) + '”.' + (naoAchei.length ? ' <b>Não achei:</b> ' + esc(naoAchei.slice(0, 12).join('; ')) + '.' : '') + (ambiguas.length ? ' <b>Nome em mais de um estado (use /UF):</b> ' + esc(ambiguas.slice(0, 10).join('; ')) + '.' : '');
-  }
+  RT.G = { S, ensinar: geoEnsinar, classe: geoClasse, salvarReg, info: munInfo, selecionar: geoSelecionar, render: renderGeo, ufs: GEO_UFS, interceptar: null };
   function ligarGeo() {
     const q = $('#geo-q'), sug = $('#geo-sug');
     const achar = () => {
@@ -1053,22 +1029,8 @@
     $('#geo-bt-alim').onclick = () => { const p = $('#geo-alim'); p.hidden = !p.hidden; $('#geo-bt-alim').setAttribute('aria-expanded', String(!p.hidden)); if (!p.hidden) setTimeout(() => $('#geo-c-nome').focus(), 30); };
     $('#geo-cheia').onclick = () => { const el = $('#geo-mapa'); if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => toast('O navegador não deixou abrir em tela cheia.')); };
     document.addEventListener('fullscreenchange', () => { const el = $('#geo-mapa'); el.classList.toggle('cheia', document.fullscreenElement === el); $('#geo-cheia').textContent = document.fullscreenElement === el ? 'Sair da tela cheia' : 'Tela cheia'; setTimeout(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); S.geo.mapa.marcar(); } }, 120); });
-    $('#geo-ajuda').onclick = () => U.aviso('Como funciona a Geolocalização', '<p><b>Região (rota)</b> é a área de entrega que atende a cidade; <b>Base</b> é de onde o veículo sai. Cada lista tem uma cor.</p><p><b>na lista</b>: a cidade está escrita numa das listas. <b>automática</b>: não está em lista nenhuma, mas fica no meio de cidades de uma região — o app sugere (com % de certeza); clique em <b>Confirmar</b> ou corrija. <b>ensinada</b>: você confirmou/corrigiu, e isso passa a valer em todo o programa (inclusive fora de rota).</p><p>Clique num nome da legenda para esconder ou mostrar a lista no mapa.</p>');
-    const lerArq = f => { const r = new FileReader(); r.onload = () => { $('#geo-c-txt').value = String(r.result || ''); if (!$('#geo-c-nome').value) $('#geo-c-nome').value = f.name.replace(/\.[^.]+$/, ''); $('#geo-c-res').textContent = 'Arquivo lido. Confira o nome, o tipo e clique em Ler lista.'; }; r.readAsText(f); };
-    $('#geo-arq').onchange = e => { if (e.target.files[0]) lerArq(e.target.files[0]); e.target.value = ''; };
-    const sol = $('#geo-soltar'); sol.addEventListener('dragover', e => { e.preventDefault(); sol.classList.add('sobre'); }); sol.addEventListener('dragleave', () => sol.classList.remove('sobre')); sol.addEventListener('drop', e => { e.preventDefault(); sol.classList.remove('sobre'); const f = e.dataTransfer.files[0]; if (f) lerArq(f); });
+    $('#geo-ajuda').onclick = () => U.aviso('Como funciona a Geolocalização', '<p><b>Região (rota)</b> é a área de entrega que atende a cidade; <b>Base</b> é de onde o veículo sai. Cada lista tem uma cor.</p><p><b>na lista</b>: a cidade está escrita numa das listas. <b>automática</b>: não está em lista nenhuma, mas fica no meio de cidades de uma região — o app sugere (com % de certeza); clique em <b>Confirmar</b> ou corrija. <b>ensinada</b>: você confirmou/corrigiu, e isso passa a valer em todo o programa (inclusive fora de rota).</p><p>Clique num nome da legenda para esconder ou mostrar a lista no mapa. Para criar ou atualizar listas, use <b>Alimentar</b> (PDF, TXT ou texto colado) e confira a prévia antes de salvar; para desenhar a área no mapa, use o <b>Editor de regiões</b>.</p>');
     $('#geo-leg').addEventListener('click', e => { const b = e.target.closest('[data-geo-leg]'); if (!b) return; const id = b.dataset.geoLeg; if (S.geo.ocultos.has(id)) S.geo.ocultos.delete(id); else S.geo.ocultos.add(id); renderGeo(); });
-    $('#geo-conferir').addEventListener('click', e => {
-      const ir = e.target.closest('[data-geo-ir]'), c1 = e.target.closest('[data-geo-conf1]');
-      if (ir) geoSelecionar(ir.dataset.geoIr, true);
-      if (c1) { const [cod, tp] = c1.dataset.geoConf1.split('|'), r = geoClasse(cod, tp); if (r.ids[0]) { geoEnsinar(cod, tp, r.ids[0]); toast('Confirmado.'); } }
-    });
-    $('#geo-conf-todas').onclick = async () => {
-      const lista = []; for (const c of (S.idx ? S.idx.lista : [])) { if (!c.code) continue; for (const tp of ['regiao', 'base']) { const r = geoClasse(c.code, tp); if (r.fonte === 'auto') lista.push([c.code, tp, r.ids[0]]); } }
-      if (!lista.length) return; if (!(await U.confirmar('Confirmar todas?', 'As ' + lista.length + ' etiquetas automáticas das cidades desta operação viram “ensinadas” e passam a valer em todo o programa.', 'Confirmar todas'))) return;
-      S.geo.desfazer = JSON.stringify(S.reg); S.reg.aprend = S.reg.aprend || {}; for (const [cod, tp, id] of lista) { S.reg.aprend[cod] = S.reg.aprend[cod] || {}; S.reg.aprend[cod][tp] = id; }
-      salvarReg(); toast(lista.length + ' etiqueta(s) confirmada(s).');
-    };
     $('#geo-z-mais').onclick = () => S.geo.mapa && S.geo.mapa.zoom(1.5); $('#geo-z-menos').onclick = () => S.geo.mapa && S.geo.mapa.zoom(1 / 1.5);
     $('#geo-ver-tudo').onclick = () => { S.geo.foco = null; geoEnquadrarTudo(); renderGeo(); };
     $('#geo-res').addEventListener('click', e => {
@@ -1092,12 +1054,6 @@
       else if (conf) { const r = geoClasse(i.code, conf.dataset.geoConf); if (r.ids[0]) { geoEnsinar(i.code, conf.dataset.geoConf, r.ids[0]); toast(i.nome + ': confirmado. Já vale em todo o programa.'); } }
       if (aj) { const v = aj.dataset.geoAj; if (v === 'limpar') delete S.cfg.fora[i.code]; else S.cfg.fora[i.code] = v; salvarCfg(); renderGeo(); }
     });
-    $('#geo-listas').addEventListener('click', async e => {
-      const ver = e.target.closest('[data-geo-ver]'), del = e.target.closest('[data-geo-del]');
-      if (ver) { const id = ver.dataset.geoVer; S.geo.foco = S.geo.foco === id ? null : id; const r = S.reg.regioes.find(x => x.id === id); if (S.geo.foco && r) { S.geo.tipo = r.tipo; S.geo.mapa.enquadrarPontos(r.cidades.map(munInfo).filter(Boolean)); } renderGeo(); }
-      if (del) { const r = S.reg.regioes.find(x => x.id === del.dataset.geoDel); if (r && await U.confirmar('Excluir “' + r.nome + '”?', 'A lista (' + r.cidades.length + ' cidades) sai daqui. “Restaurar listas originais” traz de volta as do Health Search.', 'Excluir lista', true)) { S.reg.regioes = S.reg.regioes.filter(x => x !== r); salvarReg(); } }
-    });
-    $('#geo-listas').addEventListener('change', e => { const g = e.target.closest('[data-geo-grupo]'); if (!g) return; const r = S.reg.regioes.find(x => x.id === g.dataset.geoGrupo); if (r) { r.grupo = g.value; salvarReg(); toast('“' + r.nome + '” agora conta como ' + (r.grupo === 'fora' ? 'FORA de rota.' : 'em rota.')); } });
     $('#geo-orig').onclick = async () => {
       if (!S.regBase) { toast('As listas originais não estão disponíveis.'); return; }
       if (!(await U.confirmar('Restaurar as listas originais?', 'Suas edições nas regiões e bases são descartadas e voltam as listas que vieram do Health Search.', 'Restaurar', true))) return;
@@ -1105,7 +1061,6 @@
       S.reg = JSON.parse(JSON.stringify(S.regBase)); S.reg.aprend = {}; S.geoCls = null; try { await DB.apagar('meta', 'regioes'); } catch (e) { /* ok */ }
       N.setRegioes(S.reg); reindexar(); atualizarTudo(); renderGeo(); toast('Listas originais restauradas.');
     };
-    $('#geo-c-ok').onclick = geoColarLista;
   }
   async function backupReg() { try { await DB.put('bk', { opId: 'regioes', nome: 'Regiões e bases', quando: new Date().toISOString(), motivo: 'antes de restaurar as listas originais', rev: 0, op: { notas: [], carros: [], atrib: {}, regioes: structuredClone(S.reg) } }); return true; } catch (e) { toast('⚠ Não consegui guardar a cópia das regiões: ' + ((e && e.message) || e)); return false; } }
   function geoEnquadrarTudo() {

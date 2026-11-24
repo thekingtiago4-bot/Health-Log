@@ -122,20 +122,28 @@
         <button class="btn grande" id="geo-bt-alim" type="button" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 17v3h16v-3"/></svg> Alimentar</button>
       </div>
       <div class="geo-alim" id="geo-alim" hidden>
-        <label class="geo-soltar" id="geo-soltar" tabindex="0"><b>Arraste uma lista de cidades (.txt) aqui</b><span>ou</span><span class="btn pri">Escolher arquivo</span><input type="file" id="geo-arq" accept=".txt,.csv,text/plain" hidden></label>
-        <details class="geo-colar" open><summary>Ou cole uma lista de cidades</summary>
-          <div class="geo-col-grid"><label>Nome da lista<input id="geo-c-nome" class="filtro" placeholder="Ex.: Triângulo Mineiro" autocomplete="off"></label>
-            <label>Tipo<select id="geo-c-tipo" class="filtro"><option value="regiao">Região (rota)</option><option value="base">Base</option></select></label>
-            <label>Conta como<select id="geo-c-grupo" class="filtro"><option value="rota">Em rota</option><option value="fora">Fora de rota</option></select></label>
-            <button class="btn pri" id="geo-c-ok" type="button">Ler lista</button></div>
-          <textarea id="geo-c-txt" class="filtro" style="width:100%;min-height:110px;margin-top:8px" placeholder="Uma cidade por linha. Pode ter /UF no fim (ex.: Passos/MG)"></textarea>
-          <p class="dica" id="geo-c-res"></p>
+        <h2>Alimentar as referências</h2>
+        <p class="sub" style="margin:0">Jogue aqui os PDFs das rotas e das bases (lista de cidades). O título da folha vira o nome da região; se o título tiver “BASE”, a lista vira uma base. PDF escaneado é lido pelo leitor de fotos.</p>
+        <label class="soltar" id="geo-soltar" tabindex="0" style="margin-top:12px">
+          <svg class="pilha" width="46" height="46" viewBox="0 0 54 54" fill="none" aria-hidden="true"><rect x="9" y="7" width="30" height="38" rx="3" fill="var(--sup)" stroke="var(--teal)" stroke-width="2"/><path d="M15 18h18M15 24h18M15 30h12" stroke="var(--teal)" stroke-width="2" stroke-linecap="round"/><circle cx="40" cy="39" r="9" fill="var(--teal)"/><path d="M40 34v10M35 39h10" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <div><b>Arraste os PDFs das listas para cá</b><span>ou clique para escolher (PDF ou TXT)</span></div>
+          <input type="file" id="geo-arq" accept="application/pdf,.pdf,.txt,text/plain" multiple class="sr">
+        </label>
+        <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">Ou cole a lista de cidades</summary>
+          <div class="geo-colar">
+            <label>Nome da lista<input id="geo-c-nome" placeholder="Ex.: Triângulo Mineiro" autocomplete="off"></label>
+            <label>Tipo<select id="geo-c-tipo"><option value="regiao">Região (rota)</option><option value="base">Base</option></select></label>
+            <button class="btn pri" id="geo-c-ok" type="button">Ler lista</button>
+            <textarea id="geo-c-txt" placeholder="Uma cidade por linha (pode ter /UF no fim)"></textarea>
+          </div>
         </details>
-        <div class="barra-geo"><h2>Listas cadastradas</h2><button class="btn mini" id="geo-orig" type="button" title="Volta às listas que vieram do Health Search, descartando suas edições">Restaurar listas originais</button></div>
-        <div id="geo-listas"></div>
-        <div class="barra-geo"><h2>Para conferir</h2><button class="btn mini pri" id="geo-conf-todas" type="button">Confirmar todas</button></div>
-        <p class="sub" style="margin:0 0 8px">Cidades <b>da operação aberta</b> que não estão em nenhuma lista, mas ficam dentro da área de uma região ou base (etiqueta automática).</p>
-        <div id="geo-conferir"></div>
+        <div id="geo-status" role="status"></div>
+        <div id="geo-prevs"></div>
+        <div class="barra"><h2>Listas cadastradas</h2><button class="btn mini" id="geo-orig" type="button" title="Volta as listas que vieram com o programa, sem apagar as que você alimentou">Restaurar listas originais</button></div>
+        <div class="lista" id="geo-listas" style="margin-top:8px"></div>
+        <div class="barra"><h2>Para conferir</h2><button class="btn mini pri" id="geo-conf-todas" type="button">Confirmar todas</button></div>
+        <p class="sub" style="margin:0 0 6px">Cidades da operação aberta que ganharam etiqueta automática. Confirme para o programa aprender.</p>
+        <div class="lista" id="geo-conferir" style="margin-top:8px"></div>
       </div>
       <div class="geo-grid">
         <div class="geo-card" id="geo-res" aria-live="polite"></div>
@@ -274,6 +282,7 @@
 <script src="turno.js"></script>
 <script src="feriados.js"></script>
 <script src="geoeditor.js"></script>
+<script src="geoalimentar.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

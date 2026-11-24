@@ -166,5 +166,5 @@
     });
     cd.addEventListener('change', async e => { const t = e.target; const m = RT.motoristas.find(x => x.id === (t.dataset.cdO || t.dataset.cdP)); if (!m) return; if (t.dataset.cdO) m.origem = t.value.trim(); else m.placa = t.value.trim().toUpperCase(); await guardarMot(); toast('Salvo.'); });
   }
-  RT.rom = { textoDoCabecalho, ocr, adicionarPdfs, carregarMot, ligar: ligarTelas, render(t) { if (t === 'xmls') renderXmls(); else if (t === 'cadastros') renderCadastros(); }, badge: badgeXml };
+  RT.rom = { pdfjs, textoDoCabecalho, ocr, adicionarPdfs, carregarMot, ligar: ligarTelas, render(t) { if (t === 'xmls') renderXmls(); else if (t === 'cadastros') renderCadastros(); }, badge: badgeXml };
 })(typeof window !== 'undefined' ? window : globalThis);

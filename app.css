@@ -682,3 +682,21 @@ body.ged-on .geo-mapa .geo-box{cursor:crosshair}
 body.so-geo .rail,body.so-geo .rail-seta,body.so-geo .hs-salvar,body.so-geo #t-geo>*:not(.geo-grid){display:none!important}
 body.so-geo .app{grid-template-columns:1fr}body.so-geo #principal{padding:10px}
 body.so-geo .geo-box{height:calc(100vh - 150px)}
+
+/* Alimentar (igual ao Health Search) */
+.geo-alim h2{margin:0 0 4px;font-size:1.05rem}.geo-alim .barra{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}
+.soltar{display:flex;gap:14px;align-items:center;border:2px dashed var(--linha);border-radius:12px;padding:16px;cursor:pointer;background:var(--sup2)}
+.soltar:hover,.soltar.sobre,.soltar:focus-visible{border-color:var(--teal);background:var(--tealBg);outline:0}
+.soltar b{display:block}.soltar span{display:block;color:var(--mudo);font-size:.85rem}
+.sr{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.geo-alim .geo-colar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:8px;border:0;background:none;padding:0}
+.geo-alim .geo-colar label{display:flex;flex-direction:column;gap:3px;font-size:.8rem;color:var(--tinta2)}.geo-alim .geo-colar textarea{flex:1 1 100%;min-height:110px}
+#geo-status{min-height:22px;margin-top:8px;color:var(--mudo);font-size:.88rem}
+.gira{display:inline-block;width:12px;height:12px;border:2px solid var(--teal);border-top-color:transparent;border-radius:50%;animation:gira .8s linear infinite;vertical-align:-2px}@keyframes gira{to{transform:rotate(360deg)}}
+.geo-prev{border:1px solid var(--linha);background:var(--sup);border-radius:10px;padding:12px;margin-top:10px}
+.geo-prev .cab{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}.geo-prev .cab label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--tinta2)}.geo-prev .cab input,.geo-prev .cab select{min-height:36px}
+.geo-prev .nomes{margin-top:8px;max-height:110px;overflow:auto;font-size:.82rem;color:var(--tinta2);line-height:1.5}.geo-prev .falta{color:var(--no)}
+.geo-alim .rolagem{overflow:auto;border:1px solid var(--linha);border-radius:8px}.geo-alim table{width:100%;border-collapse:collapse;font-size:.86rem}
+.geo-alim th{text-align:left;padding:7px 10px;border-bottom:1.5px solid var(--linha);background:var(--sup2);position:sticky;top:0}.geo-alim td{padding:6px 10px;border-bottom:1px solid var(--linha2)}
+.geo-alim .num{text-align:right}.geo-alim .forte{font-weight:600}.geo-alim .sec{color:var(--mudo)}
+.geo-cor{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}

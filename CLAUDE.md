@@ -107,3 +107,8 @@ Trocar `VERSAO` em `app.js`, `CACHE` em `sw.js` e `version.json`; rodar os teste
 - Folha de rotas: sem a linha CONF.; cabeçalho "ROTA dd/mm/aaaa" (data da operação) e "Emitida às hh:mm:ss".
 - Geolocalização: botão "Estradas" (mapa de ruas por baixo; regiões translúcidas, como no HS) e "Abrir em outra janela" (`?geo=1` = só o mapa; mudanças de região/config avisam as outras janelas por `{t:'cfg'}` → `recarregarRegioes`, que NÃO troca a operação aberta).
 - v0.25.1: a abertura NUNCA pode ficar atrás da tela do app: `tema.js` (síncrono no head) põe uma cortina `#hs-pre` com o fundo da abertura já no 1º quadro; `abertura.js` (defer, no index.html) a troca pela animação (e ela some em 8 s se algo falhar). Sem cortina em ?mapa=1 / ?geo=1 / movimento reduzido.
+
+## v0.26 — Alimentar como no Health Search (`geoalimentar.js`, `RT.gal`)
+- Fluxo IDÊNTICO ao do HS: soltar PDF (com texto ou escaneado → OCR local) / TXT, ou colar a lista → `casar` (corrige a grafia por distância de edição, escolhe a homônima mais perto das demais, "não reconheci … (seria X/UF?)") → PRÉVIA editável (nome, tipo, "também chamada de", "vai atualizar a lista X; entram N, saem M") → só grava em "Salvar lista"/"Atualizar lista"; "Descartar" não grava nada. Título da folha com "BASE" vira base; apelidos automáticos (VIA MINAS, LKR, AQA/CAJ/BH).
+- Listas cadastradas e Para conferir viram TABELAS como no HS (coluna extra "Conta como: Em rota/Fora de rota", que é regra do Health Log). MATRIZ (região e base, opção fixa) é criada se faltar.
+- `RT.G` agora expõe `ensinar`; `RT.rom` expõe `pdfjs`/`ocr` para o módulo reutilizar o leitor de PDF/fotos.
