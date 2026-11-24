@@ -42,9 +42,11 @@ function hsCineHtml(){ let pts=''; const NPT=14; for(let i=0;i<NPT;i++) pts+=`<s
   <g class="hc-bgs"><rect class="hc-bg" x="104" y="235" width="34" height="50" rx="9" fill="url(#hcA)" style="animation-delay:1.00s"/><rect class="hc-bg" x="156" y="193" width="34" height="92" rx="9" fill="url(#hcA)" style="animation-delay:1.22s"/><rect class="hc-bg" x="208" y="151" width="34" height="134" rx="9" fill="url(#hcA)" style="animation-delay:1.44s"/><rect class="hc-bg" x="260" y="109" width="34" height="176" rx="9" fill="#ffffff" style="animation-delay:1.66s"/></g>
  </svg><div class="hc-nome">${nome}</div><div class="hc-sub">Eficiência Máxima Em Roteirização</div><div class="hc-barra"><b></b></div>`; }
 /* v9.6.5: a abertura toca sempre que o app abre (logado ou não), por cima da tela de carregamento */
-(function(){ try{ if(matchMedia('(prefers-reduced-motion:reduce)').matches) return;
-  const c=document.createElement('div'); c.id='hs-cine'; c.style.zIndex='2100'; c.innerHTML=hsCineHtml(); document.body.appendChild(c);
+(function(){ if(/[?&](mapa|geo)=1/.test(location.search)) return;
+  const tiraCortina=()=>{ const p=document.getElementById('hs-pre'); if(p) p.remove(); };
+  try{ if(matchMedia('(prefers-reduced-motion:reduce)').matches){ tiraCortina(); return; }
+  const c=document.createElement('div'); c.id='hs-cine'; c.style.zIndex='2100'; c.innerHTML=hsCineHtml(); document.body.appendChild(c); tiraCortina();
   document.body.classList.add('hs-cine-on');
   let fim=false; const sair=()=>{ if(fim) return; fim=true; document.body.classList.remove('hs-cine-on'); c.classList.add('fim'); setTimeout(()=>c.remove(),700); };
   /* v10.1.9 · a abertura não se pula: roda inteira, para ninguém entrar na tela antes da hora */
-  setTimeout(sair,5600); }catch(e){ console.error(e); } })();
+  setTimeout(sair,5600); }catch(e){ console.error(e); tiraCortina(); } })();

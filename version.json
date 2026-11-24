@@ -1,1 +1,1 @@
-{"versao":"0.25.0","data":"2026-11-23","novidades":"Rota mais curta agora e o padrao (sem botao). Legenda do mapa atualizada. Folha de rotas sem CONF. e com Emitida as hh:mm:ss. Geolocalizacao: Estradas por baixo e Abrir em outra janela."}
+{"versao":"0.25.1","data":"2026-11-24","novidades":"A abertura animada cobre a tela desde o primeiro quadro: o app nao aparece mais antes da animacao."}

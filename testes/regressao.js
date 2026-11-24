@@ -1017,8 +1017,11 @@ const cents = s => Math.round(parseFloat(s) * 100);
 
   console.log('\nAbertura animada (igual à do Health Search)');
   const c2 = await novaPagina({ reducedMotion: 'no-preference' });
+  await c2.p.addInitScript(() => { window.__cortina = []; document.addEventListener('readystatechange', () => { window.__cortina.push(document.readyState + ':' + !!document.getElementById('hs-pre')); }); });
   await c2.p.goto(URL);
   await c2.p.waitForSelector('#hs-cine', { timeout: 3000 });
+  verdade(await c2.p.evaluate(() => window.__cortina.some(x => x === 'interactive:true') && !window.__cortina.some(x => /true/.test(x) === false && x.startsWith('loading'))), 'a cortina da abertura já cobre a tela ANTES de qualquer conteúdo do app (sem piscar a tela)');
+  verdade(await c2.p.evaluate(() => !document.getElementById('hs-pre')), 'e é trocada pela animação (a cortina some)');
   verdade(await c2.p.evaluate(() => document.querySelectorAll('#hs-cine .hc-nome i').length === 11), 'animação "Health Log." presente');
   verdade(await c2.p.evaluate(() => !document.getElementById('mural').hidden), 'mural já está por trás da animação');
   await c2.p.waitForSelector('#hs-cine', { state: 'detached', timeout: 9000 });
