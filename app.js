@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.29.1';
+  const VERSAO = '0.30.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -24,7 +24,7 @@
     const comp = new Set(S.res.cidades.filter(c => !c.fora && c.estado === 'completa').map(c => c.cidade.key));
     if (S.compOp === S.op.id && S.comp && !S.modoMapa) { for (const k of comp) if (!S.comp.has(k)) { U.som('ok'); break; } }
     S.comp = comp; S.compOp = S.op.id;
-    if (S.ordOp !== S.op.id) { S.ordPrev = new Map(S.op.carros.map(c => [c.id, new Set(c.cidades)])); S.ordOp = S.op.id; }   // ponto de partida da ordem automática
+    if (S.ordOp !== S.op.id) { S.veicAbertos = new Set(U.pref.ler('veic:' + S.op.id, []).filter(id => S.op.carros.some(c => c.id === id))); S.ordPrev = new Map(S.op.carros.map(c => [c.id, new Set(c.cidades)])); S.ordOp = S.op.id; }   // ponto de partida da ordem automática
   }
   const carroPorId = id => (S.op ? S.op.carros.find(c => c.id === id) : null) || null;
   const nomeId = id => { const c = carroPorId(id); return c ? N.nomeCarro(c) : 'Veículo ?'; };
@@ -249,7 +249,7 @@
       if (!ok) return;
     }
     mutar('novo ' + N.TIPOS[tipo].nome.toLowerCase(), () => { const c = N.novoCarro(S.op, '', tipo); S.carroAtivo = c.id; });
-    janVer('carros', true);
+    abrirJanelaVeiculo(S.carroAtivo);   // o veículo novo já aparece na sua janela própria (a lista de todos é o botão Rotas)
   }
   const novoCarro = () => novoVeiculo('carro');
   function selecionarCarro(id) {
@@ -390,8 +390,26 @@
     const l = $('#pend-lista'); if (l) l.scrollTop = 0;
     toast('Cidades pendentes: ' + { nome: 'ordem alfabética (A–Z)', volume: 'maior volume primeiro', valor: 'maior valor primeiro' }[prox] + '.');
   }
+  /* quadrado da cidade: TODAS as notas e clientes dela vão de uma vez para o carro escolhido (ou saem dele, se já estavam) */
+  function cidadeInteiraNoCarro(key, marcar) {
+    const c = S.idx && S.idx.cidades.get(key); if (!c || !S.op) return;
+    if (!S.op.carros.length) { mutar('novo carro', () => { const k = N.novoCarro(S.op); S.carroAtivo = k.id; }); abrirJanelaVeiculo(S.carroAtivo); toast('Criei o Carro 1 para você começar.'); }
+    if (S.carroAtivo == null || !carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros[0].id;
+    const car = S.carroAtivo;
+    if (marcar) {
+      const ids = c.notas.filter(n => S.op.atrib[n.id] == null).map(n => n.id);
+      if (!ids.length) { toast('Todas as notas de ' + c.nome + ' já estão em veículos.'); renderPend(); return; }
+      mutar('cidade inteira → ' + nomeId(car), () => N.alocar(S.op, S.idx, ids, car));
+      toast(c.nome + ': ' + ids.length + ' nota(s) e ' + new Set(c.notas.filter(n => ids.includes(n.id)).map(n => N.chaveCliente(n))).size + ' cliente(s) → ' + nomeId(car) + '.', { rotulo: 'Desfazer', fn: desfazer });
+    } else {
+      const ids = c.notas.filter(n => S.op.atrib[n.id] === car).map(n => n.id); if (!ids.length) { renderPend(); return; }
+      mutar('tirar cidade de ' + nomeId(car), () => N.alocar(S.op, S.idx, ids, null));
+      toast(c.nome + ': ' + ids.length + ' nota(s) saíram de ' + nomeId(car) + '.', { rotulo: 'Desfazer', fn: desfazer });
+    }
+  }
   function renderPend() {
     if (S.modoMapa) return;
+    { const sc = $('#pend-carro'); if (sc) { const op = S.op; sc.innerHTML = op && op.carros.length ? op.carros.map(c => '<option value="' + c.id + '"' + (c.id === S.carroAtivo ? ' selected' : '') + '>→ ' + esc(N.nomeCarro(c)) + '</option>').join('') : '<option value="">→ Carro novo</option>'; } }
     const lista = $('#pend-lista');
     if (!S.res) { lista.innerHTML = '<li class="pend-vazio">Sem operação.</li>'; $('#pend-qt').textContent = '0'; return; }
     const q = N.norm(S.pend.q), ord = S.pend.ordem;
@@ -407,7 +425,9 @@
       const l = rc.estado === 'completa' ? N.somar(c.notas) : rc.livres, tot = N.somar(c.notas); // o que AINDA falta (vai abatendo a cada nota/volume que sai)
       const sub = rc.estado === 'completa' ? 'tudo em veículo' : (rc.paradasLivres + ' parada(s)' + (rc.estado === 'parcial' ? ' · já saíram ' + (tot.notas - l.notas) + ' de ' + tot.notas + ' notas' : '')) + (c.semPosicao ? ' · sem posição no mapa' : '');
       const reg = foraRota ? N.regioesDaCidade(c.code).join(', ') : '';
-      return '<li class="' + (foraRota ? 'fora' : '') + '" data-cid="' + esc(c.key) + '"' + (c.key === S.cidadeAberta ? ' aria-current="true"' : '') + '><span class="pt ' + pt + '">' + (pt === 'parc' ? '!' : '') + '</span><b class="cn"><span class="cn-nome">' + esc(c.nome) + '</span><span class="tag">' + esc(c.uf) + '</span></b><span class="n" title="notas que faltam (de ' + tot.notas + ')">' + l.notas + '</span><span class="v" title="volumes que faltam (de ' + i$(tot.vol) + ')">' + i$(l.vol) + '</span><span class="vl" title="valor que falta (de ' + m$(tot.valor) + ')">' + m$(l.valor) + '</span><small>' + sub + (reg ? ' · ' + esc(reg) : '') + '</small>' +
+      const noAtivo = S.carroAtivo != null && ((rc.porCarro.get(S.carroAtivo) || { notas: 0 }).notas === tot.notas) && tot.notas > 0;
+      const quadrado = foraRota ? '<span></span>' : '<input type="checkbox" class="pend-sel" data-sel="' + esc(c.key) + '"' + (noAtivo ? ' checked' : '') + ' title="Selecionar TODAS as notas e clientes de ' + esc(c.nome) + ' para ' + esc(S.carroAtivo != null && carroPorId(S.carroAtivo) ? N.nomeCarro(carroPorId(S.carroAtivo)) : 'um carro novo') + '" aria-label="Selecionar todas as notas de ' + esc(c.nome) + ' para o carro escolhido">';
+      return '<li class="' + (foraRota ? 'fora' : '') + '" data-cid="' + esc(c.key) + '"' + (c.key === S.cidadeAberta ? ' aria-current="true"' : '') + '>' + quadrado + '<span class="pt ' + pt + '">' + (pt === 'parc' ? '!' : '') + '</span><b class="cn"><span class="cn-nome">' + esc(c.nome) + '</span><span class="tag">' + esc(c.uf) + '</span></b><span class="n" title="notas que faltam (de ' + tot.notas + ')">' + l.notas + '</span><span class="v" title="volumes que faltam (de ' + i$(tot.vol) + ')">' + i$(l.vol) + '</span><span class="vl" title="valor que falta (de ' + m$(tot.valor) + ')">' + m$(l.valor) + '</span><small>' + sub + (reg ? ' · ' + esc(reg) : '') + '</small>' +
         (c.code ? '<button type="button" class="bt-fora" data-fora="' + esc(c.key) + '">' + (foraRota ? 'trazer para a rota' : 'marcar fora de rota') + '</button>' : '') + '</li>';
     };
     /* rodapé: quanto ainda falta sair, somando as cidades em rota que não zeraram */
@@ -442,7 +462,7 @@
     o = o || {};
     if (!S.op || !S.idx || !S.idx.cidades.has(key)) return;
     if (S.cidadeAberta && S.cidadeAberta !== key && draftSujo()) toast('Marcações não concluídas foram descartadas.');
-    if (!S.op.carros.length) { mutar('novo carro', () => { const c = N.novoCarro(S.op); S.carroAtivo = c.id; }); toast('Criei o Carro 1 para você começar.'); }
+    if (!S.op.carros.length) { mutar('novo carro', () => { const c = N.novoCarro(S.op); S.carroAtivo = c.id; }); abrirJanelaVeiculo(S.carroAtivo); toast('Criei o Carro 1 para você começar.'); }
     if (S.carroAtivo == null || !carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros[0].id;
     S.cidadeAberta = key; S.expand = new Set(); resetDraft();
     S.mapa.setSelecionada(key); enviar({ t: 'sel', key, centrar: !!o.centrar });
@@ -790,11 +810,11 @@
   S.carAberto = new Set(); S.carExp = new Set(); S.selMov = new Set();
   const fmtLimite = c => (c == null ? '' : (c / 100).toFixed(2).replace('.', ','));
   function notasDoVeiculoNaCidade(carId, key) { const c = S.idx.cidades.get(key); return c ? c.notas.filter(n => S.op.atrib[n.id] === carId) : []; }
-  function veiculoHtml(rc) {
-    const c = rc.carro, aberto = S.carAberto.has(c.id), acima = S.cfg.limite != null && rc.valor > S.cfg.limite;
+  function veiculoHtml(rc, abertoForcado) {
+    const c = rc.carro, aberto = abertoForcado === true || S.carAberto.has(c.id), acima = S.cfg.limite != null && rc.valor > S.cfg.limite;
     const rastro = c.rastreio === 'sim' ? 'Rastreio: SIM' : c.rastreio === 'nao' ? 'Rastreio: NÃO' : 'Rastreio: —';
     let h = '<div class="vei' + (c.id === S.carroAtivo ? ' ativo' : '') + '" data-car="' + c.id + '" style="--cor:' + c.cor + '"><div class="vei-cab"><b>' + esc(N.rotuloCarro(c)) + '</b>' +
-      '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
+      '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-vjan="' + c.id + '" title="Abrir a janela própria deste veículo" aria-label="Janela própria">⧉</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
       '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)' + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c), true) + '</span>' : '') + '</span>' +
       (acima ? (c.rastreio === 'sim' ? '<span class="vei-alerta ok" title="Veículo com rastreio: pode passar do limite">✔ Dentro do limite de ' + m$(S.cfg.limite) + '</span>' : '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>') : '') + '</div>';
     if (aberto) {
@@ -818,7 +838,7 @@
   const ordemVeiculos = (a, b) => S.ordemCar === 'volume' ? (b.vol - a.vol || a.carro.id - b.carro.id) : S.ordemCar === 'valor' ? (b.valor - a.valor || a.carro.id - b.carro.id) : 0;
   /* a janela de veículos é redesenhada quando chega um trecho de rota (km); se o clique/arraste do usuário está no meio, espera soltar
      (senão o botão sumia debaixo do mouse e o clique se perdia) */
-  const onPtrDown = e => { S.ptrCar = !!(e.target.closest && e.target.closest('#jan-carros')); };
+  const onPtrDown = e => { S.ptrCar = !!(e.target.closest && e.target.closest('#jan-carros, .jan-veic')); };
   const onPtrUp = () => { if (S.ptrCar) { S.ptrCar = false; if (S.carPend) { S.carPend = false; setTimeout(renderJanCarros, 0); } } };
   const onDragEnd = () => { S.ptrCar = false; if (S.carPend) { S.carPend = false; renderJanCarros(); } };
   const onFocoDown = e => {
@@ -836,7 +856,52 @@
     doc.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jan-ext'); if (b) { const j = b.closest('.jan'); if (j) janParaOutraTela(j.id.replace('jan-', ''), !j.classList.contains('na-ext')); } });
   }
   ligarDocumento(document);
+  /* ================= janela PRÓPRIA de cada veículo ================= */
+  S.veicJan = new Map(); S.veicAbertos = new Set();
+  const selJan = id => JANS[id] || '#jan-' + id;
+  const gravarVeicAbertos = () => { if (S.op) U.pref.gravar('veic:' + S.op.id, [...S.veicAbertos]); };
+  function abrirJanelaVeiculo(id) {
+    if (!S.op || !carroPorId(id)) return;
+    S.veicAbertos.add(id); gravarVeicAbertos(); renderJanelasVeiculos();
+    const j = S.veicJan.get(id); if (j) { j.hidden = false; j.style.zIndex = String(++U.z); }
+    selecionarCarro(id);
+  }
+  function fecharJanelaVeiculo(id) { S.veicAbertos.delete(id); gravarVeicAbertos(); const j = S.veicJan.get(id); if (j) j.hidden = true; }
+  function criarJanelaVeiculo(id) {
+    const area = $('#mapa-area'), j = document.createElement('div'), k = S.veicJan.size, key = 'v' + id;
+    j.className = 'jan jan-veic'; j.id = 'jan-' + key; j.setAttribute('role', 'dialog'); j.dataset.car = String(id);
+    j.innerHTML = '<div class="jan-cab"><b></b><span class="jan-qt"></span><button type="button" class="jan-x" data-vmin aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" data-vfechar aria-label="Fechar" title="Fechar (reabre em Rotas)">✕</button></div><div class="jan-corpo"><div class="car-lista"></div></div>';
+    area.appendChild(j);
+    const pos = U.pref.ler('pos:' + key, null);
+    if (pos && isFinite(pos.x) && isFinite(pos.y)) U.posicionar(j, area, pos.x, pos.y);
+    else { const W = area.clientWidth || 1200; j.style.left = Math.max(8, W - 400 - 38 * (k % 6)) + 'px'; j.style.top = (12 + 34 * (k % 6)) + 'px'; j.style.right = 'auto'; }
+    U.arrastavel(j, '.jan-cab', area, p => U.pref.gravar('pos:' + key, p));
+    U.redimensionavel(j, key, area, () => { ajustarPadMapa(); });
+    ligarCorpoVeiculos(j.querySelector('.car-lista'));
+    j.addEventListener('pointerdown', () => { if (S.carroAtivo !== id) selecionarCarro(id); });
+    j.addEventListener('click', e => {
+      if (e.target.closest('[data-vfechar]')) return fecharJanelaVeiculo(id);
+      if (e.target.closest('[data-vmin]')) { const r = j.classList.toggle('recolhida'); e.target.closest('[data-vmin]').textContent = r ? '+' : '–'; }
+    });
+    S.veicJan.set(id, j); return j;
+  }
+  function renderJanelasVeiculos() {
+    if (S.modoMapa) return;
+    if (!S.op || !S.res) { for (const j of S.veicJan.values()) j.remove(); S.veicJan.clear(); return; }
+    for (const [id, j] of [...S.veicJan]) if (!carroPorId(id)) { j.remove(); S.veicJan.delete(id); S.veicAbertos.delete(id); }
+    if (S.ptrCar) { S.carPend = true; return; }
+    for (const id of S.veicAbertos) {
+      const rc = S.res.carros.find(x => x.carro.id === id); if (!rc) continue;
+      const j = S.veicJan.get(id) || criarJanelaVeiculo(id);
+      if (j.hidden && !S.veicAbertos.has(id)) continue;
+      j.style.setProperty('--cor', rc.carro.cor);
+      j.querySelector('.jan-cab b').textContent = N.rotuloCarro(rc.carro); j.querySelector('.jan-qt').textContent = m$(rc.valor);
+      j.classList.toggle('ativo', id === S.carroAtivo);
+      const lista = j.querySelector('.car-lista'), rol = lista.scrollTop; lista.innerHTML = veiculoHtml(rc, true); lista.scrollTop = rol;
+    }
+  }
   function renderJanCarros() {
+    renderJanelasVeiculos();
     const jan = $('#jan-carros'); if (jan.hidden) return;
     if (S.ptrCar) { S.carPend = true; return; }
     const corpo = $('#car-corpo'), op = S.op;
@@ -847,7 +912,7 @@
     for (const id of [...S.selMov]) if (!S.idx.notaPorId.has(id) || op.atrib[id] == null) S.selMov.delete(id);
     let h = '<div class="car-res"><span><b>' + r.carros.filter(x => x.notas).length + '</b> rodando</span><span><b>' + m$(r.aloc.valor) + '</b></span><span><b>' + i$(r.aloc.vol) + '</b> vol</span>' +
       '<label class="car-lim" title="Opcional. Regra sua: o app só avisa quando o valor de um veículo passa deste número.">alerta acima de R$ <input id="car-lim" class="filtro" inputmode="decimal" placeholder="sem limite" value="' + fmtLimite(S.cfg.limite) + '"></label></div>' +
-      '<div class="car-lista">' + (r.carros.length ? r.carros.slice().sort(ordemVeiculos).map(veiculoHtml).join('') : '<div class="vazio-lista">Nenhum veículo ainda. Use + Carro, + Van ou + Caminhão.</div>') + '</div>';
+      '<div class="car-lista">' + (r.carros.length ? r.carros.slice().sort(ordemVeiculos).map(rc => veiculoHtml(rc)).join('') : '<div class="vazio-lista">Nenhum veículo ainda. Use + Carro, + Van ou + Caminhão.</div>') + '</div>';
     if (S.selMov.size) {
       const ns = [...S.selMov].map(id => S.idx.notaPorId.get(id)), t = N.somar(ns);
       h += '<div class="car-mover"><b>' + ns.length + ' nota' + (ns.length === 1 ? '' : 's') + '</b> · ' + m$(t.valor) + ' → mover para <select id="mv-dest" class="filtro">' + op.carros.map(c => '<option value="' + c.id + '">' + esc(N.rotuloCarro(c)) + '</option>').join('') + '</select>' +
@@ -863,15 +928,14 @@
     S.selMov.clear(); renderJanCarros();
     toast(ids.length + ' nota(s) ' + (dest == null ? 'saíram do veículo.' : '→ ' + nomeId(dest) + '.'), { rotulo: 'Desfazer', fn: desfazer });
   }
-  function ligarJanCarros() {
-    const jan = $('#jan-carros'), corpo = $('#car-corpo');
-    U.arrastavel(jan, '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:carros', p));
-    $('#car-min').onclick = () => { const r = jan.classList.toggle('recolhida'); $('#car-min').textContent = r ? '+' : '–'; };
-    $('#car-x').onclick = () => janVer('carros', false);
+  /* os mesmos ouvintes valem para a lista "Rotas" e para a janela própria de cada veículo */
+  let arr = null;
+  function ligarCorpoVeiculos(corpo) {
     corpo.addEventListener('click', e => {
       const t = e.target;
       let m;
       if ((m = t.closest('[data-rast]'))) { const c = carroPorId(+m.dataset.rast); const prox = { null: 'sim', sim: 'nao', nao: null }[String(c.rastreio || null)]; return mutar('rastreio de ' + N.nomeCarro(c), () => { c.rastreio = prox; }); }
+      if ((m = t.closest('[data-vjan]'))) return abrirJanelaVeiculo(+m.dataset.vjan);
       if ((m = t.closest('[data-ren]'))) return renomearCarro(+m.dataset.ren);
       if ((m = t.closest('[data-del]'))) return excluirCarro(+m.dataset.del);
       if ((m = t.closest('[data-up]'))) { const [id, i] = m.dataset.up.split('|').map(Number); return mutar('ordem das paradas', () => { N.moverCidade(S.op, id, i, i - 1); carroPorId(id).ordemManual = true; }); }
@@ -895,11 +959,17 @@
       else if (t.id === 'car-lim') { const v = t.value.trim(); if (!v) S.cfg.limite = null; else { const d = N.dec(v, 2); if (!d.ok || d.v < 0) { toast('Valor inválido.'); return; } S.cfg.limite = d.v; } salvarCfg(); }
     });
     /* arrastar e soltar a ordem das paradas (os botões ▲▼ fazem o mesmo, para teclado e toque) */
-    let arr = null;
     corpo.addEventListener('dragstart', e => { const li = e.target.closest('li.cid'); if (!li) return; arr = { car: +li.dataset.car, i: +li.dataset.i }; li.classList.add('arrastando'); try { e.dataTransfer.setData('text/plain', 'cidade'); e.dataTransfer.effectAllowed = 'move'; } catch (x) { /* ok */ } });
     corpo.addEventListener('dragover', e => { const li = e.target.closest('li.cid'); if (!arr || !li || +li.dataset.car !== arr.car) return; e.preventDefault(); $$('li.cid.alvo', corpo).forEach(x => x.classList.remove('alvo')); li.classList.add('alvo'); });
     corpo.addEventListener('drop', e => { const li = e.target.closest('li.cid'); if (!arr || !li || +li.dataset.car !== arr.car) { arr = null; return; } e.preventDefault(); const de = arr.i, para = +li.dataset.i, car = arr.car; arr = null; if (de !== para) mutar('ordem das paradas', () => { N.moverCidade(S.op, car, de, para); carroPorId(car).ordemManual = true; }); else renderJanCarros(); });
     corpo.addEventListener('dragend', () => { arr = null; $$('li.cid.arrastando,li.cid.alvo', corpo).forEach(x => x.classList.remove('arrastando', 'alvo')); });
+  }
+  function ligarJanCarros() {
+    const jan = $('#jan-carros'), corpo = $('#car-corpo');
+    U.arrastavel(jan, '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:carros', p));
+    $('#car-min').onclick = () => { const r = jan.classList.toggle('recolhida'); $('#car-min').textContent = r ? '+' : '–'; };
+    $('#car-x').onclick = () => janVer('carros', false);
+    ligarCorpoVeiculos(corpo);
   }
 
   /* ================= geolocalização (regiões e bases, como no Health Search) ================= */
@@ -1122,7 +1192,7 @@
      A janela (elemento) é "adotada" pelo document do mapa da outra tela: continua sendo a mesma, com os mesmos botões; quem a controla
      segue sendo esta janela principal (a operação e as gravações ficam num lugar só). Fechou/recarregou o mapa: elas voltam para cá. */
   function janParaOutraTela(id, paraExt) {
-    const j = $(JANS[id]); if (!j) return;
+    const j = $(selJan(id)); if (!j) return;
     if (paraExt) {
       if (!S.parede || !S.ext || S.ext.closed) { toast('Abra o mapa na segunda tela primeiro (botão “Mapa em outra tela”).'); return; }
       let d; try { d = S.ext.document; } catch (e) { return; } const alvo = d.getElementById('mapa-area'); if (!alvo) { toast('A janela do mapa ainda está abrindo. Tente de novo em instantes.'); return; }
@@ -1139,12 +1209,12 @@
     U.pref.gravar('janExt', [...S.janExt]); ajustarPadMapa(); atualizarBotoesExt(); atualizarTudo();
   }
   function devolverJanelas() { for (const id of [...S.janExt]) { try { janParaOutraTela(id, false); } catch (e) { S.janExt.delete(id); } } }
-  function moverSalvasParaExt() { if (!S.parede) return; for (const id of U.pref.ler('janExt', [])) if (JANS[id] && !S.janExt.has(id)) janParaOutraTela(id, true); }
+  function moverSalvasParaExt() { if (!S.parede) return; for (const id of U.pref.ler('janExt', [])) if ($(selJan(id)) && !S.janExt.has(id)) janParaOutraTela(id, true); }
   /* botão ⧉ no título de cada janela (só aparece com o mapa na segunda tela) */
   function atualizarBotoesExt() {
     document.documentElement.classList.toggle('tem-ext', !!S.parede);
-    for (const id of Object.keys(JANS)) {
-      const j = $(JANS[id]); if (!j) continue; const cab = j.querySelector('.jan-cab'); if (!cab) continue;
+    for (const id of [...Object.keys(JANS), ...[...S.veicJan.keys()].map(k => 'v' + k)]) {
+      const j = $(selJan(id)); if (!j) continue; const cab = j.querySelector('.jan-cab'); if (!cab) continue;
       let b = cab.querySelector('.jan-ext');
       if (!b) { b = j.ownerDocument.createElement('button'); b.type = 'button'; b.className = 'jan-x jan-ext'; const x = cab.querySelector('.jan-x'); cab.insertBefore(b, x || null); }
       const fora = j.classList.contains('na-ext'); b.textContent = fora ? '⇤' : '⇥'; b.title = fora ? 'Trazer esta janela de volta para a tela principal' : 'Mandar esta janela para a segunda tela'; b.setAttribute('aria-label', b.title);
@@ -1273,6 +1343,7 @@
       for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) j.style[p] = '';
       j.classList.remove('redim', 'recolhida');
     }
+    for (const [id, j] of S.veicJan) { U.pref.apagar('pos:v' + id); U.pref.apagar('tam:v' + id); for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) j.style[p] = ''; j.classList.remove('redim', 'recolhida'); const W = ($('#mapa-area').clientWidth || 1200); j.style.left = Math.max(8, W - 400) + 'px'; j.style.top = '12px'; }
     ajustarPadMapa(); S.mapa.redimensionar(); S.mapa.marcar();
     if (S.cidadeAberta) { const k = S.cidadeAberta; abrirCidade(k, { centrar: false }); }
     toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
@@ -1356,8 +1427,10 @@
     $('#pend-lista').addEventListener('click', e => {
       const bf = e.target.closest('.bt-fora'); if (bf) { alternarFora(bf.dataset.fora); return; }
       if (e.target.closest('#pend-fora-cab')) { S.pend.foraAberto = !S.pend.foraAberto; U.pref.gravar('foraAberto', S.pend.foraAberto); renderPend(); return; }
+      const sel = e.target.closest('.pend-sel'); if (sel) { e.stopPropagation(); cidadeInteiraNoCarro(sel.dataset.sel, sel.checked); return; }
       const li = e.target.closest('li[data-cid]'); if (li) abrirCidade(li.dataset.cid, { centrar: true });
     });
+    $('#pend-carro').addEventListener('change', e => { if (e.target.value) { selecionarCarro(+e.target.value); renderPend(); } });
     $('#pend-busca').addEventListener('input', e => { S.pend.q = e.target.value; renderPend(); });
     $('#pend-ordem').addEventListener('change', e => { S.pend.ordem = e.target.value; U.pref.gravar('pendOrdem', S.pend.ordem); renderPend(); });
     $('#pend-ordem').value = S.pend.ordem;
@@ -1507,6 +1580,6 @@
     }
     RT.pronto = true;
   }
-  RT.A = { devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

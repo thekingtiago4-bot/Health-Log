@@ -711,3 +711,15 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 
 #pop-focar{resize:both;overflow:auto;min-width:240px;min-height:150px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px)}
 .pf-grade{align-content:start}
+
+/* janela própria de cada veículo + quadrado "selecionar todas" da cidade */
+.jan-veic{width:390px;max-height:min(82%,640px)}
+.jan-veic .jan-cab{border-left:7px solid var(--cor,var(--teal))}
+.jan-veic.ativo{outline:2px solid var(--cor,var(--teal));outline-offset:0}
+.jan-veic .car-lista{overflow:auto;min-height:0;padding:6px}
+.jan-veic.recolhida .jan-corpo{display:none}
+.pend-colunas,.pend-lista li{grid-template-columns:18px 14px minmax(0,1fr) 38px 52px 100px!important}
+.pend-lista li small{grid-column:3/7!important}.pend-lista li .bt-fora{grid-column:3!important}
+.pend-lista .pend-sel{width:16px;height:16px;accent-color:var(--teal);cursor:pointer;margin:0}
+.pend-colunas .pc-sel{color:var(--mudo);font-size:.8rem}
+#pend-carro{max-width:120px;min-height:30px;padding:2px 6px;font-size:.8rem}

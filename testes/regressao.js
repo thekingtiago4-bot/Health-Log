@@ -14,7 +14,7 @@ function igual(real, esperado, nome) {
 }
 const verdade = (c, nome) => igual(!!c, true, nome);
 /* escolhe o veículo pela janela "Veículos e rotas" (a faixa de carros do topo foi retirada) */
-async function selCarro(p, id) { await p.evaluate(() => RT.A.janVer('carros', true)); const cab = p.locator('#car-corpo .vei[data-car="' + id + '"] .vei-cab b'); await cab.click(); }
+async function selCarro(p, id) { await p.evaluate(() => RT.A.janVer('carros', true)); await p.locator('#car-corpo .vei[data-car="' + id + '"] .vei-cab b').click(); }
 const cents = s => Math.round(parseFloat(s) * 100);
 
 (async () => {
@@ -60,6 +60,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const estado = p => p.evaluate(() => ({ rev: RT.S.op && RT.S.op.rev, atrib: RT.S.op && RT.S.op.atrib, carros: RT.S.op && RT.S.op.carros.map(c => c.id), cont: RT.S.res && RT.S.res.cont, nnotas: RT.S.op && RT.S.op.notas.length }));
 
   const { ctx, p } = await novaPagina();
+  await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); }); });
   await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('hr-teste-fundo')) { localStorage.setItem('hr:fundoRotas', '"rodoviario"'); sessionStorage.setItem('hr-teste-fundo', '1'); } } catch (e) { /* ok */ } });   // os testes antigos falam do estilo rodoviário limpo; o padrão novo (ruas) tem teste próprio
   await abrir(p);
 
@@ -199,6 +200,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('.nav button[data-tela="rotas"]');
 
   console.log('\nRotas pelas rodovias e KM');
+  await p.evaluate(() => RT.A.janVer('carros', true));
   await p.fill('#busca-cidade', 'sao carlos'); await p.keyboard.press('Enter'); await p.waitForSelector('#jan-cid:not([hidden]) .cli');
   await p.click('.mini-car[data-car="1"]'); await p.click('#jc-todos'); await p.click('[data-a=concluir]');
   await p.waitForFunction(() => RT.S.mapa.pernas.size > 0 && RT.vias.pendentes() === 0, null, { timeout: 20000 });
@@ -346,21 +348,21 @@ const cents = s => Math.round(parseFloat(s) * 100);
   }
   const ordem = () => p.evaluate(() => RT.S.op.carros.find(c => c.id === 3).cidades);
   igual(await ordem(), ['SAO CARLOS|SP', 'JAU|SP'], 'a ordem das paradas é a ordem em que as cidades entraram');
-  await p.click('.vei[data-car="3"] .vei-cab b');
-  igual(await p.$$eval('.vei[data-car="3"] li.cid', l => l.length), 2, 'janela de veículos lista as cidades da Van 1');
+  await p.click('#car-corpo .vei[data-car="3"] .vei-cab b');
+  igual(await p.$$eval('#car-corpo .vei[data-car="3"] li.cid', l => l.length), 2, 'janela de veículos lista as cidades da Van 1');
   await p.click('[data-dn="3|0"]');
   igual(await ordem(), ['JAU|SP', 'SAO CARLOS|SP'], '▼ troca a ordem das paradas');
   igual(await p.evaluate(() => RT.S.mapa.rotas.find(r => r.id === 3).pontos.map(x => x.key + ':' + x.n)), ['JAU|SP:1', 'SAO CARLOS|SP:2'], 'o mapa recebe a nova ordem (linha tracejada e números 1, 2)');
   await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 15000 }); await p.waitForTimeout(250);   // espera o km das rotas chegar (a janela se redesenha quando chega)
-  await p.locator('.vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('.vei[data-car="3"] li.cid').nth(1));
-  if ((await ordem()).join() !== 'SAO CARLOS|SP,JAU|SP') { await p.waitForTimeout(300); await p.locator('.vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('.vei[data-car="3"] li.cid').nth(1)); }   // o arraste às vezes precisa de uma 2ª tentativa em máquina lenta
+  await p.locator('#car-corpo .vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('#car-corpo .vei[data-car="3"] li.cid').nth(1));
+  if ((await ordem()).join() !== 'SAO CARLOS|SP,JAU|SP') { await p.waitForTimeout(300); await p.locator('#car-corpo .vei[data-car="3"] li.cid').nth(0).dragTo(p.locator('#car-corpo .vei[data-car="3"] li.cid').nth(1)); }   // o arraste às vezes precisa de uma 2ª tentativa em máquina lenta
   igual(await ordem(), ['SAO CARLOS|SP', 'JAU|SP'], 'arrastar e soltar também muda a ordem');
   await p.click('[data-rast="3"]'); igual(await p.innerText('[data-rast="3"]'), 'Rastreio: SIM', 'rastreio: sim');
   await p.click('[data-rast="3"]'); igual(await p.innerText('[data-rast="3"]'), 'Rastreio: NÃO', 'rastreio: não');
   await p.click('[data-rast="3"]'); igual(await p.innerText('[data-rast="3"]'), 'Rastreio: —', 'rastreio: sem marca');
   const totVan = await p.evaluate(() => RT.S.res.carros.find(c => c.carro.id === 3).valor);
   await p.fill('#car-lim', '100'); await p.press('#car-lim', 'Tab');
-  verdade(await p.locator('.vei[data-car="3"] .vei-alerta').count() === 1, 'alerta de valor aparece quando o veículo passa do limite que VOCÊ definiu (' + totVan + ' > 10000)');
+  verdade(await p.locator('#car-corpo .vei[data-car="3"] .vei-alerta').count() === 1, 'alerta de valor aparece quando o veículo passa do limite que VOCÊ definiu (' + totVan + ' > 10000)');
   await p.fill('#car-lim', ''); await p.press('#car-lim', 'Tab');
   await p.click('[data-ex="3|SAO CARLOS|SP"]');
   const idNota = 'k:' + '1006'.padStart(44, '0');
@@ -399,6 +401,27 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(await p.evaluate(() => RT.S.mapa.cidades.some(c => c.key === 'JAU|SP' && c.fora)), true, 'e continua no mapa (bolinha cinza)');
   await p.hover('#pend-lista li.fora'); await p.click('#pend-lista li.fora .bt-fora');
   igual(await p.evaluate(() => RT.S.idx.cidades.get('JAU|SP').fora), false, '"trazer para a rota" desfaz');
+
+  console.log('\nJanela própria por veículo, botão Rotas e "selecionar todas" por cidade');
+  await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); });
+  verdade(/Rotas/.test(await p.innerText('#bt-ver-carros')), 'o botão da listagem de veículos se chama "Rotas"');
+  await p.evaluate(() => RT.A.abrirJanelaVeiculo(3));
+  verdade(await p.locator('#jan-v3.jan-veic:not([hidden])').count() === 1, 'cada veículo abre a sua própria janela');
+  verdade(/Van 1/.test(await p.innerText('#jan-v3')), 'a janela mostra o veículo certo');
+  const posA = await p.evaluate(() => { const r = document.getElementById('jan-v3').getBoundingClientRect(); return [r.left, r.top]; });
+  await p.mouse.move(posA[0] + 40, posA[1] + 14); await p.mouse.down(); await p.mouse.move(posA[0] + 140, posA[1] + 74, { steps: 5 }); await p.mouse.up();
+  const posD = await p.evaluate(() => { const r = document.getElementById('jan-v3').getBoundingClientRect(); return [r.left, r.top]; });
+  verdade(posD[0] !== posA[0] || posD[1] !== posA[1], 'a janela do veículo é móvel');
+  await p.evaluate(() => RT.A.fecharJanelaVeiculo(3));
+  verdade(await p.locator('#jan-v3:not([hidden])').count() === 0, 'e pode ser fechada');
+  await p.evaluate(() => RT.A.abrirJanelaVeiculo(3));
+  verdade(await p.locator('#jan-v3:not([hidden])').count() === 1, 'e reaberta');
+  await p.evaluate(() => { RT.A.fecharJanelaVeiculo(3); });
+  const novoId = await p.evaluate(() => RT.S.op.carros.length);
+  verdade(novoId > 0, 'há veículos para testar a seleção por cidade');
+  const rs = await p.evaluate(() => { const A = RT.A; const k = [...RT.S.idx.cidades.keys()].find(k => { const c = RT.S.idx.cidades.get(k); return c && c.notas && c.notas.some(n => RT.S.op.atrib[n.id] == null); }); if (!k) return null; const ids = RT.S.idx.cidades.get(k).notas.filter(n => RT.S.op.atrib[n.id] == null).map(n => n.id); RT.S.carroAtivo = RT.S.op.carros[0].id; const ant = RT.S.carroAtivo; A.cidadeInteiraNoCarro(k, true); const ok = ids.every(i => RT.S.op.atrib[i] === RT.S.carroAtivo); A.cidadeInteiraNoCarro(k, false); RT.S.carroAtivo = ant; return { ok, n: ids.length, livre: ids.every(i => RT.S.op.atrib[i] == null) }; });
+  if (rs) { verdade(rs.ok && rs.n > 0, '"selecionar todas" põe todas as notas livres da cidade no carro ativo de uma vez'); verdade(rs.livre, 'e desmarcar devolve todas elas');}
+  await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
 
   console.log('\nGeolocalização (regiões e bases)');
   await p.click('.nav button[data-tela="geo"]');

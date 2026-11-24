@@ -60,7 +60,7 @@
         <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
         <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
-        <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a janela de veículos e rotas" aria-pressed="false">Veículos</button>
+        <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a lista com TODOS os veículos e rotas" aria-pressed="false">Rotas</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
         <button class="btn mini pri" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">🌙 Final de Turno</button>
         <button class="btn mini" id="bt-mapa-fora" type="button" title="Abre o mapa em outra janela (para o segundo monitor). Esta tela vira uma parede para as janelas flutuantes.">Mapa em outra tela</button>
@@ -92,8 +92,8 @@
         <div class="jan" id="jan-pend" role="dialog" aria-label="Cidades pendentes">
           <div class="jan-cab" id="jan-pend-cab"><b>Cidades pendentes</b><span class="jan-qt" id="pend-qt">0</span><button type="button" class="jan-x" id="pend-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="pend-x" aria-label="Fechar" title="Fechar (reabre em Pendentes)">✕</button></div>
           <div class="jan-corpo" id="pend-corpo">
-            <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-ordem" class="filtro" aria-label="Ordenar" title="Atalho: Ctrl+V alterna A–Z, maior volume e maior valor"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div>
-            <div class="pend-colunas"><span></span><span>Cidade</span><span class="d">Notas</span><span class="d">Vol.</span><span class="d">Valor</span></div>
+            <div class="pend-filtros"><input id="pend-busca" class="filtro" placeholder="Filtrar…" aria-label="Filtrar cidades pendentes"><select id="pend-carro" class="filtro" aria-label="Carro que recebe a cidade marcada" title="Carro que recebe a cidade quando você marca o quadrado da linha"></select><select id="pend-ordem" class="filtro" aria-label="Ordenar" title="Atalho: Ctrl+V alterna A–Z, maior volume e maior valor"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div>
+            <div class="pend-colunas"><span class="pc-sel" title="Quadrado = selecionar TODAS as notas e clientes da cidade para o carro escolhido">☑</span><span></span><span>Cidade</span><span class="d">Notas</span><span class="d">Vol.</span><span class="d">Valor</span></div>
             <ul class="pend-lista" id="pend-lista"></ul>
             <div class="pend-rod" id="pend-rod"></div>
           </div>
@@ -105,7 +105,7 @@
         </div>
         <!-- janela flutuante: veículos, ordem das paradas e mover notas -->
         <div class="jan jan-carros" id="jan-carros" role="dialog" aria-label="Veículos e rotas" hidden>
-          <div class="jan-cab"><b>Veículos e rotas</b><span class="jan-qt" id="car-qt" style="background:var(--tealBg);color:var(--acento)">0</span><button type="button" class="jan-x" id="car-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="car-x" aria-label="Fechar" title="Fechar">✕</button></div>
+          <div class="jan-cab"><b>Rotas</b><span class="jan-qt" id="car-qt" style="background:var(--tealBg);color:var(--acento)">0</span><button type="button" class="jan-x" id="car-min" aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" id="car-x" aria-label="Fechar" title="Fechar">✕</button></div>
           <div class="jan-corpo" id="car-corpo"></div>
         </div>
         <!-- janela flutuante: clientes da cidade -->
