@@ -457,7 +457,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(await p.evaluate(k => !RT.S.mapa.porChave.get(k).fer, kf.k), true, 'cidade sem feriado não tem marca');
   await p.evaluate(async c => { await RT.fer.incluir(c.code, RT.fer.diaMais(0), 'Feriado de teste'); RT.A.atualizarTudo(); }, kf);
   verdade(await p.evaluate(k => { const f = RT.S.mapa.porChave.get(k).fer; return !!f && f.hoje && f.n === 'Feriado de teste'; }, kf.k), 'cidade com feriado hoje fica vermelha no mapa de rotas (a cidade troca de cor)');
-  verdade(await p.locator('#legenda .lg-fer').count() === 1, 'e a legenda explica a marca');
+  verdade(await p.locator('#legenda .lg-fer').count() === 1 && await p.locator('#legenda .lg-obs').count() === 1 && await p.locator('#legenda .lg-num').count() === 1, 'e a legenda explica as marcas (feriado, observação 📄 e ordem da parada)');
   await p.evaluate(async c => { const f = RT.fer.manual.find(m => m.alvo === String(c.code)); if (f) await RT.fer.remover(f.id); RT.A.atualizarTudo(); }, kf);
   igual(await p.evaluate(k => !RT.S.mapa.porChave.get(k).fer, kf.k), true, 'tirando o feriado, a marca some');
 

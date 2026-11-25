@@ -766,3 +766,6 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .eo-notas{width:100%;border-collapse:collapse;margin-top:8px;font-size:.82rem}
 .eo-notas th{text-align:left;color:var(--mudo);font-size:.7rem;text-transform:uppercase;padding:3px 4px}
 .eo-notas td{padding:3px 4px}.eo-notas input{width:100%;max-width:130px}
+
+.lg-obs{width:12px!important;height:15px!important;border-radius:1px!important;background:#FFF4B8;border:1.6px solid #E0B800;clip-path:polygon(0 0,62% 0,100% 28%,100% 100%,0 100%);box-sizing:border-box}
+.lg-num{background:#7B3FE4;color:#fff;font-weight:800;font-size:.66rem;font-style:normal}
