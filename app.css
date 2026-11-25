@@ -415,10 +415,15 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 @media screen and (max-width:860px){.rl-pag{zoom:.5}}
 
 /* ---------- mapa em outra tela: a tela principal vira parede azul para as janelas flutuantes ---------- */
-.mapa-area.parede{background:radial-gradient(circle at 1px 1px,rgba(120,170,230,.18) 1.4px,transparent 1.6px) 0 0/26px 26px,linear-gradient(160deg,#0B2545 0%,#13315C 55%,#0A1F3B 100%)}
+.mapa-area.parede{background:radial-gradient(circle at 1px 1px,rgba(120,170,230,.18) 1.4px,transparent 1.6px) 0 0/26px 26px,var(--parede,#0B2545)}
+:root[data-tema="claro"] .mapa-area.parede{background:radial-gradient(circle at 1px 1px,rgba(20,70,90,.16) 1.4px,transparent 1.6px) 0 0/26px 26px,var(--parede,#EEF3F3)}
+#bt-parede-cor{display:none}
+.mapa-area.parede #bt-parede-cor{display:flex;align-items:center;gap:7px}
+.mapa-area.parede #bt-realce,.mapa-area.parede .vias-st{display:none!important}
+#bt-parede-cor .amostra{width:14px;height:14px;border-radius:50%;background:var(--amostra,#0B2545);border:2px solid var(--tinta)}
 .mapa-area.parede .mapa-cv,.mapa-area.parede .zoom-bt,.mapa-area.parede .legenda,.mapa-area.parede .dica-mapa,.mapa-area.parede .aviso-fora,.mapa-area.parede .vazio-mapa{display:none!important}
 .mapa-area .msg-parede{display:none}
-.mapa-area.parede .msg-parede{display:block;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:#9FC1EE;font-size:.85rem;letter-spacing:.02em;pointer-events:none;text-align:center}
+.mapa-area.parede .msg-parede{display:block;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);color:var(--mudo);font-size:.85rem;letter-spacing:.02em;pointer-events:none;text-align:center}
 body.modo-mapa .rail,body.modo-mapa .barra-carros,body.modo-mapa .faixa-carro,body.modo-mapa .jan:not(.na-ext),body.modo-mapa #mural,body.modo-mapa .faixa-erro{display:none!important}
 body.modo-mapa .app{grid-template-columns:1fr}
 body.modo-mapa .mapa-area{min-height:100vh}
@@ -732,3 +737,7 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .pend-notas .pn .pn-vol,.pend-notas .pn .pn-nf{color:var(--mudo)}
 .pend-notas .pn.em{opacity:.6}
 .lg-fer{background:#E03131;color:#fff;font-weight:800}
+
+/* seta de esconder/mostrar o menu lateral: clara, para achar de relance */
+.rail-seta{background:#E6F6F3!important;color:#0B3A40!important;border:2px solid #2FB5AC!important;border-left:0!important;font-weight:800;box-shadow:2px 2px 12px rgba(0,0,0,.35)}
+.rail-seta:hover{background:#2FB5AC!important;color:#fff!important}

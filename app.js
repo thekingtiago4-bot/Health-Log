@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.32.0';
+  const VERSAO = '0.33.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -839,7 +839,7 @@
   }
   async function carregarCfg() {
     try { const r = await DB.get('meta', 'config'); if (r && r.v) S.cfg = Object.assign({ fora: {}, limite: null }, r.v); } catch (e) { /* segue com o padrão */ }
-    N.setAjustesRota(S.cfg.fora); RT.vias.definirEvitar(!!S.cfg.evitarPedagio);
+    N.setAjustesRota(S.cfg.fora); RT.vias.definirEvitar(false);   // pedágio não entra na regra: sempre o caminho mais curto
   }
   function salvarCfg() {
     N.setAjustesRota(S.cfg.fora); aplicarRotaAnim(); reindexar(); atualizarTudo();
@@ -1282,10 +1282,22 @@
       const fora = j.classList.contains('na-ext'); b.textContent = fora ? '⇤' : '⇥'; b.title = fora ? 'Trazer esta janela de volta para a tela principal' : 'Mandar esta janela para a segunda tela'; b.setAttribute('aria-label', b.title);
     }
   }
+  /* cor da "parede" (tela das janelas quando o mapa está na outra tela): uma paleta clara no tema claro, escura no escuro */
+  const PAREDES = { escuro: ['#0B2545', '#0D2A30', '#071E22', '#13315C', '#1B2330', '#2A1F3D'], claro: ['#EEF3F3', '#F8FBFB', '#E9F3F2', '#DDE8F5', '#F3EEE3', '#E8E4F3'] };
+  function aplicarParede() {
+    const tema = document.documentElement.getAttribute('data-tema') === 'claro' ? 'claro' : 'escuro', lista = PAREDES[tema];
+    const i = Math.max(0, Math.min(lista.length - 1, +U.pref.ler('paredeCor:' + tema, 0) || 0));
+    const area = $('#mapa-area'); if (area) area.style.setProperty('--parede', lista[i]);
+    const b = $('#bt-parede-cor'); if (b) { b.style.setProperty('--amostra', lista[i]); b.title = 'Cor de fundo desta tela (' + (i + 1) + ' de ' + lista.length + '): clique para trocar'; }
+  }
+  function trocarParede() {
+    const tema = document.documentElement.getAttribute('data-tema') === 'claro' ? 'claro' : 'escuro', lista = PAREDES[tema];
+    U.pref.gravar('paredeCor:' + tema, ((+U.pref.ler('paredeCor:' + tema, 0) || 0) + 1) % lista.length); aplicarParede();
+  }
   function entrarParede(sim) {
     if (!sim) devolverJanelas();
     S.parede = !!sim; atualizarBotoesExt();
-    $('#mapa-area').classList.toggle('parede', S.parede);
+    $('#mapa-area').classList.toggle('parede', S.parede); aplicarParede();
     S.mapa.setPausado(S.parede);
     const b = $('#bt-mapa-fora'); b.textContent = S.parede ? 'Trazer o mapa de volta' : 'Mapa em outra tela'; b.setAttribute('aria-pressed', String(S.parede));
     if (!S.parede) { requestAnimationFrame(() => { S.mapa.redimensionar(); S.mapa.marcar(); }); }
@@ -1311,7 +1323,7 @@
   async function recarregarDoBanco(id) {
     try {
       const [c, r] = [await DB.get('meta', 'config'), await DB.get('meta', 'regioes')];
-      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora); aplicarRotaAnim(); { const ev = !!S.cfg.evitarPedagio; if (ev !== RT.vias.evitar) { RT.vias.definirEvitar(ev); S.mapa.pernas.clear(); } const bp = $('#bt-pedagio'); if (bp) bp.setAttribute('aria-pressed', String(ev)); }
+      if (c && c.v) S.cfg = Object.assign({ fora: {}, limite: null }, c.v); N.setAjustesRota(S.cfg.fora); aplicarRotaAnim(); 
       if (r && r.v && Array.isArray(r.v.regioes)) { S.reg = r.v; N.setRegioes(S.reg); }
       const op = id ? await DB.get('ops', id) : null;
       if (op) { S.op = op; if (!carroPorId(S.carroAtivo) && op.carros.length) S.carroAtivo = op.carros[0].id; }
@@ -1337,11 +1349,10 @@
     };
     if (S.modoMapa) { window.addEventListener('pagehide', () => enviar({ t: 'fechou' })); }
   }
-  function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
+  function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); if (typeof aplicarParede === 'function') aplicarParede(); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
   /* mapa de fundo das ROTAS: "Ruas" = mapa de ruas completo, com todas as estradas, sinais e nomes (padrão) · "Rodoviário" = nosso estilo limpo só de rodovias */
-  const fundoRotas = () => (U.pref.ler('fundoRotas', 'arcgis') === 'arcgis' ? 'arcgis' : null);
-  const rotuloFundo = () => 'Mapa: ' + (fundoRotas() ? 'Ruas' : 'Rodoviário');
-  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); const bf = $('#bt-fundo'); if (bf) bf.textContent = rotuloFundo(); } }
+  const fundoRotas = () => null;   // fundo fixo: nosso mapa rodoviário (sem botão de escolha)
+  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); } }
 
   /* ================= base de saída e fundo de estradas ================= */
   function aplicarBase() {
@@ -1349,7 +1360,6 @@
     const code = S.cfg.base || '3503208', i = munInfo(code); // Araraquara (AQA) é o padrão
     S.mapa.setBase(i ? { lat: i.lat, lon: i.lon, nome: i.nome, sigla: code === '3503208' ? 'AQA' : i.nome.slice(0, 3).toUpperCase() } : null);
     S.mapa.setMostrarBase(S.cfg.mostrarBase !== false);
-    const b = $('#bt-base'); if (b) b.setAttribute('aria-pressed', String(S.cfg.mostrarBase !== false));
   }
 
   /* ================= rodovias: o traçado de cidade em cidade e o KM ================= */
@@ -1458,17 +1468,9 @@
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
     window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
-    $('#bt-estradas').onclick = () => { const v = $('#bt-estradas').getAttribute('aria-pressed') !== 'true'; $('#bt-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('estradas', v); S.mapa.setEstradas(v); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
-    $('#bt-fundo').onclick = () => { U.pref.gravar('fundoRotas', fundoRotas() ? 'rodoviario' : 'arcgis'); S.mapa.setTipoFundo(fundoRotas()); $('#bt-fundo').textContent = rotuloFundo(); enviar({ t: 'tema' }); toast(fundoRotas() ? 'Mapa de ruas completo: todas as estradas, sinais e nomes.' : 'Mapa rodoviário limpo: só as rodovias, com o número.'); };
-    $('#bt-pedagio').onclick = () => {
-      const v = $('#bt-pedagio').getAttribute('aria-pressed') !== 'true'; $('#bt-pedagio').setAttribute('aria-pressed', String(v));
-      S.cfg.evitarPedagio = v; RT.vias.definirEvitar(v); S.mapa.pernas.clear(); salvarCfg();   // salvarCfg redesenha e pede os trechos do outro modo
-      toast(v ? 'Evitar pedágio ligado: as rotas procuram caminhos sem pedágio (podem ficar mais longas).' : 'Evitar pedágio desligado: caminho mais direto, com pedágio ou não.');
-    };
-    $('#bt-vias').onclick = () => { const v = $('#bt-vias').getAttribute('aria-pressed') !== 'true'; $('#bt-vias').setAttribute('aria-pressed', String(v)); U.pref.gravar('vias', v); S.mapa.setVias(v); if (v) atualizarVias(); statusVias(); };
-    $('#bt-base').onclick = () => { S.cfg.mostrarBase = S.cfg.mostrarBase === false; salvarCfg(); aplicarBase(); };
+    $('#bt-parede-cor').onclick = trocarParede;
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 
     $('#faixa-carro').addEventListener('click', e => { const b = e.target.closest('[data-cid]'); if (b) abrirCidade(b.dataset.cid, { centrar: true }); });
@@ -1578,7 +1580,6 @@
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
       onFora: nomes => { const b = $('#aviso-fora'); b.hidden = !nomes.length; b.textContent = nomes.length ? '+' + nomes.length + ' fora do quadro: ' + nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? '…' : '') : ''; }
     }, { fundo: fundoRotas() });
-    { const bf = $('#bt-fundo'); if (bf) bf.textContent = rotuloFundo(); }
     RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
     ligar(); ligarCanal();
     if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Log. · Mapa'; } else if (S.soGeo) { document.body.classList.add('so-geo'); document.title = 'Health Log. · Geolocalização'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
@@ -1607,9 +1608,8 @@
     await malha; S.mapa.marcar();
     aplicarBase();
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }
-    $('#bt-pedagio').setAttribute('aria-pressed', String(!!S.cfg.evitarPedagio));
-    { const v = U.pref.ler('vias', true); S.mapa.setVias(v); $('#bt-vias').setAttribute('aria-pressed', String(v)); atualizarVias(); }
-    { const e = U.pref.ler('estradas', true); S.mapa.setEstradas(e); $('#bt-estradas').setAttribute('aria-pressed', String(e)); }
+    S.mapa.setVias(true); atualizarVias();   // rotas sempre pelas rodovias, no caminho mais curto
+    S.mapa.setEstradas(true);
     if (S.mun) { const rota = new Set(); for (const r of ((S.reg && S.reg.regioes) || [])) if (r.grupo !== 'fora') for (const c of r.cidades) rota.add(String(c)); S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3], pri: rota.has(c) ? 1 : 0 })).sort((x, y) => y.pri - x.pri || x.nome.length - y.nome.length)); }
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').then(r => { r.update().catch(() => { }); setInterval(() => r.update().catch(() => { }), 10 * 60 * 1000); }).catch(() => { });
