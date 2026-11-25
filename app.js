@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.34.1';
+  const VERSAO = '0.35.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -1285,21 +1285,35 @@
     }
   }
   /* cor da "parede" (tela das janelas quando o mapa está na outra tela): uma paleta clara no tema claro, escura no escuro */
-  const PAREDES = { escuro: ['#0B2545', '#0D2A30', '#071E22', '#13315C', '#1B2330', '#2A1F3D'], claro: ['#EEF3F3', '#F8FBFB', '#E9F3F2', '#DDE8F5', '#F3EEE3', '#E8E4F3'] };
+  const PAREDES = {
+    escuro: ['#0B2545', '#0D2A30', '#071E22', '#13315C', '#1B2330', '#2A1F3D', '#101820', '#0A3D3A', '#1F2A44', '#2B2118', '#3A1F2B', '#000000'],
+    claro: ['#EEF3F3', '#F8FBFB', '#E9F3F2', '#DDE8F5', '#F3EEE3', '#E8E4F3', '#FFFFFF', '#E3F2E1', '#FBE9E7', '#FFF6D6', '#D9E2EC', '#CFD8DC']
+  };
+  const temaAtual = () => (document.documentElement.getAttribute('data-tema') === 'claro' ? 'claro' : 'escuro');
+  const corParede = tema => { const v = U.pref.ler('paredeCor:' + tema, 0), l = PAREDES[tema]; return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : l[Math.max(0, Math.min(l.length - 1, +v || 0))]; };
   function aplicarParede() {
-    const tema = document.documentElement.getAttribute('data-tema') === 'claro' ? 'claro' : 'escuro', lista = PAREDES[tema];
-    const i = Math.max(0, Math.min(lista.length - 1, +U.pref.ler('paredeCor:' + tema, 0) || 0));
-    const area = $('#mapa-area'); if (area) area.style.setProperty('--parede', lista[i]);
-    const b = $('#bt-parede-cor'); if (b) { b.style.setProperty('--amostra', lista[i]); b.title = 'Cor de fundo desta tela (' + (i + 1) + ' de ' + lista.length + '): clique para trocar'; }
+    const cor = corParede(temaAtual());
+    const area = $('#mapa-area'); if (area) area.style.setProperty('--parede', cor);
+    const b = $('#bt-parede-cor'); if (b) { b.style.setProperty('--amostra', cor); b.title = 'Escolher a cor de fundo desta tela'; }
+    marcarPaleta();
   }
-  function trocarParede() {
-    const tema = document.documentElement.getAttribute('data-tema') === 'claro' ? 'claro' : 'escuro', lista = PAREDES[tema];
-    U.pref.gravar('paredeCor:' + tema, ((+U.pref.ler('paredeCor:' + tema, 0) || 0) + 1) % lista.length); aplicarParede();
+  function marcarPaleta() { const pal = $('#parede-pal'); if (!pal) return; const cor = corParede(temaAtual()).toLowerCase(); for (const s of pal.querySelectorAll('.pp-cor')) s.setAttribute('aria-pressed', String(s.dataset.cor.toLowerCase() === cor)); const ci = pal.querySelector('input[type=color]'); if (ci) ci.value = cor; }
+  function escolherParede(cor, idx) { U.pref.gravar('paredeCor:' + temaAtual(), idx != null ? idx : cor); aplicarParede(); }
+  function paletaParede() {
+    let pal = $('#parede-pal');
+    if (pal) { pal.remove(); return; }   // clicar de novo no botão fecha a paleta
+    const area = $('#mapa-area'); pal = document.createElement('div'); pal.id = 'parede-pal'; pal.setAttribute('role', 'dialog'); pal.setAttribute('aria-label', 'Cor de fundo');
+    const lista = PAREDES[temaAtual()];
+    pal.innerHTML = '<b>Cor de fundo (' + (temaAtual() === 'claro' ? 'tema claro' : 'tema escuro') + ')</b><div class="pp-grade">' + lista.map((c, i) => '<button type="button" class="pp-cor" data-i="' + i + '" data-cor="' + c + '" style="background:' + c + '" aria-label="Cor ' + (i + 1) + '" aria-pressed="false"></button>').join('') + '</div><label class="pp-livre">Outra cor <input type="color" value="' + corParede(temaAtual()) + '"></label>';
+    pal.addEventListener('click', e => { const s = e.target.closest('.pp-cor'); if (s) escolherParede(s.dataset.cor, +s.dataset.i); });
+    pal.addEventListener('input', e => { if (e.target.type === 'color') escolherParede(e.target.value); });
+    area.appendChild(pal); marcarPaleta();
   }
+  document.addEventListener('pointerdown', e => { const pal = document.getElementById('parede-pal'); if (pal && !e.target.closest('#parede-pal, #bt-parede-cor')) pal.remove(); }, true);
   function entrarParede(sim) {
     if (!sim) devolverJanelas();
     S.parede = !!sim; atualizarBotoesExt();
-    $('#mapa-area').classList.toggle('parede', S.parede); aplicarParede();
+    $('#mapa-area').classList.toggle('parede', S.parede); aplicarParede(); { const pp = document.getElementById('parede-pal'); if (pp) pp.remove(); }
     S.mapa.setPausado(S.parede);
     const b = $('#bt-mapa-fora'); b.textContent = S.parede ? 'Trazer o mapa de volta' : 'Mapa em outra tela'; b.setAttribute('aria-pressed', String(S.parede));
     if (!S.parede) { requestAnimationFrame(() => { S.mapa.redimensionar(); S.mapa.marcar(); }); }
@@ -1472,7 +1486,7 @@
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
-    $('#bt-parede-cor').onclick = trocarParede;
+    $('#bt-parede-cor').onclick = paletaParede;
     { const b = $('#bt-feriados'); b.setAttribute('aria-pressed', String(!!U.pref.ler('ferForaOn', false))); b.onclick = () => { const v = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(v)); U.pref.gravar('ferForaOn', v); atualizarMapa(); enviar({ t: 'tema' }); toast(v ? 'Feriados fora de rota: aparecem em vermelho as cidades em feriado que não têm nota no dia.' : 'Feriados fora de rota ocultos. (Cidade da rota do dia em feriado fica sempre vermelha.)'); }; }
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 

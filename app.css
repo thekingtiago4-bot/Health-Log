@@ -741,3 +741,12 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 /* seta de esconder/mostrar o menu lateral: clara, para achar de relance */
 .rail-seta{background:#E6F6F3!important;color:#0B3A40!important;border:2px solid #2FB5AC!important;border-left:0!important;font-weight:800;box-shadow:2px 2px 12px rgba(0,0,0,.35)}
 .rail-seta:hover{background:#2FB5AC!important;color:#fff!important}
+
+.mapa-area.parede .mapa-base{display:none!important}
+#parede-pal{position:absolute;right:12px;bottom:76px;z-index:60;width:218px;padding:10px 12px;border-radius:12px;background:var(--sup);color:var(--tinta);border:1px solid var(--linha);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;font-size:.78rem}
+#parede-pal .pp-grade{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+#parede-pal .pp-cor{all:unset;box-sizing:border-box;width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid var(--linha)}
+#parede-pal .pp-cor:hover{transform:scale(1.12)}
+#parede-pal .pp-cor[aria-pressed="true"]{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal)}
+#parede-pal .pp-livre{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer}
+#parede-pal input[type=color]{width:42px;height:26px;padding:0;border:1px solid var(--linha);border-radius:6px;background:none;cursor:pointer}
