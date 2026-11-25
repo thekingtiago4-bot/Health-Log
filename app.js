@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.37.0';
+  const VERSAO = '0.38.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -879,7 +879,7 @@
     let h = '<div class="vei' + (c.id === S.carroAtivo ? ' ativo' : '') + '" data-car="' + c.id + '" style="--cor:' + c.cor + '"><div class="vei-cab"><b>' + esc(N.rotuloCarro(c)) + '</b>' +
       '<span class="vei-bt"><button type="button" class="rast ' + (c.rastreio || '') + '" data-rast="' + c.id + '" title="Marque se este veículo vai com rastreio (clique para alternar: sem marca → sim → não)">' + rastro + '</button><button type="button" data-vjan="' + c.id + '" title="Abrir a janela própria deste veículo" aria-label="Janela própria">⧉</button><button type="button" data-ren="' + c.id + '" title="Motorista / nome" aria-label="Renomear">✎</button><button type="button" data-del="' + c.id + '" title="Excluir veículo" aria-label="Excluir">✕</button><button type="button" data-abrir="' + c.id + '" aria-label="' + (aberto ? 'Recolher' : 'Expandir') + '">' + (aberto ? '▾' : '▸') + '</button></span>' +
       '<span class="vei-tot">' + m$(rc.valor) + ' · ' + i$(rc.vol) + ' vol · ' + rc.paradas + ' parada' + (rc.paradas === 1 ? '' : 's') + ' · ' + N.fmtPeso(rc.peso) + ' kg · ' + rc.cidades.length + ' cidade(s)' + (kmTxt(kmDe(c)) ? ' · <span class="km">' + kmTxt(kmDe(c), true) + '</span>' : '') + '</span>' +
-      (acima ? (c.rastreio === 'sim' ? '<span class="vei-alerta ok" title="Veículo com rastreio: pode passar do limite">✔ Dentro do limite de ' + m$(S.cfg.limite) + '</span>' : '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>') : '') + '</div>';
+      (acima ? (c.rastreio === 'sim' ? '<span class="vei-alerta ok" title="Veículo com rastreio: pode passar do limite">✔ Dentro do limite de ' + m$(S.cfg.limite) + '</span>' : '<span class="vei-alerta">⚠ acima do limite de ' + m$(S.cfg.limite) + '</span>') : '') + avisoKm(c, rc) + '</div>';
     if (aberto) {
       h += '<ol class="vei-cid">' + (rc.cidades.length ? '' : '<li style="padding:4px 8px;color:var(--mudo);font-size:.8rem;list-style:none">Nenhuma cidade ainda.</li>');
       rc.cidades.forEach((cid, i) => {
@@ -897,6 +897,14 @@
       h += '</ol>';
     }
     return h + '</div>';
+  }
+  /* aviso (só aviso, não obriga) de rodagem mínima: abaixo = azul, a partir do mínimo = verde. Só quando o km já foi calculado. */
+  const kmMinimo = () => (S.cfg.kmMin == null ? 400 : +S.cfg.kmMin || 0);
+  function avisoKm(c, rc) {
+    const min = kmMinimo(); if (!min || !rc.paradas) return '';
+    const k = kmDe(c); if (!k.n || k.faltam) return '';
+    const t = Math.round(k.km).toLocaleString('pt-BR');
+    return k.km < min ? '<span class="vei-km baixo" title="Só um aviso: o veículo está com menos de ' + min + ' km rodados.">ⓘ Menos de ' + min + ' km rodados (≈ ' + t + ' km)</span>' : '<span class="vei-km ok" title="Rodagem de ' + min + ' km ou mais.">✔ ' + min + ' km ou mais (≈ ' + t + ' km)</span>';
   }
   const ordemVeiculos = (a, b) => S.ordemCar === 'volume' ? (b.vol - a.vol || a.carro.id - b.carro.id) : S.ordemCar === 'valor' ? (b.valor - a.valor || a.carro.id - b.carro.id) : 0;
   /* a janela de veículos é redesenhada quando chega um trecho de rota (km); se o clique/arraste do usuário está no meio, espera soltar
@@ -991,11 +999,12 @@
     const corpo = $('#car-corpo'), op = S.op;
     if (!op || !S.res) { corpo.innerHTML = '<div class="vazio-lista">Sem operação aberta.</div>'; $('#car-qt').textContent = '0'; return; }
     const r = S.res, antes = $('.car-lista', corpo), rol = antes ? antes.scrollTop : 0;
-    const emFoco = document.activeElement && document.activeElement.id === 'car-lim';
+    const emFoco = document.activeElement && (document.activeElement.id === 'car-lim' || document.activeElement.id === 'car-kmin') ? document.activeElement.id : null;
     $('#car-qt').textContent = String(op.carros.length);
     for (const id of [...S.selMov]) if (!S.idx.notaPorId.has(id) || op.atrib[id] == null) S.selMov.delete(id);
     let h = '<div class="car-res"><span><b>' + r.carros.filter(x => x.notas).length + '</b> rodando</span><span><b>' + m$(r.aloc.valor) + '</b></span><span><b>' + i$(r.aloc.vol) + '</b> vol</span>' +
-      '<label class="car-lim" title="Opcional. Regra sua: o app só avisa quando o valor de um veículo passa deste número.">alerta acima de R$ <input id="car-lim" class="filtro" inputmode="decimal" placeholder="sem limite" value="' + fmtLimite(S.cfg.limite) + '"></label></div>' +
+      '<label class="car-lim" title="Opcional. Regra sua: o app só avisa quando o valor de um veículo passa deste número.">alerta acima de R$ <input id="car-lim" class="filtro" inputmode="decimal" placeholder="sem limite" value="' + fmtLimite(S.cfg.limite) + '"></label>' +
+      '<label class="car-lim" title="Só um aviso, não é obrigação: o veículo com menos km rodados que este número ganha um aviso azul; de lá para cima, verde. Deixe vazio para não avisar.">aviso abaixo de <input id="car-kmin" class="filtro" inputmode="numeric" placeholder="sem aviso" value="' + (kmMinimo() || '') + '"> km</label></div>' +
       '<div class="car-lista">' + (r.carros.length ? r.carros.slice().sort(ordemVeiculos).map(rc => veiculoHtml(rc)).join('') : '<div class="vazio-lista">Nenhum veículo ainda. Use + Carro, + Van ou + Caminhão.</div>') + '</div>';
     if (S.selMov.size) {
       const ns = [...S.selMov].map(id => S.idx.notaPorId.get(id)), t = N.somar(ns);
@@ -1004,7 +1013,7 @@
     }
     corpo.innerHTML = h;
     const nova = $('.car-lista', corpo); if (nova) nova.scrollTop = rol;
-    if (emFoco) { const i = $('#car-lim'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+    if (emFoco) { const i = $('#' + emFoco); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   }
   function moverNotas(ids, dest, rotulo) {
     if (!ids.length) return;
@@ -1040,6 +1049,7 @@
       const t = e.target;
       if (t.classList.contains('mv-chk')) { t.checked ? S.selMov.add(t.dataset.n) : S.selMov.delete(t.dataset.n); renderJanCarros(); }
       else if (t.classList.contains('mv-cid')) { for (const n of notasDoVeiculoNaCidade(+t.dataset.car, t.dataset.k)) t.checked ? S.selMov.add(n.id) : S.selMov.delete(n.id); renderJanCarros(); }
+      else if (t.id === 'car-kmin') { const v = t.value.trim(); if (!v) S.cfg.kmMin = 0; else if (!/^\d{1,5}$/.test(v)) { toast('Use só números inteiros (km).'); return; } else S.cfg.kmMin = +v; salvarCfg(); }
       else if (t.id === 'car-lim') { const v = t.value.trim(); if (!v) S.cfg.limite = null; else { const d = N.dec(v, 2); if (!d.ok || d.v < 0) { toast('Valor inválido.'); return; } S.cfg.limite = d.v; } salvarCfg(); }
     });
     /* arrastar e soltar a ordem das paradas (os botões ▲▼ fazem o mesmo, para teclado e toque) */
@@ -1666,6 +1676,6 @@
     }
     RT.pronto = true;
   }
-  RT.A = { abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { kmDe, abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

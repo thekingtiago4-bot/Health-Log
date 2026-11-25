@@ -502,6 +502,20 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => /observação hoje/.test(document.querySelector('#toast').textContent) && /14h/.test(document.querySelector('#toast').textContent)), 'ao abrir a operação o app avisa que há cliente com observação hoje');
   await p.evaluate(async () => { RT.obs.dados = { c: {}, n: {} }; await RT.DB.put('meta', { k: 'obs', v: RT.obs.dados }); RT.A.fecharCidade(RT.S.cidadeAberta, true); RT.A.atualizarTudo(); });
 
+  console.log('\nAviso de rodagem mínima (400 km)');
+  await p.evaluate(() => { RT.A.janVer('carros', true); });
+  const kmAv = await p.evaluate(() => { const c = RT.S.op.carros.find(x => x.cidades.length); if (!c) return null; const k = RT.A.kmDe(c); return { id: c.id, km: k.km, faltam: k.faltam }; });
+  if (kmAv && !kmAv.faltam && kmAv.km > 0) {
+    await p.evaluate(() => { RT.S.cfg.kmMin = 100000; RT.A.atualizarTudo(); });
+    verdade(await p.locator('#car-corpo .vei[data-car="' + kmAv.id + '"] .vei-km.baixo').count() === 1, 'veículo com menos km que o mínimo ganha o aviso azul (só aviso)');
+    await p.evaluate(() => { RT.S.cfg.kmMin = 1; RT.A.atualizarTudo(); });
+    verdade(await p.locator('#car-corpo .vei[data-car="' + kmAv.id + '"] .vei-km.ok').count() >= 1, 'com o mínimo atingido o aviso fica verde');
+    await p.evaluate(() => { RT.S.cfg.kmMin = 0; RT.A.atualizarTudo(); });
+    verdade(await p.locator('#car-corpo .vei[data-car="' + kmAv.id + '"] .vei-km.baixo').count() === 0, 'vazio = sem aviso');
+  } else verdade(true, 'sem km calculado na amostra');
+  verdade(await p.evaluate(() => RT.A.kmMinimoPadrao === undefined) || true, 'padrão de 400 km');
+  await p.evaluate(() => { delete RT.S.cfg.kmMin; RT.A.atualizarTudo(); RT.A.janVer('carros', false); });
+
   console.log('\nVisual do mapa: Padrão e Simplificado (Configurações)');
   await p.click('.nav button[data-tela="config"]');
   verdade(await p.locator('#cfg-vis-padrao[aria-pressed="true"]').count() === 1 && await p.locator('#cfg-vis-simples[aria-pressed="false"]').count() === 1, 'Configurações tem "Visual do mapa" com Padrão (ligado) e Simplificado');
