@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.31.1';
+  const VERSAO = '0.32.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -337,6 +337,7 @@
   /* ================= mapa ================= */
   function dadosMapa() {
     if (!S.res) return [];
+    const ferOn = U.pref.ler('ferMapaOn', true) !== false, ferMap = ferOn && RT.fer ? RT.fer.mapa(U.pref.ler('ferMapaAte', 0)) : null, hojeIso = RT.fer ? RT.fer.diaMais(0) : '';
     return S.res.cidades.map(rc => {
       const c = rc.cidade;
       const cores = [...rc.porCarro.entries()].map(([id, t]) => ({ cor: corDe(id), frac: t.notas }));
@@ -344,7 +345,8 @@
         const e = N.estadoCliente(cl, S.op.atrib); const prim = [...e.carros.keys()][0];
         return { cor: prim != null ? corDe(prim) : null, parcial: e.estado === 'parcial' };
       });
-      return { key: c.key, nome: c.nome, uf: c.uf, lat: c.lat, lon: c.lon, code: c.code, fora: rc.fora, estado: rc.estado, alocadas: rc.alocadas, total: rc.total, notas: rc.total, cores, clientes };
+      const fer = ferMap && c.code != null ? ferMap.get(String(c.code)) : null;
+      return { key: c.key, nome: c.nome, uf: c.uf, lat: c.lat, lon: c.lon, code: c.code, fer: fer ? { n: fer.n, hoje: fer.iso === hojeIso, iso: fer.iso } : null, fora: rc.fora, estado: rc.estado, alocadas: rc.alocadas, total: rc.total, notas: rc.total, cores, clientes };
     });
   }
   function ajustarPadMapa() { const j = $('#jan-pend'); S.mapa.padEsq = (j && !j.classList.contains('recolhida') && j.offsetWidth && parseFloat(j.style.left || 12) < 120) ? j.offsetWidth + 24 : 0; }
@@ -363,6 +365,7 @@
     const est = { pendente: 'sem veículo', parcial: 'falta nota', completa: 'tudo em veículo' }[rc.estado] + (rc.fora ? ' · FORA DE ROTA' : '');
     const carros = [...rc.porCarro.entries()].map(([id, x]) => nomeId(id) + ' (' + x.notas + ')').join(', ');
     t.innerHTML = '<b>' + esc(rc.cidade.nome) + '/' + esc(rc.cidade.uf) + '</b> · ' + est + '<br>' + rc.cidade.listaClientes.length + ' cliente(s) · ' + tot.notas + ' nota(s) · ' + m$(tot.valor) + (carros ? '<br>' + esc(carros) : '');
+    const fe = h.fer; if (fe) t.innerHTML += '<br><b style="color:#E03131">Feriado' + (fe.hoje ? ' hoje' : ' em ' + U.dataBR(fe.iso)) + ':</b> ' + esc(fe.n);
     t.hidden = false;
     const a = $('#mapa-area').getBoundingClientRect();
     let x = e.clientX - a.left + 16, y = e.clientY - a.top + 16;
@@ -1600,6 +1603,7 @@
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     irPara(S.soGeo ? 'geo' : 'rotas');
+    if (!S.modoMapa) RT.fer.atualizar(false).then(() => { if (S.mapa && S.op) atualizarTudo(); }).catch(() => { /* sem internet: fica com o que já tem guardado */ });   // o mapa de rotas também marca feriado
     await malha; S.mapa.marcar();
     aplicarBase();
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }

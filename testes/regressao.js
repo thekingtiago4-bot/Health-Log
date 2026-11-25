@@ -456,6 +456,15 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(await p.locator('.jan-cid .mini-car').count(), 2, 'com duas abertas aparece o "Levar para" só com os carros das janelas abertas');
   await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.fecharCidade(RT.S.cidadeAberta, true); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
 
+  console.log('\nFeriado marcado também no mapa de rotas');
+  const kf = await p.evaluate(() => { const rc = RT.S.res.cidades.find(r => !r.fora && r.cidade.code && !RT.S.mapa.porChave.get(r.cidade.key).fer); return rc ? { k: rc.cidade.key, code: rc.cidade.code } : null; });
+  igual(await p.evaluate(k => !RT.S.mapa.porChave.get(k).fer, kf.k), true, 'cidade sem feriado não tem marca');
+  await p.evaluate(async c => { await RT.fer.incluir(c.code, RT.fer.diaMais(0), 'Feriado de teste'); RT.A.atualizarTudo(); }, kf);
+  verdade(await p.evaluate(k => { const f = RT.S.mapa.porChave.get(k).fer; return !!f && f.hoje && f.n === 'Feriado de teste'; }, kf.k), 'cidade com feriado hoje ganha a marca "F" vermelha no mapa de rotas');
+  verdade(await p.locator('#legenda .lg-fer').count() === 1, 'e a legenda explica a marca');
+  await p.evaluate(async c => { const f = RT.fer.manual.find(m => m.alvo === String(c.code)); if (f) await RT.fer.remover(f.id); RT.A.atualizarTudo(); }, kf);
+  igual(await p.evaluate(k => !RT.S.mapa.porChave.get(k).fer, kf.k), true, 'tirando o feriado, a marca some');
+
   console.log('\nGeolocalização (regiões e bases)');
   await p.click('.nav button[data-tela="geo"]');
   await p.fill('#geo-q', 'presidente prud'); await p.keyboard.press('Enter');

@@ -731,3 +731,4 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .pend-notas .pn .pn-v{font-weight:700;min-width:84px;text-align:right}
 .pend-notas .pn .pn-vol,.pend-notas .pn .pn-nf{color:var(--mudo)}
 .pend-notas .pn.em{opacity:.6}
+.lg-fer{background:#E03131;color:#fff;font-weight:800}

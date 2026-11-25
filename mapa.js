@@ -529,7 +529,7 @@
         ctx.fillStyle = '#fff'; ctx.font = '800 9px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((this.base.sigla || 'BASE').slice(0, 4), baseP.x, baseP.y + 0.5);
       }
       for (const { c, p } of vis) if (c.clientes && !c.fora && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
-      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
+      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); if (c.fer) this._selo(ctx, p.x + R_MARC + 3, p.y + R_MARC + 3, '#E03131', 'fer'); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
       /* número da parada em cada rota (canto de cima, à esquerda) */
       const nums = new Map();
       for (const r of this.rotas) for (const q of r.pontos) { if (!nums.has(q.key)) nums.set(q.key, []); nums.get(q.key).push({ n: q.n, cor: r.cor }); }
@@ -701,7 +701,8 @@
     _selo(ctx, x, y, cor, t) {
       ctx.beginPath(); ctx.arc(x, y, 9.5, 0, 6.2832); ctx.fillStyle = cor; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = this._cores && this._cores.escuro ? '#071E22' : '#fff'; ctx.stroke();
-      if (t === 'ok') {
+      if (t === 'fer') { ctx.fillStyle = '#fff'; ctx.font = '800 12px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('F', x, y + 0.5); }
+      else if (t === 'ok') {
         ctx.beginPath(); ctx.moveTo(x - 4.4, y + 0.3); ctx.lineTo(x - 1.2, y + 3.6); ctx.lineTo(x + 4.6, y - 3.4);
         ctx.lineWidth = 2.6; ctx.strokeStyle = '#fff'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
       } else {
