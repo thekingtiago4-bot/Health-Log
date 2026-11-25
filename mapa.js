@@ -531,12 +531,12 @@
       /* número da parada em cada rota (canto de cima, à esquerda) */
       const nums = new Map();
       for (const r of this.rotas) for (const q of r.pontos) { if (!nums.has(q.key)) nums.set(q.key, []); nums.get(q.key).push({ n: q.n, cor: r.cor }); }
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '700 11px "Barlow Semi Condensed",system-ui,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '700 15px "Barlow Semi Condensed",system-ui,sans-serif';
       for (const { c, p } of vis) {
         const l = nums.get(c.key); if (!l) continue;
         l.forEach((q, i) => {
-          const x = p.x - R_MARC - 2 - i * 17, y = p.y - R_MARC - 2;
-          ctx.beginPath(); ctx.arc(x, y, 8.5, 0, 6.2832); ctx.fillStyle = q.cor; ctx.fill();
+          const x = p.x - R_MARC - 2 - i * 24, y = p.y - R_MARC - 2;
+          ctx.beginPath(); ctx.arc(x, y, 11.5, 0, 6.2832); ctx.fillStyle = q.cor; ctx.fill();
           ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#071E22' : '#fff'; ctx.stroke();
           ctx.fillStyle = '#fff'; ctx.fillText(String(q.n), x, y + 0.5);
         });

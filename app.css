@@ -310,12 +310,12 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 .rast.nao{background:var(--linha2)}
 .vei-alerta{grid-column:1/3;font-size:.72rem;font-weight:700;color:var(--amarTxt);background:var(--amarBg);border-radius:4px;padding:1px 7px}
 .vei-cid{list-style:none;margin:0;padding:0 6px 6px}
-.vei-cid li.cid{display:grid;grid-template-columns:16px 20px minmax(0,1fr) auto;gap:2px 6px;align-items:center;padding:4px 4px;border-radius:5px;cursor:grab;border:1px solid transparent}
+.vei-cid li.cid{display:grid;grid-template-columns:16px 28px minmax(0,1fr) auto;gap:2px 6px;align-items:center;padding:4px 4px;border-radius:5px;cursor:grab;border:1px solid transparent}
 .vei-cid li.cid:hover{background:var(--sup2)}
 .vei-cid li.cid.alvo{border-color:var(--cor);background:var(--tealBg)}
 .vei-cid li.cid.arrastando{opacity:.4}
 .cid .alca{color:var(--mudo);cursor:grab;user-select:none}
-.cid .ord{width:20px;height:20px;border-radius:50%;background:var(--cor);color:#fff;font-family:"Barlow Semi Condensed";font-weight:700;font-size:.74rem;display:grid;place-items:center}
+.cid .ord{width:28px;height:28px;border-radius:50%;background:var(--cor);color:#fff;font-family:"Barlow Semi Condensed";font-weight:700;font-size:1.05rem;display:grid;place-items:center}
 .cid .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .cid .nm small{color:var(--mudo);font-weight:500;margin-left:4px}
 .cid .bt{display:flex;gap:1px}
@@ -723,3 +723,11 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .pend-lista .pend-sel{width:16px;height:16px;accent-color:var(--teal);cursor:pointer;margin:0}
 .pend-colunas .pc-sel{color:var(--mudo);font-size:.8rem}
 #pend-carro{max-width:120px;min-height:30px;padding:2px 6px;font-size:.8rem}
+.pend-lista .cn .pend-exp{background:none;border:0;color:var(--mudo);cursor:pointer;padding:0 4px 0 0;font-size:.85rem;line-height:1}
+.pend-lista .cn .pend-exp:hover{color:var(--txt)}
+.pend-lista li.pend-notas{display:block!important;padding:2px 12px 8px 40px;border-bottom:1px solid var(--linha2);cursor:default}
+.pend-notas .pn{display:flex;gap:8px;align-items:baseline;padding:2px 0;font-size:.8rem}
+.pend-notas .pn .pn-cli{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pend-notas .pn .pn-v{font-weight:700;min-width:84px;text-align:right}
+.pend-notas .pn .pn-vol,.pend-notas .pn .pn-nf{color:var(--mudo)}
+.pend-notas .pn.em{opacity:.6}

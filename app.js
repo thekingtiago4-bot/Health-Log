@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.30.2';
+  const VERSAO = '0.31.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -13,7 +13,7 @@
     hist: [], mapa: null, precisaEnquadrar: true, lote: null, destino: 'atual',
     nf: { q: '', carro: '', origem: '', ord: 'nf', dir: 1 },
     canal: null, ext: null, parede: false, modoMapa: /[?&]mapa=1/.test(location.search), soGeo: /[?&]geo=1/.test(location.search),
-    fila: Promise.resolve(), ultimoSalvo: null, ultimoBackup: null, pend: { q: '', ordem: 'nome', mostrarTodas: false }
+    fila: Promise.resolve(), ultimoSalvo: null, ultimoBackup: null, pend: { q: '', ordem: 'nome', mostrarTodas: false, expand: new Set() }
   };
 
   /* ================= estado, histórico e gravação ================= */
@@ -45,7 +45,7 @@
     const s = JSON.parse(h.snap);
     S.op.atrib = s.atrib; S.op.carros = s.carros; S.op.proxCarro = s.proxCarro; S.op.status = s.status || {}; S.op.agIgnorar = s.agIgnorar || {}; S.op.rev++;
     if (!carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros.length ? S.op.carros[0].id : null;
-    S.ordOp = null; reindexar(); resetDraft(); salvar(); atualizarTudo();
+    S.ordOp = null; reindexar(); for (const x of S.cidJan.values()) resetDraftMantendoMarcas(x); salvar(); atualizarTudo();
     toast('Desfeito: ' + h.rotulo);
   }
 
@@ -253,9 +253,10 @@
   }
   const novoCarro = () => novoVeiculo('carro');
   function selecionarCarro(id) {
-    if (id === S.carroAtivo) return;
-    if (S.cidadeAberta && draftSujo()) toast('Marcações não concluídas foram descartadas.');
-    S.carroAtivo = id; S.mapa.setAtivo(id); resetDraft(); renderCarros(); renderJanCidade();
+    if (vAbertos().length && !S.veicAbertos.has(id)) { abrirJanelaVeiculo(id); return; }   // com janela de veículo aberta, escolher outro carro abre a janela dele (as notas vão para os carros das janelas abertas)
+    if (id === S.carroAtivo) { renderJanCidade(); return; }
+    if (algumDraftSujo()) toast('Marcações não concluídas foram descartadas.');
+    S.carroAtivo = id; S.mapa.setAtivo(id); for (const ctx of S.cidJan.values()) resetDraft(ctx); renderCarros(); renderJanCidade();
   }
   /* lápis do veículo: motorista + cor (algumas cores da lista inicial são fracas no mapa) */
   const PALETA_CARRO = ['#7B3FE4', '#1C6DD0', '#E8590C', '#D6336C', '#0B8FA6', '#8D5A2B', '#C92A2A', '#4C5DDC', '#B23BC4', '#2FA0F5', '#F5B700', '#2E9E48', '#FF3EA5', '#00C2A8', '#FF7A00', '#111111'];
@@ -282,6 +283,7 @@
     return bi;
   }
   function otimizarOrdens() {
+    return false;   // v0.31: a sequência é a que o usuário montou (clique a clique); só muda se ele mudar à mão. (a otimização automática abaixo ficou desligada)
     const base = S.mapa && S.mapa.base; if (!base || !S.op) return false; let mudou = false;
     for (const c of S.op.carros) {
       const antes = S.ordPrev.get(c.id), atual = new Set(c.cidades);
@@ -374,7 +376,8 @@
   /* Ctrl+V: vale na janela em foco (moldura destacada) ou na tabela de Notas; sempre A–Z → maior volume → maior valor → A–Z */
   function ciclarOrdemFoco() {
     const f = S.janFoco && $('#' + S.janFoco), vis = f && !f.hidden ? S.janFoco : null;
-    if (vis === 'jan-cid' && S.cidadeAberta) { S.ordemCli = prox3(['nome', 'vol', 'maior'], S.ordemCli); renderJanCidade(); toast('Clientes: ' + ({ nome: 'A–Z', vol: 'maior volume', maior: 'maior valor' })[S.ordemCli]); return true; }
+    const fcx = f && f.classList.contains('jan-cid') ? S.cidJan.get(f.dataset.key) : null;
+    if (fcx) { fcx.ordem = prox3(['nome', 'vol', 'maior'], fcx.ordem); S.ordemCli = fcx.ordem; renderJanCidade(fcx); toast('Clientes: ' + ({ nome: 'A–Z', vol: 'maior volume', maior: 'maior valor' })[fcx.ordem]); return true; }
     if (vis === 'jan-carros') { S.ordemCar = prox3(['nome', 'volume', 'valor'], S.ordemCar); renderJanCarros(); toast('Veículos: ' + ({ nome: 'A–Z (ordem de criação)', volume: 'maior volume', valor: 'maior valor' })[S.ordemCar]); return true; }
     if (vis === 'jan-busca') { RT.sit.ciclarOrdem(); return true; }
     if (vis === 'jan-pend' || (!vis && tela === 'rotas' && !$('#jan-pend').hidden)) { ciclarOrdemPend(); return true; }
@@ -426,9 +429,11 @@
       const sub = rc.estado === 'completa' ? 'tudo em veículo' : (rc.paradasLivres + ' parada(s)' + (rc.estado === 'parcial' ? ' · já saíram ' + (tot.notas - l.notas) + ' de ' + tot.notas + ' notas' : '')) + (c.semPosicao ? ' · sem posição no mapa' : '');
       const reg = foraRota ? N.regioesDaCidade(c.code).join(', ') : '';
       const noAtivo = S.carroAtivo != null && ((rc.porCarro.get(S.carroAtivo) || { notas: 0 }).notas === tot.notas) && tot.notas > 0;
+      const exp = S.pend.expand.has(c.key);
       const quadrado = foraRota ? '<span></span>' : '<input type="checkbox" class="pend-sel" data-sel="' + esc(c.key) + '"' + (noAtivo ? ' checked' : '') + ' title="Selecionar TODAS as notas e clientes de ' + esc(c.nome) + ' para ' + esc(S.carroAtivo != null && carroPorId(S.carroAtivo) ? N.nomeCarro(carroPorId(S.carroAtivo)) : 'um carro novo') + '" aria-label="Selecionar todas as notas de ' + esc(c.nome) + ' para o carro escolhido">';
-      return '<li class="' + (foraRota ? 'fora' : '') + '" data-cid="' + esc(c.key) + '"' + (c.key === S.cidadeAberta ? ' aria-current="true"' : '') + '>' + quadrado + '<span class="pt ' + pt + '">' + (pt === 'parc' ? '!' : '') + '</span><b class="cn"><span class="cn-nome">' + esc(c.nome) + '</span><span class="tag">' + esc(c.uf) + '</span></b><span class="n" title="notas que faltam (de ' + tot.notas + ')">' + l.notas + '</span><span class="v" title="volumes que faltam (de ' + i$(tot.vol) + ')">' + i$(l.vol) + '</span><span class="vl" title="valor que falta (de ' + m$(tot.valor) + ')">' + m$(l.valor) + '</span><small>' + sub + (reg ? ' · ' + esc(reg) : '') + '</small>' +
-        (c.code ? '<button type="button" class="bt-fora" data-fora="' + esc(c.key) + '">' + (foraRota ? 'trazer para a rota' : 'marcar fora de rota') + '</button>' : '') + '</li>';
+      return '<li class="' + (foraRota ? 'fora' : '') + '" data-cid="' + esc(c.key) + '"' + (c.key === S.cidadeAberta ? ' aria-current="true"' : '') + '>' + quadrado + '<span class="pt ' + pt + '">' + (pt === 'parc' ? '!' : '') + '</span><b class="cn"><button type="button" class="pend-exp" data-exp="' + esc(c.key) + '" aria-expanded="' + exp + '" aria-label="Ver as notas de ' + esc(c.nome) + '" title="Ver as notas (mais caras primeiro)">' + (exp ? '▾' : '▸') + '</button><span class="cn-nome">' + esc(c.nome) + '</span><span class="tag">' + esc(c.uf) + '</span></b><span class="n" title="notas que faltam (de ' + tot.notas + ')">' + l.notas + '</span><span class="v" title="volumes que faltam (de ' + i$(tot.vol) + ')">' + i$(l.vol) + '</span><span class="vl" title="valor que falta (de ' + m$(tot.valor) + ')">' + m$(l.valor) + '</span><small>' + sub + (reg ? ' · ' + esc(reg) : '') + '</small>' +
+        (c.code ? '<button type="button" class="bt-fora" data-fora="' + esc(c.key) + '">' + (foraRota ? 'trazer para a rota' : 'marcar fora de rota') + '</button>' : '') + '</li>' +
+        (exp ? '<li class="pend-notas">' + c.notas.slice().sort((x, y) => y.valor - x.valor || cmp(x.nf, y.nf)).map(n => { const at = S.op.atrib[n.id], car = at != null ? carroPorId(at) : null; return '<div class="pn' + (car ? ' em' : '') + '"><span class="pn-nf">NF ' + esc(n.nf) + '</span><span class="pn-cli">' + esc(n.cliente) + '</span>' + (car ? '<span class="chip-pos" style="--cor:' + car.cor + '">' + esc(N.nomeCarro(car)) + '</span>' : '') + '<span class="pn-vol">' + i$(n.vol) + ' vol</span><span class="pn-v">' + m$(n.valor) + '</span></div>'; }).join('') + '</li>' : '');
     };
     /* rodapé: quanto ainda falta sair, somando as cidades em rota que não zeraram */
     { const f = emRota.filter(rc => rc.estado !== 'completa').reduce((t, rc) => ({ n: t.n + rc.livres.notas, v: t.v + rc.livres.vol, $: t.$ + rc.livres.valor, p: t.p + rc.paradasLivres }), { n: 0, v: 0, $: 0, p: 0 });
@@ -445,77 +450,126 @@
   }
 
   /* ================= janela da cidade: clientes → notas ================= */
-  function notasDaCidade() { const c = S.idx && S.idx.cidades.get(S.cidadeAberta); return c ? c.notas : []; }
-  function resetDraft() {
-    const car = S.carroAtivo;
-    S.draft = new Set(notasDaCidade().filter(n => car != null && S.op.atrib[n.id] === car).map(n => n.id));
-    S.draft0 = new Set(S.draft);
+  /* Cada cidade tem a SUA janela (várias abertas ao mesmo tempo). Estado por janela: marcações, clientes abertos, ordem. */
+  S.cidJan = new Map(); let cidSeq = 0;
+  const vAbertos = () => [...S.veicAbertos].filter(id => carroPorId(id));
+  /* "Levar para": sem janela de veículo aberta, todos os carros; com UMA, nenhum (as notas vão para ela); com duas ou mais, só os carros das janelas abertas */
+  function chipsAlvo() {
+    const ab = vAbertos(); if (ab.length === 1) return '';
+    const lista = ab.length ? S.op.carros.filter(x => ab.includes(x.id)) : S.op.carros;
+    return '<span>Levar para:</span><div class="carros-mini">' + lista.map(x => '<button type="button" class="mini-car" data-car="' + x.id + '" aria-pressed="' + (x.id === S.carroAtivo) + '" style="--cor:' + x.cor + '">' + N.nomeCarro(x) + '</button>').join('') + '</div>';
   }
-  function draftSujo() {
-    if (S.draft.size !== S.draft0.size) return true;
-    for (const x of S.draft) if (!S.draft0.has(x)) return true;
+  const notasDaCidade = key => { const c = S.idx && S.idx.cidades.get(key); return c ? c.notas : []; };
+  function resetDraft(ctx) {
+    const car = S.carroAtivo;
+    ctx.draft = new Set(notasDaCidade(ctx.key).filter(n => car != null && S.op.atrib[n.id] === car).map(n => n.id));
+    ctx.draft0 = new Set(ctx.draft);
+  }
+  function draftSujo(ctx) {
+    if (!ctx) return false;
+    if (ctx.draft.size !== ctx.draft0.size) return true;
+    for (const x of ctx.draft) if (!ctx.draft0.has(x)) return true;
     return false;
   }
+  const algumDraftSujo = () => [...S.cidJan.values()].some(draftSujo);
   function disponivel(n) { const a = S.op.atrib[n.id]; return a == null || a === S.carroAtivo; }
 
+  function criarJanelaCidade(ctx) {
+    const area = document.getElementById('mapa-area'), jan = document.createElement('div');
+    jan.className = 'jan jan-cid'; jan.id = 'jan-' + ctx.id; jan.dataset.key = ctx.key; jan.setAttribute('role', 'dialog'); jan.setAttribute('aria-label', 'Clientes da cidade');
+    area.appendChild(jan);
+    U.arrastavel(jan, '.jan-cab', area, pp => U.pref.gravar('pos:cid', pp));
+    U.redimensionavel(jan, 'cid', area, () => { ajustarPadMapa(); S.mapa.redimensionar(); });
+    jan.addEventListener('click', e => {
+      const t = e.target, a = t.closest('[data-a]');
+      if (a && (a.dataset.a === 'fechar' || a.dataset.a === 'cancelar')) return fecharCidade(ctx);
+      if (a && a.dataset.a === 'concluir') return concluirCidade(ctx);
+      if (a && a.dataset.a === 'forarota') return alternarFora(ctx.key);
+      const car = t.closest('.mini-car'); if (car) return selecionarCarro(+car.dataset.car);
+      const lc = t.closest('[data-libc]'); if (lc) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+lc.dataset.libc]; return liberar(cl.notas.filter(n => S.op.atrib[n.id] != null && S.op.atrib[n.id] !== S.carroAtivo).map(n => n.id), 'liberar notas de ' + cl.nome); }
+      const ln = t.closest('[data-libn]'); if (ln) return liberar([ln.dataset.libn], 'liberar nota');
+      const ex = t.closest('.cli-exp'); if (ex) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+ex.dataset.i]; ctx.expand.has(cl.key) ? ctx.expand.delete(cl.key) : ctx.expand.add(cl.key); return renderJanCidade(ctx); }
+      const nm = t.closest('.cli-nome'); if (nm && !t.closest('.lib')) { const i = +nm.dataset.i, cl = S.idx.cidades.get(ctx.key).listaClientes[i], dsp = cl.notas.filter(disponivel); if (dsp.length) marcarCliente(ctx, i, !dsp.every(n => ctx.draft.has(n.id))); }
+    });
+    jan.addEventListener('change', e => {
+      const t = e.target;
+      if (t.classList.contains('cl-chk')) marcarCliente(ctx, +t.dataset.i, t.checked);
+      else if (t.classList.contains('nt-chk')) { t.checked ? ctx.draft.add(t.dataset.n) : ctx.draft.delete(t.dataset.n); renderJanCidade(ctx); }
+      else if (t.classList.contains('jc-ordem')) { ctx.ordem = t.value; renderJanCidade(ctx); }
+      else if (t.classList.contains('jc-todos')) { for (const n of notasDaCidade(ctx.key).filter(disponivel)) { t.checked ? ctx.draft.add(n.id) : ctx.draft.delete(n.id); } renderJanCidade(ctx); }
+    });
+    jan.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.target.closest('select') && draftSujo(ctx) && !e.target.closest('button')) { e.preventDefault(); concluirCidade(ctx); } });
+    jan.addEventListener('pointerdown', () => { if (S.cidadeAberta !== ctx.key) { S.cidadeAberta = ctx.key; S.mapa.setSelecionada(ctx.key); enviar({ t: 'sel', key: ctx.key }); renderPend(); } });
+    return jan;
+  }
+  function posicionarCidade(ctx, o) {
+    const jan = ctx.el, area = jan.parentElement; if (!area) return;
+    const W = area.clientWidth, H = area.clientHeight;
+    const salvo = posJan('cid');   // onde você deixou a última janela de cidade, as novas abrem (uma não cobre exatamente a outra)
+    const anchor = (o.centrar || S.parede) ? { x: W / 2, y: H / 2 } : (S.mapa.posicaoDaCidade(ctx.key) || { x: W * 0.55, y: H * 0.3 });
+    const w = jan.offsetWidth; let x = anchor.x + 28; if (x + w > W - 8) x = anchor.x - w - 28; let y = anchor.y - 70;
+    if (salvo) { x = salvo.x; y = salvo.y; }
+    const outros = [...S.cidJan.values()].filter(c => c !== ctx && c.el.parentElement === area && !c.el.hidden).map(c => c.el);
+    for (let t = 0; t < 12 && outros.some(e => Math.abs((parseFloat(e.style.left) || 0) - x) < 20 && Math.abs((parseFloat(e.style.top) || 0) - y) < 20); t++) { x += 30; y += 30; }   // uma janela não cobre exatamente a outra
+    U.posicionar(jan, area, x, y);
+  }
   function abrirCidade(key, o) {
     o = o || {};
     if (!S.op || !S.idx || !S.idx.cidades.has(key)) return;
-    if (S.cidadeAberta && S.cidadeAberta !== key && draftSujo()) toast('Marcações não concluídas foram descartadas.');
     if (!S.op.carros.length) { mutar('novo carro', () => { const c = N.novoCarro(S.op); S.carroAtivo = c.id; }); abrirJanelaVeiculo(S.carroAtivo); toast('Criei o Carro 1 para você começar.'); }
     if (S.carroAtivo == null || !carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros[0].id;
-    S.cidadeAberta = key; S.expand = new Set(); resetDraft();
+    let ctx = S.cidJan.get(key); const novo = !ctx;
+    if (novo) { ctx = { key, id: 'c' + (++cidSeq), ordem: S.ordemCli, expand: new Set(), draft: new Set(), draft0: new Set(), el: null }; ctx.el = criarJanelaCidade(ctx); S.cidJan.set(key, ctx); resetDraft(ctx); }
+    S.cidadeAberta = key;
     S.mapa.setSelecionada(key); enviar({ t: 'sel', key, centrar: !!o.centrar });
-    const jan = $('#jan-cid');
-    if (S.parede && S.janExt.size && !S.janExt.has('cid')) janParaOutraTela('cid', true);   // quem trabalha com janelas na 2ª tela quer a da cidade lá também
-    const area = jan.parentElement;
-    jan.hidden = false; renderJanCidade(); renderCarros(); renderPend();
-    const W = area.clientWidth, H = area.clientHeight;
+    ctx.el.hidden = false; ctx.el.style.zIndex = String(++U.z);
+    if (novo) { atualizarBotoesExt(); if (S.parede && S.janExt.size) janParaOutraTela(ctx.id, true); }   // quem trabalha com janelas na 2ª tela quer a da cidade lá também
+    renderJanCidade(ctx); renderCarros(); renderPend();
     if (o.centrar) S.mapa.centrarEm(key, 140);
-    const salvo = posJan('cid');
-    if (salvo) U.posicionar(jan, area, salvo.x, salvo.y); // onde você deixou, fica
-    else {
-      const anchor = (o.centrar || S.parede) ? { x: W / 2, y: H / 2 } : (S.mapa.posicaoDaCidade(key) || { x: W * 0.55, y: H * 0.3 });
-      const w = jan.offsetWidth; let x = anchor.x + 28; if (x + w > W - 8) x = anchor.x - w - 28;
-      U.posicionar(jan, area, x, anchor.y - 70);
-    }
-    const l = $('.cid-lista', jan); if (l) l.scrollTop = 0;
+    if (novo) posicionarCidade(ctx, o);
+    const l = $('.cid-lista', ctx.el); if (l && novo) l.scrollTop = 0;
   }
-  function fecharCidade(silencioso) {
-    if (!S.cidadeAberta) return;
-    if (!silencioso && draftSujo()) toast('Marcações não concluídas foram descartadas.');
-    S.cidadeAberta = null; S.draft = new Set(); S.draft0 = new Set();
-    $('#jan-cid').hidden = true; S.mapa && S.mapa.setSelecionada(null); enviar({ t: 'sel', key: null }); renderPend();
+  function fecharCidade(ctx, silencioso) {
+    if (ctx == null || typeof ctx === 'boolean') { silencioso = !!ctx; ctx = S.cidJan.get(S.cidadeAberta); }
+    else if (typeof ctx === 'string') ctx = S.cidJan.get(ctx);
+    if (!ctx) return;
+    if (!silencioso && draftSujo(ctx)) toast('Marcações não concluídas foram descartadas.');
+    S.cidJan.delete(ctx.key); ctx.el.remove();
+    if (S.janExt.delete(ctx.id)) { U.pref.gravar('janExt', [...S.janExt]); ajustarPadMapa(); }
+    if (S.cidadeAberta === ctx.key) { S.cidadeAberta = [...S.cidJan.keys()].pop() || null; S.mapa && S.mapa.setSelecionada(S.cidadeAberta); enviar({ t: 'sel', key: S.cidadeAberta }); }
+    renderPend();
   }
+  function fecharTodasCidades(silencioso) { for (const ctx of [...S.cidJan.values()]) fecharCidade(ctx, silencioso); }
 
   function chipPos(carros) {
     return [...carros.entries()].map(([id, q]) => { const c = carroPorId(id); return c ? '<span class="chip-pos" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + (q > 1 ? ' · ' + q : '') + '</span>' : ''; }).join('');
   }
-  function renderJanCidade() {
+  function renderJanCidade(ctx) {
     if (S.modoMapa) return;
-    const jan = $('#jan-cid');
-    if (!S.cidadeAberta || !S.idx) { return; }
-    const c = S.idx.cidades.get(S.cidadeAberta);
-    if (!c) { fecharCidade(true); return; }
+    if (!ctx) { for (const x of [...S.cidJan.values()]) renderJanCidade(x); return; }
+    const jan = ctx.el;
+    if (!S.idx || !S.op) return;
+    const c = S.idx.cidades.get(ctx.key);
+    if (!c) { fecharCidade(ctx, true); return; }
     const rc = S.res.cidades.find(x => x.cidade === c), car = carroPorId(S.carroAtivo);
     const foco = document.activeElement && jan.contains(document.activeElement) ? { cls: document.activeElement.className, i: document.activeElement.dataset.i, n: document.activeElement.dataset.n } : null;
     const rolagem = $('.cid-lista', jan) ? $('.cid-lista', jan).scrollTop : 0;
     const tot = N.somar(c.notas);
     const disp = c.notas.filter(disponivel);
-    const selDisp = disp.filter(n => S.draft.has(n.id)).length;
+    const selDisp = disp.filter(n => ctx.draft.has(n.id)).length;
     let clientes = c.listaClientes.slice();
     const vcli = cl => N.somar(cl.notas).valor;
     const vvol = cl => N.somar(cl.notas).vol;
-    if (S.ordemCli === 'vol') clientes.sort((a, b) => vvol(b) - vvol(a) || cmp(a.nome, b.nome));
-    else if (S.ordemCli === 'maior') clientes.sort((a, b) => vcli(b) - vcli(a) || cmp(a.nome, b.nome));
-    else if (S.ordemCli === 'menor') clientes.sort((a, b) => vcli(a) - vcli(b) || cmp(a.nome, b.nome));
+    if (ctx.ordem === 'vol') clientes.sort((a, b) => vvol(b) - vvol(a) || cmp(a.nome, b.nome));
+    else if (ctx.ordem === 'maior') clientes.sort((a, b) => vcli(b) - vcli(a) || cmp(a.nome, b.nome));
+    else if (ctx.ordem === 'menor') clientes.sort((a, b) => vcli(a) - vcli(b) || cmp(a.nome, b.nome));
     jan.style.setProperty('--cor', car ? car.cor : 'var(--teal)');
     const est = { pendente: 'Sem carro', parcial: 'Falta nota', completa: 'Completa' }[rc.estado];
-    const sel = c.notas.filter(n => S.draft.has(n.id)), st = N.somar(sel), par = new Set(sel.map(N.chaveCliente)).size;
+    const sel = c.notas.filter(n => ctx.draft.has(n.id)), st = N.somar(sel), par = new Set(sel.map(N.chaveCliente)).size;
     const linhas = clientes.map(cl => {
-      const e = N.estadoCliente(cl, S.op.atrib), dsp = cl.notas.filter(disponivel), nsel = dsp.filter(n => S.draft.has(n.id)).length;
+      const e = N.estadoCliente(cl, S.op.atrib), dsp = cl.notas.filter(disponivel), nsel = dsp.filter(n => ctx.draft.has(n.id)).length;
       const cinza = dsp.length === 0, meu = cl.notas.some(n => S.op.atrib[n.id] === S.carroAtivo);
-      const t = N.somar(cl.notas), exp = S.expand.has(cl.key);
+      const t = N.somar(cl.notas), exp = ctx.expand.has(cl.key);
       const idx = c.listaClientes.indexOf(cl);
       const outros = new Map([...e.carros].filter(([id]) => id !== S.carroAtivo));
       let h = '<div class="cli' + (cinza ? ' cinza' : '') + (meu ? ' meu' : '') + '"><div class="cli-lin">' +
@@ -527,7 +581,7 @@
       if (exp) {
         h += '<div class="nts">' + cl.notas.slice().sort((a, b) => b.valor - a.valor).map(n => {
           const a = S.op.atrib[n.id], outro = a != null && a !== S.carroAtivo;
-          return '<div class="nt' + (outro ? ' cinza' : '') + '"><input type="checkbox" class="nt-chk" data-n="' + esc(n.id) + '"' + (S.draft.has(n.id) ? ' checked' : '') + (outro ? ' disabled' : '') + ' aria-label="NF ' + esc(n.nf) + '">' +
+          return '<div class="nt' + (outro ? ' cinza' : '') + '"><input type="checkbox" class="nt-chk" data-n="' + esc(n.id) + '"' + (ctx.draft.has(n.id) ? ' checked' : '') + (outro ? ' disabled' : '') + ' aria-label="NF ' + esc(n.nf) + '">' +
             '<div class="l1">NF ' + esc(n.nf) + ' <span>· ' + esc(n.origem.replace(/\.xml$/i, '')) + ' · ' + i$(n.vol) + ' vol</span>' + (outro ? chipPos(new Map([[a, 1]])) + '<button type="button" class="lib" data-libn="' + esc(n.id) + '">liberar</button>' : '') + '</div>' +
             '<div class="v">' + m$(n.valor) + '</div></div>';
         }).join('') + '</div>';
@@ -535,15 +589,15 @@
       return h + '</div>';
     }).join('');
     jan.innerHTML =
-      '<div class="jan-cab" id="jc-cab"><b>' + esc(c.nome) + ' <small class="tag">' + esc(c.uf) + '</small></b><span class="estado ' + rc.estado + '">' + est + '</span><button type="button" class="jan-x" data-a="fechar" aria-label="Fechar">✕</button></div>' +
+      '<div class="jan-cab"><b>' + esc(c.nome) + ' <small class="tag">' + esc(c.uf) + '</small></b><span class="estado ' + rc.estado + '">' + est + '</span><button type="button" class="jan-x" data-a="fechar" aria-label="Fechar">✕</button></div>' +
       '<div class="cid-info"><span><b>' + c.listaClientes.length + '</b> clientes</span><span><b>' + tot.notas + '</b> notas</span><span><b>' + i$(tot.vol) + '</b> vol</span><span><b>' + m$(tot.valor) + '</b></span>' +
       (rc.estado === 'parcial' ? '<span style="color:var(--amarTxt)">faltam <b>' + rc.livres.notas + '</b> nota(s) · ' + m$(rc.livres.valor) + '</span>' : '') + (c.semPosicao ? '<span style="color:var(--no)">cidade sem posição no mapa</span>' : '') + (c.fora ? '<span style="color:var(--mudo)">FORA DE ROTA</span>' : '') + (c.code ? '<button type="button" class="lib" data-a="forarota">' + (c.fora ? 'trazer para a rota' : 'marcar como fora de rota') + '</button>' : '') + '</div>' +
-      '<div class="cid-ctrl"><span>Levar para:</span><div class="carros-mini">' + S.op.carros.map(x => '<button type="button" class="mini-car" data-car="' + x.id + '" aria-pressed="' + (x.id === S.carroAtivo) + '" style="--cor:' + x.cor + '">' + N.nomeCarro(x) + '</button>').join('') + '</div>' +
-      '<select id="jc-ordem" class="filtro" style="min-height:28px;padding:1px 6px;font-size:.78rem" aria-label="Ordenar clientes"><option value="nome"' + (S.ordemCli === 'nome' ? ' selected' : '') + '>A–Z</option><option value="vol"' + (S.ordemCli === 'vol' ? ' selected' : '') + '>Maior volume</option><option value="maior"' + (S.ordemCli === 'maior' ? ' selected' : '') + '>Maior valor</option><option value="menor"' + (S.ordemCli === 'menor' ? ' selected' : '') + '>Menor valor</option></select>' +
-      '<label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="jc-todos" data-a="todos"' + (disp.length && selDisp === disp.length ? ' checked' : '') + (disp.length ? '' : ' disabled') + '> todos</label></div>' +
+      '<div class="cid-ctrl">' + chipsAlvo() +
+      '<select class="filtro jc-ordem" style="min-height:28px;padding:1px 6px;font-size:.78rem" aria-label="Ordenar clientes"><option value="nome"' + (ctx.ordem === 'nome' ? ' selected' : '') + '>A–Z</option><option value="vol"' + (ctx.ordem === 'vol' ? ' selected' : '') + '>Maior volume</option><option value="maior"' + (ctx.ordem === 'maior' ? ' selected' : '') + '>Maior valor</option><option value="menor"' + (ctx.ordem === 'menor' ? ' selected' : '') + '>Menor valor</option></select>' +
+      '<label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" class="jc-todos" data-a="todos"' + (disp.length && selDisp === disp.length ? ' checked' : '') + (disp.length ? '' : ' disabled') + '> todos</label></div>' +
       '<div class="cid-lista">' + (linhas || '<div class="vazio-lista">Sem clientes.</div>') + '</div>' +
       '<div class="cid-rod"><div class="sel">' + (sel.length ? '<b>' + sel.length + '</b> nota(s) · <b>' + par + '</b> parada(s)<br><b>' + i$(st.vol) + '</b> vol · <b>' + m$(st.valor) + '</b>' : 'Marque os clientes (ou abra ▸ para escolher notas) e clique em Concluir.') + '</div>' +
-      '<button type="button" class="btn" data-a="cancelar">Cancelar</button><button type="button" class="btn concluir" data-a="concluir"' + (draftSujo() && car ? '' : ' disabled') + '>Concluir' + (car ? ' → ' + N.nomeCarro(car) : '') + '</button></div>';
+      '<button type="button" class="btn" data-a="cancelar">Cancelar</button><button type="button" class="btn concluir" data-a="concluir"' + (draftSujo(ctx) && car ? '' : ' disabled') + '>Concluir' + (car ? ' → ' + N.nomeCarro(car) : '') + '</button></div>';
     const l = $('.cid-lista', jan); if (l) l.scrollTop = rolagem;
     const areaH = $('#mapa-area').clientHeight, topo = parseFloat(jan.style.top) || 0;
     if (topo + jan.offsetHeight > areaH - 6) jan.style.top = Math.max(6, areaH - jan.offsetHeight - 6) + 'px';
@@ -552,18 +606,18 @@
       const el = seletor && jan.querySelector(seletor); if (el) el.focus();
     }
   }
-  function marcarCliente(i, marcar) {
-    const c = S.idx.cidades.get(S.cidadeAberta), cl = c.listaClientes[i]; if (!cl) return;
-    for (const n of cl.notas.filter(disponivel)) { if (marcar) S.draft.add(n.id); else S.draft.delete(n.id); }
-    renderJanCidade();
+  function marcarCliente(ctx, i, marcar) {
+    const c = S.idx.cidades.get(ctx.key), cl = c.listaClientes[i]; if (!cl) return;
+    for (const n of cl.notas.filter(disponivel)) { if (marcar) ctx.draft.add(n.id); else ctx.draft.delete(n.id); }
+    renderJanCidade(ctx);
   }
-  function concluirCidade() {
-    const c = S.idx.cidades.get(S.cidadeAberta), car = carroPorId(S.carroAtivo); if (!c || !car) return;
-    const add = c.notas.filter(n => S.draft.has(n.id) && S.op.atrib[n.id] !== car.id).map(n => n.id);
-    const rem = c.notas.filter(n => !S.draft.has(n.id) && S.op.atrib[n.id] === car.id).map(n => n.id);
-    if (!add.length && !rem.length) { fecharCidade(true); return; }
+  function concluirCidade(ctx) {
+    const c = S.idx.cidades.get(ctx.key), car = carroPorId(S.carroAtivo); if (!c || !car) return;
+    const add = c.notas.filter(n => ctx.draft.has(n.id) && S.op.atrib[n.id] !== car.id).map(n => n.id);
+    const rem = c.notas.filter(n => !ctx.draft.has(n.id) && S.op.atrib[n.id] === car.id).map(n => n.id);
+    if (!add.length && !rem.length) { fecharCidade(ctx, true); return; }
     const nome = c.nome, vAdd = N.somar(c.notas.filter(n => add.includes(n.id)));
-    S.cidadeAberta = null; S.draft = new Set(); S.draft0 = new Set(); $('#jan-cid').hidden = true;
+    fecharCidade(ctx, true);
     mutar('' + N.nomeCarro(car) + ' ↔ ' + nome, () => {
       if (add.length) N.alocar(S.op, S.idx, add, car.id);
       if (rem.length) N.alocar(S.op, S.idx, rem, null);
@@ -572,12 +626,12 @@
   }
   function liberar(ids, rotulo) {
     mutar(rotulo, () => N.alocar(S.op, S.idx, ids, null));
-    if (S.cidadeAberta) resetDraftMantendoMarcas();
+    for (const ctx of S.cidJan.values()) resetDraftMantendoMarcas(ctx);
     renderJanCidade();
   }
-  function resetDraftMantendoMarcas() { // depois de liberar, mantém o que o usuário já tinha marcado
-    const ant = new Set(S.draft); resetDraft(); for (const id of ant) S.draft.add(id);
-    S.draft0 = new Set(notasDaCidade().filter(n => S.op.atrib[n.id] === S.carroAtivo).map(n => n.id));
+  function resetDraftMantendoMarcas(ctx) { // depois de liberar, mantém o que o usuário já tinha marcado
+    const ant = new Set(ctx.draft); resetDraft(ctx); for (const id of ant) ctx.draft.add(id);
+    ctx.draft0 = new Set(notasDaCidade(ctx.key).filter(n => S.op.atrib[n.id] === S.carroAtivo).map(n => n.id));
   }
 
   /* ================= notas ================= */
@@ -717,7 +771,7 @@
     box.innerHTML = bk.map(b => '<div class="op-card"><div class="nome"><b>' + esc(b.nome) + '</b><small>' + new Date(b.quando).toLocaleString('pt-BR') + ' · ' + esc(b.motivo) + ' · ' + b.op.notas.length + ' notas</small></div><button class="btn mini" data-bk-rest="' + b.k + '">Restaurar como nova operação</button></div>').join('');
   }
   async function abrirOperacao(op) {
-    if (S.cidadeAberta) fecharCidade(true);
+    fecharTodasCidades(true);
     S.op = op; S.hist = []; S.carroAtivo = op.carros.length ? op.carros[0].id : null; S.precisaEnquadrar = true;
     reindexar(); S.ultimoSalvo = new Date();
     try { await DB.put('meta', { k: 'ativa', id: op.id }); } catch (e) { /* aviso aparece no próximo salvar */ }
@@ -731,7 +785,7 @@
     await salvar(); await S.fila;
     if (S.sujo) throw new Error('não consegui gravar a operação antes de limpar');
     const id = S.op.id;
-    if (S.cidadeAberta) fecharCidade(true);
+    fecharTodasCidades(true);
     S.op = null; S.idx = null; S.res = null; S.carroAtivo = null; S.hist = []; S.ordOp = null; S.comp = null; S.compOp = null; S.sujo = false;
     S.draft.clear(); S.expand.clear(); S.carAberto.clear(); S.carExp.clear(); S.selMov.clear(); S.mapa.pernas.clear();
     try { await DB.apagar('meta', 'ativa'); } catch (e) { /* ok */ }
@@ -797,7 +851,7 @@
   }
 
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
-  const JANS = { pend: '#jan-pend', carros: '#jan-carros', cid: '#jan-cid', busca: '#jan-busca' };
+  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca' };
   const posJan = id => { const p = U.pref.ler('pos:' + id, null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
   function restaurarPos(id) { const j = $(JANS[id]), p = posJan(id); if (j && p) U.posicionar(j, $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
@@ -866,7 +920,10 @@
     const j = S.veicJan.get(id); if (j) { j.hidden = false; j.style.zIndex = String(++U.z); }
     selecionarCarro(id);
   }
-  function fecharJanelaVeiculo(id) { S.veicAbertos.delete(id); gravarVeicAbertos(); const j = S.veicJan.get(id); if (j) j.hidden = true; }
+  function fecharJanelaVeiculo(id) {
+    S.veicAbertos.delete(id); gravarVeicAbertos(); const j = S.veicJan.get(id); if (j) j.hidden = true;
+    const ab = vAbertos(); if (ab.length && !ab.includes(S.carroAtivo)) selecionarCarro(ab[0]); else renderJanCidade();   // sobrou uma janela: as notas vão para ela
+  }
   function criarJanelaVeiculo(id) {
     const area = document.getElementById('mapa-area'), j = document.createElement('div'), k = S.veicJan.size, key = 'v' + id;
     j.className = 'jan jan-veic'; j.id = 'jan-' + key; j.setAttribute('role', 'dialog'); j.dataset.car = String(id);
@@ -1215,7 +1272,7 @@
   /* botão ⧉ no título de cada janela (só aparece com o mapa na segunda tela) */
   function atualizarBotoesExt() {
     document.documentElement.classList.toggle('tem-ext', !!S.parede);
-    for (const id of [...Object.keys(JANS), ...[...S.veicJan.keys()].map(k => 'v' + k)]) {
+    for (const id of [...Object.keys(JANS), ...[...S.veicJan.keys()].map(k => 'v' + k), ...[...S.cidJan.values()].map(x => x.id)]) {
       const j = $(selJan(id)); if (!j) continue; const cab = j.querySelector('.jan-cab'); if (!cab) continue;
       let b = cab.querySelector('.jan-ext');
       if (!b) { b = j.ownerDocument.createElement('button'); b.type = 'button'; b.className = 'jan-x jan-ext'; const x = cab.querySelector('.jan-x'); cab.insertBefore(b, x || null); }
@@ -1347,7 +1404,8 @@
     }
     for (const [id, j] of S.veicJan) { U.pref.apagar('pos:v' + id); U.pref.apagar('tam:v' + id); for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) j.style[p] = ''; j.classList.remove('redim', 'recolhida'); const W = ($('#mapa-area').clientWidth || 1200); j.style.left = Math.max(8, W - 400) + 'px'; j.style.top = '12px'; }
     ajustarPadMapa(); S.mapa.redimensionar(); S.mapa.marcar();
-    if (S.cidadeAberta) { const k = S.cidadeAberta; abrirCidade(k, { centrar: false }); }
+    U.pref.apagar('tam:cid');
+    for (const ctx of S.cidJan.values()) { for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) ctx.el.style[p] = ''; ctx.el.classList.remove('redim', 'recolhida'); posicionarCidade(ctx, {}); }
     toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
   }
   function ligarConfig() {
@@ -1395,7 +1453,7 @@
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
     $('#pend-x').onclick = () => janVer('pend', false);
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
-    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'cid', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
+    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     $('#bt-estradas').onclick = () => { const v = $('#bt-estradas').getAttribute('aria-pressed') !== 'true'; $('#bt-estradas').setAttribute('aria-pressed', String(v)); U.pref.gravar('estradas', v); S.mapa.setEstradas(v); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
@@ -1429,6 +1487,8 @@
     $('#pend-lista').addEventListener('click', e => {
       const bf = e.target.closest('.bt-fora'); if (bf) { alternarFora(bf.dataset.fora); return; }
       if (e.target.closest('#pend-fora-cab')) { S.pend.foraAberto = !S.pend.foraAberto; U.pref.gravar('foraAberto', S.pend.foraAberto); renderPend(); return; }
+      const pe = e.target.closest('.pend-exp'); if (pe) { e.stopPropagation(); const k = pe.dataset.exp; S.pend.expand.has(k) ? S.pend.expand.delete(k) : S.pend.expand.add(k); renderPend(); return; }
+      if (e.target.closest('.pend-notas')) return;
       const sel = e.target.closest('.pend-sel'); if (sel) { e.stopPropagation(); cidadeInteiraNoCarro(sel.dataset.sel, sel.checked); return; }
       const li = e.target.closest('li[data-cid]'); if (li) abrirCidade(li.dataset.cid, { centrar: true });
     });
@@ -1441,31 +1501,7 @@
     U.arrastavel($('#jan-pend'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:pend', p));
     if (U.pref.ler('pendMin', window.innerWidth < 860)) { $('#jan-pend').classList.add('recolhida'); $('#pend-min').textContent = '+'; }
 
-    /* janela da cidade */
-    const jc = $('#jan-cid');
-    U.arrastavel(jc, '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:cid', p));
     for (const id of Object.keys(JANS)) U.redimensionavel($(JANS[id]), id, $('#mapa-area'), () => { ajustarPadMapa(); S.mapa.redimensionar(); });
-    jc.addEventListener('click', e => {
-      const t = e.target;
-      const a = t.closest('[data-a]');
-      if (a && a.dataset.a === 'fechar') return fecharCidade();
-      if (a && a.dataset.a === 'cancelar') return fecharCidade();
-      if (a && a.dataset.a === 'concluir') return concluirCidade();
-      if (a && a.dataset.a === 'forarota') return alternarFora(S.cidadeAberta);
-      const car = t.closest('.mini-car'); if (car) return selecionarCarro(+car.dataset.car);
-      const lc = t.closest('[data-libc]'); if (lc) { const cl = S.idx.cidades.get(S.cidadeAberta).listaClientes[+lc.dataset.libc]; return liberar(cl.notas.filter(n => S.op.atrib[n.id] != null && S.op.atrib[n.id] !== S.carroAtivo).map(n => n.id), 'liberar notas de ' + cl.nome); }
-      const ln = t.closest('[data-libn]'); if (ln) return liberar([ln.dataset.libn], 'liberar nota');
-      const ex = t.closest('.cli-exp'); if (ex) { const cl = S.idx.cidades.get(S.cidadeAberta).listaClientes[+ex.dataset.i]; S.expand.has(cl.key) ? S.expand.delete(cl.key) : S.expand.add(cl.key); return renderJanCidade(); }
-      const nm = t.closest('.cli-nome'); if (nm && !t.closest('.lib')) { const i = +nm.dataset.i, cl = S.idx.cidades.get(S.cidadeAberta).listaClientes[i], dsp = cl.notas.filter(disponivel); if (dsp.length) marcarCliente(i, !dsp.every(n => S.draft.has(n.id))); }
-    });
-    jc.addEventListener('change', e => {
-      const t = e.target;
-      if (t.classList.contains('cl-chk')) marcarCliente(+t.dataset.i, t.checked);
-      else if (t.classList.contains('nt-chk')) { t.checked ? S.draft.add(t.dataset.n) : S.draft.delete(t.dataset.n); renderJanCidade(); }
-      else if (t.id === 'jc-ordem') { S.ordemCli = t.value; renderJanCidade(); }
-      else if (t.id === 'jc-todos') { for (const n of notasDaCidade().filter(disponivel)) { t.checked ? S.draft.add(n.id) : S.draft.delete(n.id); } renderJanCidade(); }
-    });
-    jc.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.target.closest('select') && draftSujo() && !e.target.closest('button')) { e.preventDefault(); concluirCidade(); } });
 
     /* notas */
     $('#n-busca').addEventListener('input', e => { S.nf.q = e.target.value; renderNotas(); });
@@ -1521,7 +1557,7 @@
       else if (so && tecla === 'l' && !S.modoMapa && !document.querySelector('.fundo')) { e.preventDefault(); RT.sit.abrirBusca(); } // Ctrl+L: abre a busca de nota
       else if (so && tecla === 'v' && !emCampo && !S.modoMapa && !document.querySelector('.fundo')) { if (tela === 'rotas' && ciclarOrdemFoco()) e.preventDefault(); else if (tela === 'notas') { e.preventDefault(); ciclarOrdemNotas(); } } // Ctrl+V: A–Z → maior volume → maior valor → A–Z, na janela em foco
       else if (e.key === 'Escape' && !document.querySelector('.fundo')) {
-        if (!$('#mural').hidden) muralFechar(); else if (S.cidadeAberta) fecharCidade();
+        if (!$('#mural').hidden) muralFechar(); else if (S.cidadeAberta) fecharCidade(S.cidJan.get(S.cidadeAberta));
       }
     };
     document.addEventListener('keydown', S.onTecla);
@@ -1535,7 +1571,7 @@
   async function boot() {
     $('#versao').textContent = 'versão ' + VERSAO; ligarLateral();
     S.mapa = new RT.Mapa($('#mapa-area'), {
-      onClique: h => { if (S.modoMapa) { if (h) enviar({ t: 'clique', key: h.key }); return; } if (h) abrirCidade(h.key, { centrar: false }); else if (S.cidadeAberta && !draftSujo()) fecharCidade(true); },
+      onClique: h => { if (S.modoMapa) { if (h) enviar({ t: 'clique', key: h.key }); return; } if (h) abrirCidade(h.key, { centrar: false }); },
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
       onFora: nomes => { const b = $('#aviso-fora'); b.hidden = !nomes.length; b.textContent = nomes.length ? '+' + nomes.length + ' fora do quadro: ' + nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? '…' : '') : ''; }
     }, { fundo: fundoRotas() });
@@ -1582,6 +1618,6 @@
     }
     RT.pronto = true;
   }
-  RT.A = { abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();
