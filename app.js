@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.36.1';
+  const VERSAO = '0.37.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -1388,7 +1388,12 @@
   function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); if (typeof aplicarParede === 'function') aplicarParede(); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
   /* mapa de fundo das ROTAS: "Ruas" = mapa de ruas completo, com todas as estradas, sinais e nomes (padrão) · "Rodoviário" = nosso estilo limpo só de rodovias */
   const fundoRotas = () => 'ruas';   // fundo fixo: mapa de ruas COMPLETO (Esri: todas as estradas, sinais e nomes), sem botão de escolha
-  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); } }
+  const visualMapa = () => (U.pref.ler('visualMapa', 'padrao') === 'simplificado' ? 'simplificado' : 'padrao');
+  function aplicarVisualMapa() {
+    const v = visualMapa(); if (S.mapa) S.mapa.setSimples(v === 'simplificado');
+    const p = $('#cfg-vis-padrao'), s = $('#cfg-vis-simples'); if (p) p.setAttribute('aria-pressed', String(v === 'padrao')); if (s) s.setAttribute('aria-pressed', String(v === 'simplificado'));
+  }
+  function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); aplicarVisualMapa(); } }
 
   /* ================= base de saída e fundo de estradas ================= */
   function aplicarBase() {
@@ -1435,7 +1440,7 @@
   function rotuloChave(el) { const e = el.closest('.chave'); if (e) e.querySelector('.chave-est').textContent = el.checked ? el.dataset.on : el.dataset.off; }
   function renderConfig() {
     $('#cfg-tema').checked = document.documentElement.getAttribute('data-tema') !== 'claro';
-    $('#cfg-anim').checked = !S.cfg.rotaFixa;
+    $('#cfg-anim').checked = !S.cfg.rotaFixa; aplicarVisualMapa();
     $('#cfg-som').checked = U.som.ligado();
     for (const c of $$('.chave input')) rotuloChave(c);
     $('#cfg-md').value = '';
@@ -1462,6 +1467,7 @@
     $('#cfg-tema').onchange = e => { const t = e.target.checked ? 'escuro' : 'claro'; U.pref.gravar('tema', t); aplicarTemaPara(t); rotuloChave(e.target); enviar({ t: 'tema' }); };
     $('#cfg-som-ok').onclick = () => U.som('ok', true); $('#cfg-som-pop').onclick = () => U.som('popup', true);
     $('#cfg-jan-reset').onclick = async () => { if (await U.confirmar('Resetar janelas flutuantes?', 'Todas as janelas (cidades pendentes, veículos, busca e clientes da cidade) voltam ao tamanho e ao lugar de fábrica. Seus dados não mudam.', 'Resetar')) resetarJanelas(); };
+    for (const [id, v] of [['cfg-vis-padrao', 'padrao'], ['cfg-vis-simples', 'simplificado']]) $('#' + id).onclick = () => { U.pref.gravar('visualMapa', v); aplicarVisualMapa(); enviar({ t: 'tema' }); toast(v === 'simplificado' ? 'Mapa simplificado: só as bolinhas e os caminhos.' : 'Mapa padrão: cidades com destaque.'); };
     $('#cfg-anim').onchange = e => { S.cfg.rotaFixa = !e.target.checked; rotuloChave(e.target); salvarCfg(); toast(S.cfg.rotaFixa ? 'Linha da rota desligada: fica inteira e parada.' : 'Linha da rota em movimento.'); };
     $('#cfg-base-ok').onclick = () => {
       const t = $('#cfg-base').value.trim(), [nome, uf] = t.split('/').map(x => x.trim()), r = N.achaMunicipios(nome, uf || '');
@@ -1646,7 +1652,7 @@
     await malha; S.mapa.marcar();
     aplicarBase();
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }
-    S.mapa.setVias(true); atualizarVias();   // rotas sempre pelas rodovias, no caminho mais curto
+    aplicarVisualMapa(); S.mapa.setVias(true); atualizarVias();   // rotas sempre pelas rodovias, no caminho mais curto
     S.mapa.setEstradas(true);
     if (S.mun) { const rota = new Set(); for (const r of ((S.reg && S.reg.regioes) || [])) if (r.grupo !== 'fora') for (const c of r.cidades) rota.add(String(c)); S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3], pri: rota.has(c) ? 1 : 0 })).sort((x, y) => y.pri - x.pri || x.nome.length - y.nome.length)); }
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }

@@ -9,7 +9,7 @@
   const RT = (g.RT = g.RT || {});
   const VAL = 'https://valhalla1.openstreetmap.de/route';
   const OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
-  const TESTE = !!g.__HR_TESTE, MV = 3;   // MV = versão do formato guardado (3 = Valhalla menor distância, com pedágio)
+  const TESTE = !!g.__HR_TESTE, MV = 4;   // MV = versão do formato guardado (3 = Valhalla menor distância, com pedágio)
   const V = RT.vias = {
     intervalo: TESTE ? 0 : 1100, esperas: TESTE ? [0, 0, 0] : [2000, 5000, 10000], validade: 30 * 24 * 3600 * 1000,
     mem: new Map(), fila: [], rodando: false, ultimo: 0, falhas: 0, ultimoErro: '', aoChegar: null, total: 0, feitos: 0,
@@ -41,7 +41,7 @@
   async function viaValhalla(a, b) {
     const ac = new AbortController(), to = setTimeout(() => ac.abort(), 25000);
     try {
-      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: V.evitar ? 0.0 : 1.0, use_ferry: 0.0, shortest: true } }, alternates: 2, directions_options: { units: 'kilometers', language: 'pt-BR' } };   // sem forçar rodovia (isso alongava o caminho); pede alternativas para escolher a mais curta
+      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: V.evitar ? 0.0 : 1.0, use_ferry: 0.0, shortest: true, use_tracks: 0.5, use_living_streets: 0.5 } }, alternates: 2, directions_options: { units: 'kilometers', language: 'pt-BR' } };   // sem forçar rodovia (isso alongava o caminho); pede alternativas para escolher a mais curta
       const r = await fetch(VAL, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'health-log' }, signal: ac.signal, redirect: 'error' });
       clearTimeout(to);
       if (r.status === 429 || r.status >= 500) return { erro: 'o serviço de rotas respondeu ' + r.status, repetir: true };

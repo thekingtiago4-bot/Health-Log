@@ -502,6 +502,18 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => /observação hoje/.test(document.querySelector('#toast').textContent) && /14h/.test(document.querySelector('#toast').textContent)), 'ao abrir a operação o app avisa que há cliente com observação hoje');
   await p.evaluate(async () => { RT.obs.dados = { c: {}, n: {} }; await RT.DB.put('meta', { k: 'obs', v: RT.obs.dados }); RT.A.fecharCidade(RT.S.cidadeAberta, true); RT.A.atualizarTudo(); });
 
+  console.log('\nVisual do mapa: Padrão e Simplificado (Configurações)');
+  await p.click('.nav button[data-tela="config"]');
+  verdade(await p.locator('#cfg-vis-padrao[aria-pressed="true"]').count() === 1 && await p.locator('#cfg-vis-simples[aria-pressed="false"]').count() === 1, 'Configurações tem "Visual do mapa" com Padrão (ligado) e Simplificado');
+  await p.click('#cfg-vis-simples');
+  verdade(await p.evaluate(() => RT.S.mapa.simples === true && RT.U.pref.ler('visualMapa', 'padrao') === 'simplificado'), 'Simplificado: o mapa não destaca cidades (só bolinhas e caminhos) e a escolha fica guardada');
+  await p.click('.nav button[data-tela="rotas"]'); await p.waitForTimeout(300);
+  verdade(await p.evaluate(() => { const m = RT.S.mapa; m._fundo && m._fundo(); return m._bgSujo === false && m.simples; }), 'o fundo simplificado desenha sem pintar cidades');
+  verdade(reqsValhalla.length > 0 && reqsValhalla.every(c => c.costing_options.auto.shortest === true && c.costing_options.auto.use_tracks > 0), 'caminho sempre o mais curto, aceitando rua, vicinal e estradinha');
+  await p.click('.nav button[data-tela="config"]'); await p.click('#cfg-vis-padrao');
+  verdade(await p.evaluate(() => RT.S.mapa.simples === false), 'e dá para voltar ao Padrão');
+  await p.click('.nav button[data-tela="rotas"]');
+
   console.log('\nGeolocalização (regiões e bases)');
   await p.click('.nav button[data-tela="geo"]');
   await p.fill('#geo-q', 'presidente prud'); await p.keyboard.press('Enter');

@@ -96,6 +96,7 @@
     /* rotas: [{id, cor, pontos:[{key, n}]}] — linhas tracejadas na ordem das paradas */
     setRotas(r) { this.rotas = r || []; this._lanesSujo = true; this.sujo = true; }
     /* municípios sem entrega (só para mostrar o nome): [{code, nome, lat, lon}] */
+    setSimples(v) { v = !!v; if (v === this.simples) return; this.simples = v; this._bgSujo = this.sujo = true; }   // visual simplificado: só as bolinhas e os caminhos (cidades sem destaque)
     setFeriados(f) { this.feriados = f || new Map(); this._bgSujo = this.sujo = true; }   // code -> {hoje}: municípios em feriado (pintados de vermelho mesmo sem nota)
     setTodas(t) { this.todas = t || []; this.todasPorCod = new Map(this.todas.map(x => [x.code, x])); this.sujo = true; }
     /* modo geolocalização: pinta os municípios por região. g = {cor: Map(código -> cor css), sel: código} */
@@ -385,6 +386,7 @@
       this._comTiles = comTiles;
       if (comTiles) ctx.clearRect(0, 0, this.cv.width, this.cv.height); else { ctx.fillStyle = P.fundo; ctx.fillRect(0, 0, this.cv.width, this.cv.height); }
       const x0 = cx - W / 2 / k, x1 = cx + W / 2 / k, y0 = cy - H / 2 / k, y1 = cy + H / 2 / k;
+      if (this.simples) { this._bgSujo = false; return; }   // simplificado: nenhuma cidade/estado pintado — só o mapa de fundo
       /* mundo (contornos) */
       ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (W / 2 - cx * k), dpr * (H / 2 - cy * k));
       const com = new Map(this.cidades.filter(c => c.code).map(c => [c.code, c]));
@@ -540,7 +542,10 @@
         ctx.fillStyle = '#fff'; ctx.font = '800 9px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((this.base.sigla || 'BASE').slice(0, 4), baseP.x, baseP.y + 0.5);
       }
       for (const { c, p } of vis) if (c.clientes && !c.fora && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
-      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); if (c.obs) this._papel(ctx, p.x, p.y - R_MARC - 15); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
+      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); if (this.simples && c.fer) { ctx.beginPath(); ctx.arc(p.x, p.y, R_MARC + 5, 0, 6.2832); ctx.lineWidth = 3.2; ctx.strokeStyle = '#E03131'; ctx.stroke(); } if (c.obs) this._papel(ctx, p.x, p.y - R_MARC - 15); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
+      if (this.simples && this.feriados && this.feriados.size && this.todasPorCod) {   // feriado fora da rota do dia: bolinha vermelha
+        for (const [code, f] of this.feriados) { const t = this.todasPorCod.get(code); if (!t) continue; const q = this.para(t); if (q.x < -20 || q.y < -20 || q.x > W + 20 || q.y > H + 20) continue; ctx.beginPath(); ctx.arc(q.x, q.y, f.hoje ? 7 : 5.5, 0, 6.2832); ctx.fillStyle = '#E03131'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = P.escuro ? '#071E22' : '#fff'; ctx.stroke(); }
+      }
       /* número da parada em cada rota (canto de cima, à esquerda) */
       const nums = new Map();
       for (const r of this.rotas) for (const q of r.pontos) { if (!nums.has(q.key)) nums.set(q.key, []); nums.get(q.key).push({ n: q.n, cor: r.cor }); }
