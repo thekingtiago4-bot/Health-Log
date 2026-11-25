@@ -750,3 +750,19 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 #parede-pal .pp-cor[aria-pressed="true"]{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal)}
 #parede-pal .pp-livre{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer}
 #parede-pal input[type=color]{width:42px;height:26px;padding:0;border:1px solid var(--linha);border-radius:6px;background:none;cursor:pointer}
+
+/* observações (papel) e Editar informações */
+.cid-obs{margin:6px 10px 2px;padding:7px 10px;border-radius:9px;background:#FFF4B8;color:#3b2c00;border:1px solid #E0B800;font-size:.8rem}
+.cid-obs .co-t{display:block;margin-bottom:3px}
+.cid-obs ul{margin:0;padding-left:16px}.cid-obs li{cursor:pointer;margin:2px 0}.cid-obs li:hover{text-decoration:underline}
+.modal-eo{width:min(560px,94vw);max-height:92vh;overflow:auto}
+.modal-eo label{display:flex;flex-direction:column;gap:3px;margin:8px 0;font-size:.82rem;font-weight:600}
+.modal-eo label small{font-weight:400;color:var(--mudo)}
+.modal-eo textarea,.modal-eo input[data-f]{width:100%;box-sizing:border-box;padding:6px 8px;border-radius:7px;border:1px solid var(--linha);background:var(--sup2,var(--sup));color:var(--tinta);font:inherit}
+.modal-eo textarea{resize:vertical}
+.modal-eo .eo-grade{display:grid;grid-template-columns:1fr 90px;gap:10px}
+.modal-eo .chk-cid{flex-direction:row;align-items:center;gap:7px;font-weight:400}
+.modal-eo .chk-cid input{width:auto}
+.eo-notas{width:100%;border-collapse:collapse;margin-top:8px;font-size:.82rem}
+.eo-notas th{text-align:left;color:var(--mudo);font-size:.7rem;text-transform:uppercase;padding:3px 4px}
+.eo-notas td{padding:3px 4px}.eo-notas input{width:100%;max-width:130px}

@@ -540,7 +540,7 @@
         ctx.fillStyle = '#fff'; ctx.font = '800 9px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((this.base.sigla || 'BASE').slice(0, 4), baseP.x, baseP.y + 0.5);
       }
       for (const { c, p } of vis) if (c.clientes && !c.fora && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
-      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
+      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); if (c.obs) this._papel(ctx, p.x, p.y - R_MARC - 15); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
       /* número da parada em cada rota (canto de cima, à esquerda) */
       const nums = new Map();
       for (const r of this.rotas) for (const q of r.pontos) { if (!nums.has(q.key)) nums.set(q.key, []); nums.get(q.key).push({ n: q.n, cor: r.cor }); }
@@ -708,6 +708,14 @@
       /* selos para FORA do círculo (não cobrem a cor do carro): verde = tudo em carro · amarelo ! = falta nota */
       if (c.estado === 'completa') this._selo(ctx, p.x + r + 4, p.y - r - 4, '#1B9A53', 'ok');
       else if (c.estado === 'parcial') this._selo(ctx, p.x + r + 4, p.y - r - 4, '#F4C21F', '!');
+    }
+    _papel(ctx, x, y) {   // folha de papel: há observação para esta cidade hoje
+      const w = 15, h = 19, x0 = x - w / 2, y0 = y - h / 2, d = 5;
+      ctx.save(); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + w - d, y0); ctx.lineTo(x0 + w, y0 + d); ctx.lineTo(x0 + w, y0 + h); ctx.lineTo(x0, y0 + h); ctx.closePath();
+      ctx.fillStyle = '#FFF4B8'; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = this._cores && this._cores.escuro ? '#071E22' : '#7A5C00'; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x0 + w - d, y0); ctx.lineTo(x0 + w - d, y0 + d); ctx.lineTo(x0 + w, y0 + d); ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.lineWidth = 1.4; ctx.strokeStyle = '#7A5C00'; for (const k of [9, 12.5, 16]) { ctx.beginPath(); ctx.moveTo(x0 + 3, y0 + k); ctx.lineTo(x0 + w - 3, y0 + k); ctx.stroke(); }
+      ctx.restore();
     }
     _selo(ctx, x, y, cor, t) {
       ctx.beginPath(); ctx.arc(x, y, 9.5, 0, 6.2832); ctx.fillStyle = cor; ctx.fill();

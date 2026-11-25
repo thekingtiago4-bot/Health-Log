@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.35.1';
+  const VERSAO = '0.36.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -347,7 +347,7 @@
         return { cor: prim != null ? corDe(prim) : null, parcial: e.estado === 'parcial' };
       });
       const fer = ferMap && c.code != null ? ferMap.get(String(c.code)) : null;
-      return { key: c.key, nome: c.nome, uf: c.uf, lat: c.lat, lon: c.lon, code: c.code, fer: fer ? { n: fer.n, hoje: fer.iso === hojeIso, iso: fer.iso } : null, fora: rc.fora, estado: rc.estado, alocadas: rc.alocadas, total: rc.total, notas: rc.total, cores, clientes };
+      return { key: c.key, nome: c.nome, uf: c.uf, lat: c.lat, lon: c.lon, code: c.code, obs: RT.obs ? RT.obs.contagem(c) : 0, fer: fer ? { n: fer.n, hoje: fer.iso === hojeIso, iso: fer.iso } : null, fora: rc.fora, estado: rc.estado, alocadas: rc.alocadas, total: rc.total, notas: rc.total, cores, clientes };
     });
   }
   function ajustarPadMapa() { const j = $('#jan-pend'); S.mapa.padEsq = (j && !j.classList.contains('recolhida') && j.offsetWidth && parseFloat(j.style.left || 12) < 120) ? j.offsetWidth + 24 : 0; }
@@ -490,6 +490,7 @@
       if (a && (a.dataset.a === 'fechar' || a.dataset.a === 'cancelar')) return fecharCidade(ctx);
       if (a && a.dataset.a === 'concluir') return concluirCidade(ctx);
       if (a && a.dataset.a === 'forarota') return alternarFora(ctx.key);
+      const oe = t.closest('[data-obs-ed]'); if (oe) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+oe.dataset.obsEd]; if (cl && cl.notas.length) RT.obs.editar(cl.notas[0].id, true); return; }
       const car = t.closest('.mini-car'); if (car) return selecionarCarro(+car.dataset.car);
       const lc = t.closest('[data-libc]'); if (lc) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+lc.dataset.libc]; return liberar(cl.notas.filter(n => S.op.atrib[n.id] != null && S.op.atrib[n.id] !== S.carroAtivo).map(n => n.id), 'liberar notas de ' + cl.nome); }
       const ln = t.closest('[data-libn]'); if (ln) return liberar([ln.dataset.libn], 'liberar nota');
@@ -580,7 +581,7 @@
       let h = '<div class="cli' + (cinza ? ' cinza' : '') + (meu ? ' meu' : '') + '"><div class="cli-lin">' +
         '<input type="checkbox" class="cl-chk" data-i="' + idx + '"' + (nsel && nsel === dsp.length ? ' checked' : '') + (cinza ? ' disabled' : '') + ' aria-label="Levar ' + esc(cl.nome) + ' neste carro">' +
         '<button type="button" class="cli-exp" data-i="' + idx + '" aria-expanded="' + exp + '" aria-label="Ver notas">▸</button>' +
-        '<div class="cli-nome" data-i="' + idx + '"><b>' + esc(cl.nome) + chipPos(outros) + (cinza && outros.size ? '<button type="button" class="lib" data-libc="' + idx + '">liberar</button>' : '') + '</b>' +
+        '<div class="cli-nome" data-i="' + idx + '" title="Botão direito: editar informações e observação"><b>' + esc(cl.nome) + chipPos(outros) + (cinza && outros.size ? '<button type="button" class="lib" data-libc="' + idx + '">liberar</button>' : '') + '</b>' +
         '<small>' + esc(cl.end) + (cl.num && cl.num !== '0' ? ', ' + esc(cl.num) : '') + (cl.bairro ? ' · ' + esc(cl.bairro) : '') + '</small></div>' +
         '<div class="cli-num">' + m$(t.valor) + '<small>' + t.notas + ' nota' + (t.notas > 1 ? 's' : '') + ' · ' + i$(t.vol) + ' vol</small></div></div>';
       if (exp) {
@@ -597,6 +598,7 @@
       '<div class="jan-cab"><b>' + esc(c.nome) + ' <small class="tag">' + esc(c.uf) + '</small></b><span class="estado ' + rc.estado + '">' + est + '</span><button type="button" class="jan-x" data-a="fechar" aria-label="Fechar">✕</button></div>' +
       '<div class="cid-info"><span><b>' + c.listaClientes.length + '</b> clientes</span><span><b>' + tot.notas + '</b> notas</span><span><b>' + i$(tot.vol) + '</b> vol</span><span><b>' + m$(tot.valor) + '</b></span>' +
       (rc.estado === 'parcial' ? '<span style="color:var(--amarTxt)">faltam <b>' + rc.livres.notas + '</b> nota(s) · ' + m$(rc.livres.valor) + '</span>' : '') + (c.semPosicao ? '<span style="color:var(--no)">cidade sem posição no mapa</span>' : '') + (c.fora ? '<span style="color:var(--mudo)">FORA DE ROTA</span>' : '') + (c.code ? '<button type="button" class="lib" data-a="forarota">' + (c.fora ? 'trazer para a rota' : 'marcar como fora de rota') + '</button>' : '') + '</div>' +
+      (RT.obs ? RT.obs.faixa(c) : '') +
       '<div class="cid-ctrl">' + chipsAlvo() +
       '<select class="filtro jc-ordem" style="min-height:28px;padding:1px 6px;font-size:.78rem" aria-label="Ordenar clientes"><option value="nome"' + (ctx.ordem === 'nome' ? ' selected' : '') + '>A–Z</option><option value="vol"' + (ctx.ordem === 'vol' ? ' selected' : '') + '>Maior volume</option><option value="maior"' + (ctx.ordem === 'maior' ? ' selected' : '') + '>Maior valor</option><option value="menor"' + (ctx.ordem === 'menor' ? ' selected' : '') + '>Menor valor</option></select>' +
       '<label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" class="jc-todos" data-a="todos"' + (disp.length && selDisp === disp.length ? ' checked' : '') + (disp.length ? '' : ' disabled') + '> todos</label></div>' +
@@ -667,7 +669,7 @@
     $('#n-tabela').innerHTML = '<thead><tr>' + th('nf', 'NF') + th('origem', 'Origem') + th('cliente', 'Cliente') + th('cidade', 'Cidade') + th('vol', 'Vol', 1) + th('peso', 'Peso kg', 1) + th('valor', 'Valor', 1) + th('carro', 'Carro') + '<th>Situação</th><th>Bipada</th></tr></thead><tbody>' +
       ver.map(n => {
         const a = op.atrib[n.id], c = a != null ? carroPorId(a) : null;
-        return '<tr><td>' + esc(n.nf) + '</td><td>' + esc(n.origem.replace(/\.xml$/i, '')) + '</td><td title="' + esc(n.cliente) + '">' + esc(n.cliente) + '</td><td>' + esc(n.cidade) + '/' + esc(n.uf) + '</td><td class="dir">' + n.vol + '</td><td class="dir">' + N.fmtPeso(n.peso) + '</td><td class="dir">' + m$(n.valor) + '</td><td>' +
+        return '<tr data-nid="' + esc(n.id) + '" title="Botão direito: editar informações"><td>' + esc(n.nf) + '</td><td>' + esc(n.origem.replace(/\.xml$/i, '')) + '</td><td title="' + esc(n.cliente) + '">' + esc(n.cliente) + '</td><td>' + esc(n.cidade) + '/' + esc(n.uf) + '</td><td class="dir">' + n.vol + '</td><td class="dir">' + N.fmtPeso(n.peso) + '</td><td class="dir">' + m$(n.valor) + '</td><td>' +
           (c ? '<span class="carro-tag" style="--cor:' + c.cor + '">' + N.nomeCarro(c) + '</span>' : '<span class="livre-tag">livre</span>') + '</td><td>' + ({ presente: 'Presente', agendamento: '<b style="color:var(--amarTxt)">Agendamento</b>', divergencia: '<b style="color:var(--no)">Divergência</b>' }[N.estadoNota(op, n)]) + '</td><td>' + ((op.bipes || {})[n.id] ? '<span style="color:var(--ok);font-weight:700" title="Bipada às ' + new Date(op.bipes[n.id].em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '">✓</span>' : '') + '</td></tr>';
       }).join('') + '</tbody><tfoot><tr><td colspan="4">' + i$(t.notas) + ' nota(s)</td><td class="dir">' + i$(t.vol) + '</td><td class="dir">' + N.fmtPeso(t.peso) + '</td><td class="dir">' + m$(t.valor) + '</td><td></td><td></td><td></td></tr></tfoot>';
     $('#n-rodape').textContent = lista.length > MAX ? 'Mostrando as primeiras ' + MAX + ' de ' + lista.length + '. Use a busca para afunilar. Os totais acima valem para todas as ' + lista.length + '.' : 'Peso ausente no XML conta como zero.';
@@ -783,6 +785,7 @@
     try { await DB.put('meta', { k: 'ativa', id: op.id }); } catch (e) { /* aviso aparece no próximo salvar */ }
     statusSalvo('ok'); atualizarTudo();
     if (tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
+    if (!S.modoMapa) RT.obs.avisar();
   }
   /* Final de turno confirmado: a operação fica guardada (os Relatórios leem as operações guardadas) e a tela é LIMPA — sem XMLs, notas,
      veículos nem rotas no mapa — para começar a próxima operação. Devolve o id da operação encerrada. */
@@ -913,8 +916,24 @@
     doc.addEventListener('pointerdown', onPtrDown, true); doc.addEventListener('pointerup', onPtrUp, true); doc.addEventListener('pointercancel', onPtrUp, true); doc.addEventListener('dragend', onDragEnd, true);
     doc.addEventListener('pointerdown', onFocoDown, true); U.ligarZ && doc !== document && U.ligarZ(doc);
     if (doc !== document) doc.addEventListener('keydown', e => { if (S.onTecla) S.onTecla(e); });   // (nesta janela o teclado já é ligado no boot)
+    doc.addEventListener('contextmenu', aoBotaoDireito);
     doc.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jan-ext'); if (b) { const j = b.closest('.jan'); if (j) janParaOutraTela(j.id.replace('jan-', ''), !j.classList.contains('na-ext')); } });
   }
+  /* botão direito num cliente ou numa nota (janela da cidade, tabela de Notas, Buscar nota, lista do veículo): Editar informações */
+  function aoBotaoDireito(e) {
+    if (S.modoMapa || !S.op) return;
+    const t = e.target; if (!t.closest || t.closest('.modal, textarea, input[type=text], input:not([type]), select')) return;
+    let nid = null, cliente = false;
+    const nt = t.closest('.jan-cid .nt'), cli = t.closest('.jan-cid .cli'), tr = t.closest('#n-tabela tbody tr[data-nid]'), bn = t.closest('#busca-res .bn[data-nota]'), vl = t.closest('.vei-nts li');
+    if (nt) { const c = nt.querySelector('.nt-chk'); nid = c && c.dataset.n; }
+    else if (cli) { const ctx = S.cidJan.get(cli.closest('.jan-cid').dataset.key), nm = cli.querySelector('.cli-nome'), cc = ctx && S.idx.cidades.get(ctx.key), cl = cc && nm && cc.listaClientes[+nm.dataset.i]; if (cl && cl.notas.length) { nid = cl.notas[0].id; cliente = true; } }
+    else if (tr) nid = tr.dataset.nid;
+    else if (bn) nid = bn.dataset.nota;
+    else if (vl) { const c = vl.querySelector('.mv-chk'); nid = c && c.dataset.n; }
+    if (!nid) return;
+    e.preventDefault(); RT.obs.editar(nid, cliente);
+  }
+  document.addEventListener('contextmenu', aoBotaoDireito);
   ligarDocumento(document);
   /* ================= janela PRÓPRIA de cada veículo ================= */
   S.veicJan = new Map(); S.veicAbertos = new Set();
@@ -1618,9 +1637,10 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
+    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await RT.obs.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
+    if (S.op && !S.modoMapa && !S.soGeo) setTimeout(() => RT.obs.avisar(), 1500);   // lembra das observações do dia
     irPara(S.soGeo ? 'geo' : 'rotas');
     if (!S.modoMapa) RT.fer.atualizar(false).then(() => { if (S.mapa && S.op) atualizarTudo(); }).catch(() => { /* sem internet: fica com o que já tem guardado */ });   // o mapa de rotas também marca feriado
     await malha; S.mapa.marcar();

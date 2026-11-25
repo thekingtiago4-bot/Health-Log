@@ -58,15 +58,9 @@
     const o = S().op, st = (o.status || {})[n.id], tipo = st ? st.tipo : 'presente', car = o.atrib[n.id] != null ? A().carroPorId(o.atrib[n.id]) : null;
     const sq = (k, cls, txt, tit, on) => '<button type="button" class="q ' + cls + (on ? ' on' : '') + '" data-q="' + k + '" data-n="' + esc(n.id) + '" title="' + tit + '" aria-pressed="' + on + '">' + txt + '</button>';
     let h = '<div class="bn" data-nota="' + esc(n.id) + '"><div class="bq">' + sq('v', 'v', '✓', 'Presente: a nota está certa e vai na rota', tipo === 'presente') + sq('a', 'a', 'A', 'Agendamento: sai da rota e vai para a aba Agendamentos', tipo === 'agendamento') + sq('r', 'r', '!', 'Divergência (sem volumes ou volumes parciais): sai da rota e vai para a aba Divergências', tipo === 'divergencia') + '</div>' +
-      '<div class="bi"><b>NF ' + esc(n.nf) + '</b> · ' + esc(n.cliente) + '<small>' + esc(n.cidade) + '/' + esc(n.uf) + (n.cidadeOrig ? ' <i title="Cidade corrigida por você (no XML: ' + esc(n.cidadeOrig.cidade) + '/' + esc(n.cidadeOrig.uf) + ')" style="color:var(--amarTxt)">✎ corrigida</i>' : '') + ' <button type="button" class="lib" data-q="c" data-n="' + esc(n.id) + '" title="Trocar a cidade desta nota (o XML veio com a cidade errada)">editar cidade</button> · ' + esc(n.origem.replace(/\.xml$/i, '')) + ' · ' + i$(n.vol) + ' vol · ' + m$(n.valor) + (car ? ' · <span class="carro-tag" style="--cor:' + car.cor + '">' + esc(N.nomeCarro(car)) + '</span>' : '') +
+      '<div class="bi"><b>NF ' + esc(n.nf) + '</b> · ' + esc(n.cliente) + '<small>' + esc(n.cidade) + '/' + esc(n.uf) + (n.cidadeOrig ? ' <i title="Cidade corrigida por você (no XML: ' + esc(n.cidadeOrig.cidade) + '/' + esc(n.cidadeOrig.uf) + ')" style="color:var(--amarTxt)">✎ corrigida</i>' : '') + ' <button type="button" class="lib" data-edit="' + esc(n.id) + '" title="Editar informações: volumes, valor, endereço, cidade e observação (também com o botão direito)">editar informações</button> · ' + esc(n.origem.replace(/\.xml$/i, '')) + ' · ' + i$(n.vol) + ' vol · ' + m$(n.valor) + (car ? ' · <span class="carro-tag" style="--cor:' + car.cor + '">' + esc(N.nomeCarro(car)) + '</span>' : '') +
       (st ? ' · <b style="color:' + (tipo === 'agendamento' ? 'var(--amarTxt)' : 'var(--no)') + '">' + (tipo === 'agendamento' ? 'AGENDAMENTO' + (st.auto ? ' (automático)' : '') : 'DIVERGÊNCIA: ' + descDiv(n, st)) + '</b>' : '') + '</small></div>';
-    if (aberta && aberta.id === n.id && aberta.f === 'c') {
-      const outras = mesmoCliente(n);
-      h += '<div class="bf bf-cid"><label class="grande">Cidade certa (digite o nome)<input data-f="cid" autocomplete="off" placeholder="Ex.: Garça" value=""></label><div class="sug-cid" id="sug-cid"></div>' +
-        (outras.length ? '<label class="chk-cid"><input type="checkbox" data-f="outras"> Trocar também as outras ' + outras.length + ' nota(s) deste cliente nesta cidade</label>' : '') +
-        (n.cidadeOrig ? '<p class="dica">No XML: ' + esc(n.cidadeOrig.cidade) + '/' + esc(n.cidadeOrig.uf) + '. <button type="button" class="lib" data-cid-volta="1">voltar à cidade do XML</button></p>' : '') +
-        '<button type="button" class="btn mini" data-ok="x">Cancelar</button></div>';
-    } else if (aberta && aberta.id === n.id) {
+    if (aberta && aberta.id === n.id) {
       h += '<div class="bf">' + (aberta.f === 'a' ?
         '<label>Data<input type="date" data-f="data" value="' + esc((st && st.data) || '') + '"></label><label>Hora<input type="time" data-f="hora" value="' + esc((st && st.hora) || '') + '"></label><label class="grande">Observação<input data-f="obs" value="' + esc((st && st.obs) || '') + '" placeholder="Ex.: cliente só recebe de manhã"></label><button type="button" class="btn mini pri" data-ok="a">Marcar como agendamento</button>' :
         '<label>O que houve<select data-f="div"><option value="sem-volumes">Sem volumes (não veio nada)</option><option value="parcial">Volumes parciais (veio só uma parte)</option></select></label><label>Chegaram quantos?<input data-f="rec" inputmode="numeric" style="width:70px" placeholder="0"></label><label class="grande">Observação<input data-f="obs" placeholder="Ex.: caixas 3 e 4 faltando"></label><button type="button" class="btn mini pri" data-ok="r">Marcar divergência</button>') +
@@ -116,22 +110,15 @@
     $('#busca-res').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       const o = S().op;
+      if (b.dataset.edit) return RT.obs.editar(b.dataset.edit, false);
       if (b.dataset.q) {
         const id = b.dataset.n, st = (o.status || {})[id];
         if (b.dataset.q === 'v') { if (st) { A().mutar('voltar para a rota', () => N.tirarStatus(o, [id], true)); toast('A nota voltou para a rota.'); } return; }
         aberta = { id, f: b.dataset.q }; return renderBusca();
       }
-      if (b.dataset.cid) { const f = b.closest('.bf'), junto = !!(f && f.querySelector('[data-f="outras"]') && f.querySelector('[data-f="outras"]').checked); return trocarCidade(aberta.id, b.dataset.cid, junto); }
-      if (b.dataset.cidVolta) return trocarCidade(aberta.id, 'orig', false);
       if (b.dataset.ok === 'x') { aberta = null; return renderBusca(); }
       if (b.dataset.ok) return marcar(b.dataset.ok, aberta.id, b.closest('.bf'));
     });
-    $('#busca-res').addEventListener('input', e => {
-      if (e.target.dataset.f !== 'cid') return;
-      const r = sugerirCidades(e.target.value), box = $('#sug-cid');
-      box.innerHTML = r.length ? r.map(([, code, m]) => '<button type="button" class="sug-i" data-cid="' + code + '">' + esc(m[0]) + '<span>' + esc(m[1]) + '</span></button>').join('') : (e.target.value.trim().length >= 2 ? '<p class="dica">Nenhuma cidade com esse nome.</p>' : '');
-    });
-    $('#busca-res').addEventListener('keydown', e => { if (e.target.dataset && e.target.dataset.f === 'cid' && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const b = $('#sug-cid .sug-i'); if (b) b.click(); } });
     const so = $('#busca-ordem'); so.value = ordemBusca; so.addEventListener('change', () => { ordemBusca = so.value; U.pref.gravar('buscaOrdem', ordemBusca); renderBusca(); });
     $('#busca-x').onclick = () => A().janVer('busca', false);
     /* Enter (ou ↓/↑) escolhe a nota na lista; a cidade dela é destacada e o mapa vai até lá */
@@ -207,5 +194,5 @@
     if (o && o.status) for (const id in o.status) { if (o.status[id].tipo === 'agendamento') c.a++; else c.d++; }
     for (const [id, k] of [['#qt-ag', c.a], ['#qt-dv', c.d]]) { const e = $(id); if (e) { e.textContent = String(k); e.hidden = !k; } }
   }
-  RT.sit = { abrirBusca, ciclarOrdem, carregar, guardar, popup, contadores, aplicar, ligar() { ligarBusca(); ligarAbas(); }, render(t) { if (t === 'agenda') renderAgenda(); else if (t === 'diverg') renderDiverg(); }, renderBusca };
+  RT.sit = { sugerirCidades, trocarCidade, abrirBusca, ciclarOrdem, carregar, guardar, popup, contadores, aplicar, ligar() { ligarBusca(); ligarAbas(); }, render(t) { if (t === 'agenda') renderAgenda(); else if (t === 'diverg') renderDiverg(); }, renderBusca };
 })(typeof window !== 'undefined' ? window : globalThis);
