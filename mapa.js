@@ -413,8 +413,12 @@
           for (const f of c.cores) { const hh = h * f.frac / total; ctx.fillStyle = f.cor; ctx.fillRect(pl.b[0], y, pl.b[2] - pl.b[0], hh + 1 / k); y += hh; }
           ctx.restore();
         }
-        ctx.lineWidth = (c.key === this.sel ? 2.4 : emCarro ? 1.3 : (re === 'forte' ? 1.1 : 0.7)) / k;
-        ctx.strokeStyle = c.key === this.sel ? P.tinta : (emCarro ? c.cores[0].cor : (re === 'forte' ? (comTiles ? P.destaque : P.linha2) : (comTiles ? P.linhaT : P.linha)));
+        if (c.fer) {   // feriado: a cidade fica VERMELHA (hoje mais forte); o realce regula a intensidade
+          const base = c.fer.hoje ? 0.78 : 0.55, f = re === 'forte' ? 1 : re === 'suave' ? 0.85 : 0.6;
+          ctx.save(); ctx.globalAlpha = base * f; ctx.fillStyle = '#E03131'; ctx.fill(pl.path); ctx.restore();
+        }
+        ctx.lineWidth = (c.key === this.sel ? 2.4 : c.fer ? 2 : emCarro ? 1.3 : (re === 'forte' ? 1.1 : 0.7)) / k;
+        ctx.strokeStyle = c.key === this.sel ? P.tinta : (c.fer ? '#FF6B6B' : emCarro ? c.cores[0].cor : (re === 'forte' ? (comTiles ? P.destaque : P.linha2) : (comTiles ? P.linhaT : P.linha)));
         ctx.stroke(pl.path);
       }
       ctx.strokeStyle = P.estado; ctx.lineWidth = 2 / k; ctx.lineJoin = 'round';
@@ -529,7 +533,7 @@
         ctx.fillStyle = '#fff'; ctx.font = '800 9px "Barlow Semi Condensed",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((this.base.sigla || 'BASE').slice(0, 4), baseP.x, baseP.y + 0.5);
       }
       for (const { c, p } of vis) if (c.clientes && !c.fora && this._mostrarPontos(c)) this._pontos(ctx, c, p, P);
-      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); if (c.fer) this._selo(ctx, p.x + R_MARC + 3, p.y + R_MARC + 3, '#E03131', 'fer'); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
+      for (const { c, p } of vis) { this._marcador(ctx, c, p, P); caixas.push([p.x - R_MARC - 3, p.y - R_MARC - 3, p.x + R_MARC + 14, p.y + R_MARC + 2]); }
       /* número da parada em cada rota (canto de cima, à esquerda) */
       const nums = new Map();
       for (const r of this.rotas) for (const q of r.pontos) { if (!nums.has(q.key)) nums.set(q.key, []); nums.get(q.key).push({ n: q.n, cor: r.cor }); }

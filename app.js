@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.33.0';
+  const VERSAO = '0.33.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -1351,7 +1351,7 @@
   }
   function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); if (typeof aplicarParede === 'function') aplicarParede(); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
   /* mapa de fundo das ROTAS: "Ruas" = mapa de ruas completo, com todas as estradas, sinais e nomes (padrão) · "Rodoviário" = nosso estilo limpo só de rodovias */
-  const fundoRotas = () => null;   // fundo fixo: nosso mapa rodoviário (sem botão de escolha)
+  const fundoRotas = () => 'arcgis';   // fundo fixo: mapa de ruas COMPLETO (Esri: todas as estradas, sinais e nomes), sem botão de escolha
   function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); } }
 
   /* ================= base de saída e fundo de estradas ================= */

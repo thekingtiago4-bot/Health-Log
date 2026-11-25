@@ -736,7 +736,7 @@ body.so-geo .geo-box{height:calc(100vh - 150px)}
 .pend-notas .pn .pn-v{font-weight:700;min-width:84px;text-align:right}
 .pend-notas .pn .pn-vol,.pend-notas .pn .pn-nf{color:var(--mudo)}
 .pend-notas .pn.em{opacity:.6}
-.lg-fer{background:#E03131;color:#fff;font-weight:800}
+.lg-fer{background:#E03131}
 
 /* seta de esconder/mostrar o menu lateral: clara, para achar de relance */
 .rail-seta{background:#E6F6F3!important;color:#0B3A40!important;border:2px solid #2FB5AC!important;border-left:0!important;font-weight:800;box-shadow:2px 2px 12px rgba(0,0,0,.35)}
