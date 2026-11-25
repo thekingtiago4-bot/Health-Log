@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.30.1';
+  const VERSAO = '0.30.2';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -868,7 +868,7 @@
   }
   function fecharJanelaVeiculo(id) { S.veicAbertos.delete(id); gravarVeicAbertos(); const j = S.veicJan.get(id); if (j) j.hidden = true; }
   function criarJanelaVeiculo(id) {
-    const area = $('#mapa-area'), j = document.createElement('div'), k = S.veicJan.size, key = 'v' + id;
+    const area = document.getElementById('mapa-area'), j = document.createElement('div'), k = S.veicJan.size, key = 'v' + id;
     j.className = 'jan jan-veic'; j.id = 'jan-' + key; j.setAttribute('role', 'dialog'); j.dataset.car = String(id);
     j.innerHTML = '<div class="jan-cab"><b></b><span class="jan-qt"></span><button type="button" class="jan-x" data-vmin aria-label="Recolher" title="Recolher">–</button><button type="button" class="jan-x" data-vfechar aria-label="Fechar" title="Fechar (reabre em Rotas)">✕</button></div><div class="jan-corpo"><div class="car-lista"></div></div>';
     area.appendChild(j);
@@ -883,12 +883,14 @@
       if (e.target.closest('[data-vfechar]')) return fecharJanelaVeiculo(id);
       if (e.target.closest('[data-vmin]')) { const r = j.classList.toggle('recolhida'); e.target.closest('[data-vmin]').textContent = r ? '+' : '–'; }
     });
-    S.veicJan.set(id, j); return j;
+    S.veicJan.set(id, j); atualizarBotoesExt();   // botão ⇥ (segunda tela) como em todas as janelas
+    if (S.parede && (S.janExt.size || U.pref.ler('janExt', []).includes(key))) setTimeout(() => { if (S.veicJan.get(id) === j && !S.janExt.has(key)) janParaOutraTela(key, true); }, 0);   // quem trabalha com janelas na 2ª tela quer a do veículo lá também
+    return j;
   }
   function renderJanelasVeiculos() {
     if (S.modoMapa) return;
     if (!S.op || !S.res) { for (const j of S.veicJan.values()) j.remove(); S.veicJan.clear(); return; }
-    for (const [id, j] of [...S.veicJan]) if (!carroPorId(id)) { j.remove(); S.veicJan.delete(id); S.veicAbertos.delete(id); }
+    for (const [id, j] of [...S.veicJan]) if (!carroPorId(id)) { j.remove(); S.veicJan.delete(id); S.veicAbertos.delete(id); S.janExt.delete('v' + id); }
     if (S.ptrCar) { S.carPend = true; return; }
     for (const id of S.veicAbertos) {
       const rc = S.res.carros.find(x => x.carro.id === id); if (!rc) continue;
