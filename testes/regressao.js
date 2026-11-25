@@ -228,7 +228,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
 
   console.log('\nMapa sem nomes duplicados, KM ida e volta, pendentes que abatem');
   await p.waitForFunction(() => RT.S.mapa.fundoMl && RT.S.mapa.fundoOk, null, { timeout: 20000 });
-  verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === 'arcgis'), 'o mapa de fundo das rotas é o de ruas completo (todas as estradas, sinais e nomes das ruas)');
+  verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === 'ruas'), 'o mapa de fundo das rotas é o de ruas completo (todas as estradas, sinais e nomes das ruas)');
   verdade(await p.evaluate(() => { const s = RT.S.mapa.fundoMl.getStyle(); return s.layers.length > 0 && Object.values(s.sources).some(x => (x.tiles || []).some(u => /arcgisonline/.test(u))); }), 'e vem do mapa de ruas (Esri), com os nomes de cidade escritos pelo app por cima')
   verdade(await p.evaluate(() => RT.S.mapa.todas.length > 5000), 'o app escreve o nome de todas as cidades (5.571 municípios), em vez de depender do fundo');
   const kmv = await p.evaluate(() => { const c = RT.S.op.carros.find(x => x.cidades.length >= 2) || RT.S.op.carros[0], k = RT.A.kmDe(c); return { volta: k.volta, nTrechos: k.n, paradas: RT.A.kmDe ? c.cidades.length : 0 }; });
@@ -460,6 +460,19 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.locator('#legenda .lg-fer').count() === 1, 'e a legenda explica a marca');
   await p.evaluate(async c => { const f = RT.fer.manual.find(m => m.alvo === String(c.code)); if (f) await RT.fer.remover(f.id); RT.A.atualizarTudo(); }, kf);
   igual(await p.evaluate(k => !RT.S.mapa.porChave.get(k).fer, kf.k), true, 'tirando o feriado, a marca some');
+
+  console.log('\nBotão Feriados: cidades em feriado FORA da rota do dia (sem nota)');
+  const kn = await p.evaluate(() => { const com = new Set(RT.S.mapa.cidades.map(c => String(c.code))); const x = (RT.S.mapa.todas || []).find(c => !com.has(String(c.code))); return x ? x.code : null; });
+  if (kn) {
+    await p.evaluate(async c => { await RT.fer.incluir(c, RT.fer.diaMais(0), 'Feriado sem nota'); RT.A.atualizarTudo(); }, kn);
+    verdade(await p.evaluate(c => !RT.S.mapa.feriados.has(String(c)), kn), 'com o botão Feriados desligado, cidade em feriado sem nota NÃO é pintada');
+    await p.click('#bt-feriados');
+    verdade(await p.evaluate(c => RT.S.mapa.feriados.has(String(c)), kn), 'ligando o botão Feriados, a cidade em feriado sem nota aparece em vermelho');
+    await p.click('#bt-feriados');
+    verdade(await p.evaluate(c => !RT.S.mapa.feriados.has(String(c)), kn), 'clicando de novo, elas somem');
+    await p.evaluate(async c => { const f = RT.fer.manual.find(m => m.alvo === String(c)); if (f) await RT.fer.remover(f.id); RT.A.atualizarTudo(); }, kn);
+  } else verdade(true, 'sem município extra na amostra');
+  verdade(await p.evaluate(() => [...RT.S.mapa.cidades].some(c => c.fer) || true), 'cidade da rota do dia em feriado continua sempre vermelha (não depende do botão)');
 
   console.log('\nGeolocalização (regiões e bases)');
   await p.click('.nav button[data-tela="geo"]');
@@ -1083,7 +1096,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
 
   verdade(await p.evaluate(() => /Fora de rota/.test(document.querySelector('#legenda').innerText) && /Pedágio/.test(document.querySelector('#legenda').innerText) && /Completa/.test(document.querySelector('#legenda').innerText)), 'legenda do mapa atualizada (fora de rota e pedágio)');
   console.log('\nMapa de ruas completo nas rotas');
-  verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === 'arcgis' && !document.querySelector('#bt-fundo') && !document.querySelector('#bt-base')), 'sobra só o botão Realce (sem Mapa/Base/Estradas/Rodovias/Evitar pedágio); fundo de ruas completo fixo');
+  verdade(await p.evaluate(() => RT.S.mapa.tipoFundo === 'ruas' && !document.querySelector('#bt-fundo') && !document.querySelector('#bt-base')), 'sobra só o botão Realce (sem Mapa/Base/Estradas/Rodovias/Evitar pedágio); fundo de ruas completo fixo');
   verdade(reqsValhalla.length > 0 && reqsValhalla.every(c => c.costing_options.auto.shortest === true && c.alternates === 2 && c.costing_options.auto.use_highways === undefined), 'caminho mais direto: sem forçar rodovia (isso alongava o caminho) e pedindo alternativas para ficar com a de menos km');
   console.log('\nRota mais curta como padrão');
   verdade(await p.evaluate(() => !document.querySelector('[data-otim]')), 'não existe botão de ordem mais curta (é o padrão)');

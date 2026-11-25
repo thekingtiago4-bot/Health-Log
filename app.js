@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.33.1';
+  const VERSAO = '0.34.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -335,9 +335,10 @@
   }
 
   /* ================= mapa ================= */
+  const ferMapaAtual = () => (U.pref.ler('ferMapaOn', true) !== false && RT.fer ? RT.fer.mapa(U.pref.ler('ferMapaAte', 0)) : null);
   function dadosMapa() {
     if (!S.res) return [];
-    const ferOn = U.pref.ler('ferMapaOn', true) !== false, ferMap = ferOn && RT.fer ? RT.fer.mapa(U.pref.ler('ferMapaAte', 0)) : null, hojeIso = RT.fer ? RT.fer.diaMais(0) : '';
+    const ferMap = ferMapaAtual(), hojeIso = RT.fer ? RT.fer.diaMais(0) : '';
     return S.res.cidades.map(rc => {
       const c = rc.cidade;
       const cores = [...rc.porCarro.entries()].map(([id, t]) => ({ cor: corDe(id), frac: t.notas }));
@@ -351,6 +352,7 @@
   }
   function ajustarPadMapa() { const j = $('#jan-pend'); S.mapa.padEsq = (j && !j.classList.contains('recolhida') && j.offsetWidth && parseFloat(j.style.left || 12) < 120) ? j.offsetWidth + 24 : 0; }
   function atualizarMapa() {
+    { const fm = U.pref.ler('ferForaOn', false) ? ferMapaAtual() : null, hj = RT.fer ? RT.fer.diaMais(0) : '', o = new Map(); if (fm) for (const [c, f] of fm) o.set(String(c), { hoje: f.iso === hj }); S.mapa.setFeriados(o); }
     S.mapa.setCidades(dadosMapa()); S.mapa.setAtivo(S.carroAtivo);
     atualizarVias();
     S.mapa.setRotas(S.res ? S.res.carros.filter(rc => rc.carro.cidades.length).map(rc => ({ id: rc.carro.id, cor: rc.carro.cor, pontos: rc.carro.cidades.map((k, i) => ({ key: k, n: i + 1 })) })) : []);
@@ -1338,7 +1340,7 @@
       if (S.modoMapa) { // janela do mapa: só recebe e desenha
         if (m.t === 'op' || m.t === 'cfg') recarregarDoBanco(m.id || (S.op && S.op.id));
         else if (m.t === 'sel') { S.cidadeAberta = m.key; S.mapa.setSelecionada(m.key); if (m.key && m.centrar) S.mapa.centrarEm(m.key, 140); }
-        else if (m.t === 'tema') aplicarTemaAtual();
+        else if (m.t === 'tema') { aplicarTemaAtual(); if (S.op) atualizarMapa(); }
         else if (m.t === 'fim') { S.op = null; S.idx = null; S.res = null; S.carroAtivo = null; S.cidadeAberta = null; S.mapa.pernas.clear(); atualizarTudo(); }
         else if (m.t === 'foco') { S.mapa.setAtivo(m.id); S.mapa.padEsq = 0; S.mapa.enquadrarPontos(m.pts || []); }
       } else { // janela principal
@@ -1351,7 +1353,7 @@
   }
   function aplicarTemaPara(t) { document.documentElement.setAttribute('data-tema', t === 'claro' ? 'claro' : 'escuro'); if (typeof aplicarParede === 'function') aplicarParede(); const c = $('#cfg-tema'); if (c) { c.checked = t !== 'claro'; rotuloChave(c); } S.mapa && S.mapa.temaMudou(); }
   /* mapa de fundo das ROTAS: "Ruas" = mapa de ruas completo, com todas as estradas, sinais e nomes (padrão) · "Rodoviário" = nosso estilo limpo só de rodovias */
-  const fundoRotas = () => 'arcgis';   // fundo fixo: mapa de ruas COMPLETO (Esri: todas as estradas, sinais e nomes), sem botão de escolha
+  const fundoRotas = () => 'ruas';   // fundo fixo: mapa de ruas COMPLETO (Esri: todas as estradas, sinais e nomes), sem botão de escolha
   function aplicarTemaAtual() { aplicarTemaPara(U.pref.ler('tema', 'escuro')); if (S.mapa) { S.mapa.setTipoFundo(fundoRotas()); } }
 
   /* ================= base de saída e fundo de estradas ================= */
@@ -1471,6 +1473,7 @@
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
     $('#bt-parede-cor').onclick = trocarParede;
+    { const b = $('#bt-feriados'); b.setAttribute('aria-pressed', String(!!U.pref.ler('ferForaOn', false))); b.onclick = () => { const v = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(v)); U.pref.gravar('ferForaOn', v); atualizarMapa(); enviar({ t: 'tema' }); toast(v ? 'Feriados fora de rota: aparecem em vermelho as cidades em feriado que não têm nota no dia.' : 'Feriados fora de rota ocultos. (Cidade da rota do dia em feriado fica sempre vermelha.)'); }; }
     $('#z-mais').onclick = () => S.mapa.zoom(1.5); $('#z-menos').onclick = () => S.mapa.zoom(1 / 1.5);
 
     $('#faixa-carro').addEventListener('click', e => { const b = e.target.closest('[data-cid]'); if (b) abrirCidade(b.dataset.cid, { centrar: true }); });

@@ -96,6 +96,7 @@
     /* rotas: [{id, cor, pontos:[{key, n}]}] — linhas tracejadas na ordem das paradas */
     setRotas(r) { this.rotas = r || []; this._lanesSujo = true; this.sujo = true; }
     /* municípios sem entrega (só para mostrar o nome): [{code, nome, lat, lon}] */
+    setFeriados(f) { this.feriados = f || new Map(); this._bgSujo = this.sujo = true; }   // code -> {hoje}: municípios em feriado (pintados de vermelho mesmo sem nota)
     setTodas(t) { this.todas = t || []; this.todasPorCod = new Map(this.todas.map(x => [x.code, x])); this.sujo = true; }
     /* modo geolocalização: pinta os municípios por região. g = {cor: Map(código -> cor css), sel: código} */
     setGeo(g) { this.geo = g; this.sujo = true; }
@@ -393,6 +394,12 @@
       for (const [code, pl] of this.poli) {
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
         if (com.has(code)) continue;
+        const fe = this.feriados && this.feriados.get(code);
+        if (fe) {   // feriado: município vermelho (hoje mais forte; o Realce regula a intensidade), tenha nota hoje ou não
+          const re0 = this.realce, a = (fe.hoje ? 0.78 : 0.55) * (re0 === 'forte' ? 1 : re0 === 'suave' ? 0.85 : 0.6);
+          ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#E03131'; ctx.fill(pl.path); ctx.globalAlpha = 1; ctx.lineWidth = 2 / k; ctx.strokeStyle = '#FF6B6B'; ctx.stroke(pl.path); ctx.restore();
+          continue;
+        }
         if (comTiles && k < 170) continue; // com estradas ao fundo e zoom aberto, os contornos de todos os municípios só pesam
         if (!comTiles) ctx.fill(pl.path);
         ctx.stroke(pl.path);
@@ -581,7 +588,7 @@
         }
         this._nTodas = n;
       }
-      if (this._comTiles) { ctx.font = '500 10px system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = P.escuro ? 'rgba(200,225,225,.75)' : 'rgba(40,60,60,.75)'; ctx.fillText('© OpenFreeMap © OpenMapTiles · dados © OpenStreetMap', W - 8, H - 6); }
+      if (this._comTiles) { ctx.font = '500 10px system-ui,sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = P.escuro ? 'rgba(200,225,225,.75)' : 'rgba(40,60,60,.75)'; ctx.fillText(this.tipoFundo ? 'Mapa: Esri, HERE, Garmin, © OpenStreetMap' : '© OpenFreeMap © OpenMapTiles · dados © OpenStreetMap', W - 8, H - 6); }
       ctx.textAlign = 'start';
     }
 

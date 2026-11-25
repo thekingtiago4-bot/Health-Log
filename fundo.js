@@ -39,12 +39,13 @@
       return s;
     },
     /* Geolocalização: o mesmo mapa de ruas do Health Search (Esri World Street Map, com nomes), escurecido no tema escuro */
-    estiloArcgis(escuro) {
+    estiloArcgis(escuro, azul) {   // azul = mapa de rotas: no tema escuro, em vez do tom marrom da Esri, um escuro AZUL (as ruas, sinais e nomes seguem iguais)
+      const tom = escuro && azul;
       return {
         version: 8, name: 'Health Log arcgis',
-        sources: { a: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 17, attribution: 'Esri, HERE, Garmin, © OpenStreetMap' } },
+        sources: { tom: { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]] } } }, a: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 17, attribution: 'Esri, HERE, Garmin, © OpenStreetMap' } },
         layers: [{ id: 'fundo', type: 'background', paint: { 'background-color': escuro ? '#0e1c20' : '#eef1ec' } },
-          { id: 'ruas', type: 'raster', source: 'a', paint: escuro ? { 'raster-brightness-max': 0.5, 'raster-saturation': -0.45, 'raster-contrast': 0.1, 'raster-opacity': 0.95 } : { 'raster-saturation': -0.2 } }]
+          { id: 'ruas', type: 'raster', source: 'a', paint: tom ? { 'raster-brightness-max': 0.62, 'raster-saturation': -1, 'raster-contrast': 0.15 } : escuro ? { 'raster-brightness-max': 0.5, 'raster-saturation': -0.45, 'raster-contrast': 0.1, 'raster-opacity': 0.95 } : { 'raster-saturation': -0.2 } }].concat(tom ? [{ id: 'tom-azul', type: 'fill', source: 'tom', paint: { 'fill-color': '#0B2F4F', 'fill-opacity': 0.62 } }] : [])
       };
     },
     carregarBiblioteca() {
@@ -56,11 +57,11 @@
     /* cria o mapa de fundo dentro de `el` (sem interação: quem manda na vista é o nosso canvas) */
     async criar(el, escuro, tipo) {
       await F.carregarBiblioteca();
-      const style = tipo === 'arcgis' ? F.estiloArcgis(escuro) : await F.estilo(escuro);
+      const style = (tipo === 'arcgis' || tipo === 'ruas') ? F.estiloArcgis(escuro, tipo === 'ruas') : await F.estilo(escuro);
       const map = new g.maplibregl.Map({ container: el, style, center: [-48, -22], zoom: 6, interactive: false, attributionControl: false, fadeDuration: 0, renderWorldCopies: false, trackResize: false, pitchWithRotate: false, dragRotate: false, maxZoom: 18 });
       await new Promise((ok, er) => { map.once('load', ok); map.once('error', e => { if (!map.loaded()) er(e && e.error || new Error('erro no mapa')); }); setTimeout(() => ok(), 15000); });
       return map;
     },
-    async trocarTema(map, escuro, tipo) { map.setStyle(tipo === 'arcgis' ? F.estiloArcgis(escuro) : await F.estilo(escuro), { diff: false }); }
+    async trocarTema(map, escuro, tipo) { map.setStyle((tipo === 'arcgis' || tipo === 'ruas') ? F.estiloArcgis(escuro, tipo === 'ruas') : await F.estilo(escuro), { diff: false }); }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

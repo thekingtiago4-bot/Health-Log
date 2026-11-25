@@ -419,7 +419,7 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 :root[data-tema="claro"] .mapa-area.parede{background:radial-gradient(circle at 1px 1px,rgba(20,70,90,.16) 1.4px,transparent 1.6px) 0 0/26px 26px,var(--parede,#EEF3F3)}
 #bt-parede-cor{display:none}
 .mapa-area.parede #bt-parede-cor{display:flex;align-items:center;gap:7px}
-.mapa-area.parede #bt-realce,.mapa-area.parede .vias-st{display:none!important}
+.mapa-area.parede #bt-realce,.mapa-area.parede #bt-feriados,.mapa-area.parede .vias-st{display:none!important}
 #bt-parede-cor .amostra{width:14px;height:14px;border-radius:50%;background:var(--amostra,#0B2545);border:2px solid var(--tinta)}
 .mapa-area.parede .mapa-cv,.mapa-area.parede .zoom-bt,.mapa-area.parede .legenda,.mapa-area.parede .dica-mapa,.mapa-area.parede .aviso-fora,.mapa-area.parede .vazio-mapa{display:none!important}
 .mapa-area .msg-parede{display:none}
