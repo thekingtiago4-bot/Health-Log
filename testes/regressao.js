@@ -438,6 +438,12 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.evaluate(ks => { for (const k of ks) RT.A.abrirCidade(k, {}); }, ks2);
   igual(await p.locator('.jan-cid:not([hidden])').count(), 2, 'clicar em outra cidade abre outra janela (as duas ficam abertas)');
   await p.evaluate(() => { for (const k of [...RT.S.cidJan.keys()]) RT.A.fecharCidade(k, true); });
+  await p.evaluate(k => RT.A.abrirCidade(k, {}), ks2[0]);
+  { const c0 = await p.locator('.jan-cid .jan-cab').first().boundingBox(); await p.mouse.move(c0.x + 40, c0.y + 12); await p.mouse.down(); await p.mouse.move(c0.x + 90, c0.y + 52, { steps: 4 }); await p.mouse.up(); }
+  const pA = await p.$eval('.jan-cid', e => [Math.round(parseFloat(e.style.left)), Math.round(parseFloat(e.style.top))]);
+  await p.evaluate(k => RT.A.abrirCidade(k, {}), ks2[1]);
+  igual(await p.$eval('.jan-cid[data-key="' + ks2[1] + '"]', e => [Math.round(parseFloat(e.style.left)), Math.round(parseFloat(e.style.top))]), pA, 'a próxima cidade abre exatamente onde você deixou a janela anterior');
+  await p.evaluate(() => { for (const k of [...RT.S.cidJan.keys()]) RT.A.fecharCidade(k, true); });
   igual(await p.locator('.jan-cid').count(), 0, 'e cada uma fecha no seu ✕');
   console.log('\nLevar para: só aparece conforme as janelas de veículo abertas');
   await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.abrirCidade(RT.S.res.cidades.find(r => !r.fora).cidade.key, {}); });

@@ -465,6 +465,8 @@
       };
       const curva = (a, b, sinal) => { const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, off = Math.min(70, d * 0.17) * sinal; return { x: (a.x + b.x) / 2 - dy / d * off, y: (a.y + b.y) / 2 + dx / d * off }; };
       const claro = P.escuro ? 'rgba(4,16,20,.82)' : 'rgba(255,255,255,.92)';
+      const lum = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '')); if (!m) return 1; const n = parseInt(m[1], 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
+      const haloDe = cor => (P.escuro && lum(cor) < 0.2) ? 'rgba(235,245,245,.88)' : claro;   // linha preta/escura no tema escuro: contorno CLARO, senão o tracejado sumia no fundo e parecia parada
       const traco = (d, lista, halo, larg, cor, dash) => {
         ctx.beginPath();
         for (const t of lista) {
@@ -476,7 +478,7 @@
       };
       ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       /* 1) o contorno claro de todas as linhas; 2) as linhas tracejadas por cima — assim nenhuma faixa apaga a vizinha */
-      for (const d of dados) { ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, true, d.forte && temAtivo ? 8.4 : 7, claro, []); if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.85; traco(d, d.reta, true, d.forte && temAtivo ? 6 : 5, claro, []); } }
+      for (const d of dados) { ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, true, d.forte && temAtivo ? 8.4 : 7, haloDe(d.r.cor), []); if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.85; traco(d, d.reta, true, d.forte && temAtivo ? 6 : 5, haloDe(d.r.cor), []); } }
       for (const d of dados.slice().sort((a, b) => (a.forte ? 1 : 0) - (b.forte ? 1 : 0))) { // o veículo em destaque por cima
         ctx.globalAlpha = d.alfa; if (d.pista.length) traco(d, d.pista, false, d.forte && temAtivo ? 4.8 : 3.8, d.r.cor, this.rotaFixa ? [] : [11, 9]);
         if (d.reta.length) { ctx.globalAlpha = d.alfa * 0.9; traco(d, d.reta, false, d.forte && temAtivo ? 3.4 : 2.8, d.r.cor, this.rotaFixa ? [] : [3, 7]); }

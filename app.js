@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.31.0';
+  const VERSAO = '0.31.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -509,7 +509,7 @@
     const anchor = (o.centrar || S.parede) ? { x: W / 2, y: H / 2 } : (S.mapa.posicaoDaCidade(ctx.key) || { x: W * 0.55, y: H * 0.3 });
     const w = jan.offsetWidth; let x = anchor.x + 28; if (x + w > W - 8) x = anchor.x - w - 28; let y = anchor.y - 70;
     if (salvo) { x = salvo.x; y = salvo.y; }
-    const outros = [...S.cidJan.values()].filter(c => c !== ctx && c.el.parentElement === area && !c.el.hidden).map(c => c.el);
+    const outros = salvo ? [] : [...S.cidJan.values()].filter(c => c !== ctx && c.el.parentElement === area && !c.el.hidden).map(c => c.el);   // com posição que você deixou, abre EXATAMENTE nela
     for (let t = 0; t < 12 && outros.some(e => Math.abs((parseFloat(e.style.left) || 0) - x) < 20 && Math.abs((parseFloat(e.style.top) || 0) - y) < 20); t++) { x += 30; y += 30; }   // uma janela não cobre exatamente a outra
     U.posicionar(jan, area, x, y);
   }
