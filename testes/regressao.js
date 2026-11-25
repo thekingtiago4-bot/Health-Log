@@ -696,6 +696,12 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await pop.click('#jan-' + vid + ' .jan-ext');
   await p.waitForFunction(v => !RT.S.janExt.has(v) && !!document.querySelector('#jan-' + v), vid);
   await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
+  console.log('\nTodas as janelas flutuantes têm o botão da segunda tela');
+  await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); RT.A.janVer('busca', true); RT.A.janVer('carros', true); RT.A.abrirJanelaVeiculo(RT.S.op.carros[0].id); RT.A.abrirCidade(RT.S.res.cidades.find(r => !r.fora).cidade.key, {}); });
+  await p.evaluate(() => { const c = document.querySelector('.jan-cid .cl-chk'); if (c) c.click(); });   // mexer na cidade refaz o título da janela
+  const semBt = await p.evaluate(() => [...document.querySelectorAll('.jan')].filter(j => !j.hidden && !j.querySelector('.jan-ext')).map(j => j.id));
+  igual(semBt.join(','), '', 'toda janela flutuante aberta (pendentes, rotas, busca, veículo, cidade) tem o botão ⇥ da segunda tela');
+  await p.evaluate(() => { for (const k of [...RT.S.cidJan.keys()]) RT.A.fecharCidade(k, true); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('busca', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
   console.log('\nTela das janelas (mapa na outra tela): cor de fundo');
   verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#bt-parede-cor')).display !== 'none' && getComputedStyle(document.querySelector('#bt-realce')).display === 'none'), 'com o mapa na outra tela os botões do mapa somem e fica só o botão de cor de fundo');
   verdade(await p.evaluate(() => getComputedStyle(document.querySelector('.mapa-base')).display === 'none'), 'na tela das janelas o mapa de fundo não aparece (só a cor escolhida)');
