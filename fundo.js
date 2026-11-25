@@ -45,7 +45,7 @@
         version: 8, name: 'Health Log arcgis',
         sources: { tom: { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]] } } }, a: { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 17, attribution: 'Esri, HERE, Garmin, © OpenStreetMap' } },
         layers: [{ id: 'fundo', type: 'background', paint: { 'background-color': escuro ? '#0e1c20' : '#eef1ec' } },
-          { id: 'ruas', type: 'raster', source: 'a', paint: tom ? { 'raster-brightness-max': 0.62, 'raster-saturation': -1, 'raster-contrast': 0.15 } : escuro ? { 'raster-brightness-max': 0.5, 'raster-saturation': -0.45, 'raster-contrast': 0.1, 'raster-opacity': 0.95 } : { 'raster-saturation': -0.2 } }].concat(tom ? [{ id: 'tom-azul', type: 'fill', source: 'tom', paint: { 'fill-color': '#0B2F4F', 'fill-opacity': 0.62 } }] : [])
+          { id: 'ruas', type: 'raster', source: 'a', paint: tom ? { 'raster-brightness-max': 0.42, 'raster-saturation': -1, 'raster-contrast': 0.2 } : escuro ? { 'raster-brightness-max': 0.5, 'raster-saturation': -0.45, 'raster-contrast': 0.1, 'raster-opacity': 0.95 } : { 'raster-saturation': -0.2 } }].concat(tom ? [{ id: 'tom-azul', type: 'fill', source: 'tom', paint: { 'fill-color': '#06222A', 'fill-opacity': 0.58 } }] : [])
       };
     },
     carregarBiblioteca() {
