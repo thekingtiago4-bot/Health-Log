@@ -1,9 +1,9 @@
 /* Health Path · mesma identidade do Health Log (cores, Barlow). Pensado para celular e computador. */
-@font-face{font-family:'Barlow';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/Barlow-400.woff2) format('woff2')}
-@font-face{font-family:'Barlow';font-style:normal;font-weight:500;font-display:swap;src:url(../fonts/Barlow-500.woff2) format('woff2')}
-@font-face{font-family:'Barlow';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/Barlow-600.woff2) format('woff2')}
-@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/BarlowSemiCondensed-600.woff2) format('woff2')}
-@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/BarlowSemiCondensed-700.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/Barlow-400.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/Barlow-500.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/Barlow-600.woff2) format('woff2')}
+@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/BarlowSemiCondensed-600.woff2) format('woff2')}
+@font-face{font-family:'Barlow Semi Condensed';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/BarlowSemiCondensed-700.woff2) format('woff2')}
 :root{--papel:#EEF3F3;--sup:#FFFFFF;--sup2:#F4F8F8;--tinta:#0F2E33;--tinta2:#3A5458;--mudo:#62797C;--linha:#D2DEDE;--teal:#0F4B55;--tealBg:#DFF3F2;--acento:#137F7A;--priTxt:#FFFFFF;--aqua:#2FB5AC;--no:#D03A3A;--noBg:#FBE9E9;--sombra:0 10px 30px rgba(15,75,85,.10);--r:14px}
 :root[data-tema="escuro"]{--papel:#071E22;--sup:#0C2B31;--sup2:#10343A;--tinta:#E2F0F0;--tinta2:#B3CBCC;--mudo:#7E9B9D;--linha:#1E4148;--teal:#61C1BD;--tealBg:#113F3F;--acento:#6EE1DC;--priTxt:#062024;--aqua:#6EE1DC;--no:#E25555;--noBg:#3A1A1E;--sombra:0 10px 30px rgba(0,0,0,.35)}
 *{box-sizing:border-box}
@@ -24,7 +24,7 @@ button,input{font:inherit;color:inherit}
 .card{background:var(--sup);border:1px solid var(--linha);border-radius:var(--r);box-shadow:var(--sombra);padding:20px 18px}
 h1{margin:0 0 4px;font-family:"Barlow Semi Condensed";font-weight:700;font-size:1.55rem;line-height:1.15}
 .sub{margin:0 0 16px;color:var(--tinta2);font-size:.95rem}
-.par{display:grid;gap:10px;position:relative}
+
 .campo{display:block;position:relative}
 .rot{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;color:var(--mudo);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
 .pino{width:11px;height:11px;border-radius:50%;display:inline-block}
@@ -86,3 +86,18 @@ h1{margin:0 0 4px;font-family:"Barlow Semi Condensed";font-weight:700;font-size:
 .modo button{flex:1;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--tinta2);font-weight:600;cursor:pointer}
 .modo button[aria-pressed="true"]{background:var(--sup);color:var(--acento);box-shadow:0 2px 8px rgba(0,0,0,.18);outline:1.5px solid var(--aqua)}
 .aviso-rede{padding:10px 14px;border-radius:12px;background:var(--noBg);color:var(--no);font-weight:600;font-size:.9rem;border:1px solid var(--no)}
+
+.campos{display:grid;gap:10px}
+.camp-l{display:grid;grid-template-columns:1fr;gap:0}
+.campo .rot .ac{margin-left:auto;display:flex;gap:6px}
+.campo .rot .ac button{border:1px solid var(--linha);background:var(--sup2);color:var(--tinta2);border-radius:8px;min-width:34px;min-height:30px;cursor:pointer;font-size:.9rem}
+.campo .rot .ac button:hover{border-color:var(--aqua)}
+.pino.m{background:var(--mudo);box-shadow:0 0 0 3px var(--linha)}
+.linha-bt{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.sec.peq{flex:none;height:42px;padding:0 14px;font-size:.9rem}
+.chk{display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;font-weight:500}
+.chk input{width:20px;height:20px;accent-color:var(--aqua)}
+.trechos{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px}
+.trechos li{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:var(--sup2);border:1px solid var(--linha);border-radius:10px;font-size:.88rem}
+.trechos li b{white-space:nowrap}
+.trechos li span{color:var(--tinta2)}

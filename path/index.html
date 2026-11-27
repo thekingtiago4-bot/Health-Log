@@ -28,20 +28,15 @@
   <div class="aviso-rede" id="aviso-rede" role="status" hidden>Sem internet. O Health Path precisa de rede: cada consulta é feita na hora, pela internet.</div>
 
   <section class="card" aria-labelledby="h-calc">
-    <h1 id="h-calc">Quantos km de ida e volta?</h1>
-    <p class="sub">Escolha as duas cidades e clique em calcular. O app mostra os <b>km de ida e de volta</b> e o <b>tempo em carro</b>.</p>
+    <h1 id="h-calc">Quantos km no percurso?</h1>
+    <p class="sub">Escolha a cidade inicial e a final. Precisa passar por outras? Clique em <b>+ Adicionar cidade</b>. O app mostra os <b>km do percurso total</b> e o <b>tempo em carro</b>.</p>
     <form id="form" autocomplete="off" novalidate>
-      <div class="par">
-        <label class="campo" for="in-a"><span class="rot"><i class="pino a"></i>Cidade inicial</span>
-          <input id="in-a" type="text" inputmode="search" placeholder="Ex.: Araraquara" autocapitalize="words" spellcheck="false" aria-autocomplete="list" aria-controls="sug-a" role="combobox" aria-expanded="false">
-          <ul class="sug" id="sug-a" role="listbox" hidden></ul>
-        </label>
-        <button type="button" class="troca" id="bt-troca" title="Inverter as cidades" aria-label="Inverter as cidades">⇅</button>
-        <label class="campo" for="in-b"><span class="rot"><i class="pino b"></i>Cidade final</span>
-          <input id="in-b" type="text" inputmode="search" placeholder="Ex.: Bauru" autocapitalize="words" spellcheck="false" aria-autocomplete="list" aria-controls="sug-b" role="combobox" aria-expanded="false">
-          <ul class="sug" id="sug-b" role="listbox" hidden></ul>
-        </label>
+      <div class="campos" id="campos"></div>
+      <div class="linha-bt">
+        <button type="button" class="sec peq" id="bt-add" title="Adicionar uma cidade no meio do percurso">+ Adicionar cidade</button>
+        <button type="button" class="sec peq" id="bt-troca" title="Inverter a ordem das cidades">⇅ Inverter</button>
       </div>
+      <label class="chk"><input type="checkbox" id="chk-volta" checked><span>Voltar para a cidade inicial (ida e volta)</span></label>
       <div class="modo" role="group" aria-label="Como calcular o caminho"><button type="button" data-modo="google" aria-pressed="true">Como o Google Maps</button><button type="button" data-modo="curto" aria-pressed="false">Mais curto</button></div>
       <p class="erro" id="erro" role="alert" hidden></p>
       <button type="submit" class="calc" id="bt-calc"><span class="calc-t">Calcular KM ida e volta</span><span class="calc-s" aria-hidden="true"></span></button>
@@ -51,18 +46,19 @@
 
   <section class="card res" id="res" aria-live="polite" hidden>
     <div class="res-topo"><span class="rota" id="res-rota"></span></div>
-    <div class="total"><b id="res-total">0</b><span>km · ida e volta</span></div>
+    <div class="total"><b id="res-total">0</b><span id="res-total-r">km · ida e volta</span></div>
     <div class="stats">
       <div><small>Ida</small><b id="res-ida">0 km</b><em id="res-ida-t"></em></div>
       <div><small>Volta</small><b id="res-volta">0 km</b><em id="res-volta-t"></em></div>
       <div><small>Tempo em carro</small><b id="res-tempo">—</b><em>ida e volta</em></div>
     </div>
     <div class="mapa" id="res-mapa" role="img" aria-label="Desenho do caminho"></div>
+    <ol class="trechos" id="res-trechos"></ol>
     <div class="acoes"><button type="button" class="sec" id="bt-copiar">Copiar resultado</button><button type="button" class="sec" id="bt-novo">Nova consulta</button></div>
     <p class="nota" id="nota-modo"></p>
   </section>
 
-  <footer class="rodape">Health Path · <span id="versao">v1.4.0</span> · Desenvolvido por Tiago</footer>
+  <footer class="rodape">Health Path · <span id="versao">v1.5.0</span> · Desenvolvido por Tiago</footer>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
 <script src="path.js"></script>

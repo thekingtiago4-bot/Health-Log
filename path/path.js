@@ -4,18 +4,17 @@
    PRECISA DE REDE: toda consulta é feita na hora, pela internet (nada de resultado guardado). */
 (function () {
   'use strict';
-  const VERSAO = '1.4.0';
+  const VERSAO = '1.5.0';
   const VAL = 'https://valhalla1.openstreetmap.de/route', OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
   const $ = s => document.querySelector(s);
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 /]/g, ' ').replace(/\s+/g, ' ').trim();
   const ls = { ler(k, d) { try { const v = localStorage.getItem('hp:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, gravar(k, v) { try { localStorage.setItem('hp:' + k, JSON.stringify(v)); } catch (e) { /* sem armazenamento: segue */ } } };
-  const sel = { a: null, b: null };
   let MUN = [], ocupado = false, ultimo = null, modo = ls.ler('modo', 'google') === 'curto' ? 'curto' : 'google';
 
   /* ---------- cidades ---------- */
   async function carregarCidades() {
     let bruto = window.__MUN;   // versão de arquivo único: as cidades vão junto no próprio HTML
-    if (!bruto) { const r = await fetch('../data/municipios.json'); bruto = await r.json(); }
+    if (!bruto) { const r = await fetch('data/municipios.json'); bruto = await r.json(); }
     MUN = Object.entries(bruto).map(([code, v]) => ({ code, nome: v[0], uf: v[1], lat: v[2], lon: v[3], n: norm(v[0]) }));
     MUN.sort((x, y) => x.nome.length - y.nome.length || x.nome.localeCompare(y.nome, 'pt-BR'));
   }
@@ -31,19 +30,37 @@
   }
   const rotulo = m => m.nome + '/' + m.uf;
 
-  /* ---------- caixa de sugestões ---------- */
-  function ligarCampo(chave) {
-    const inp = $('#in-' + chave), ul = $('#sug-' + chave); let itens = [], ativo = -1;
+  /* ---------- campos de cidade (inicial, paradas no meio, final) ---------- */
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const MAXC = 12;
+  let campos = [{ m: null }, { m: null }];   // cada campo guarda a cidade escolhida (m)
+  function desenharCampos() {
+    const box = $('#campos'), n = campos.length;
+    box.innerHTML = campos.map((c, i) => {
+      const papel = i === 0 ? 'Cidade inicial' : i === n - 1 ? 'Cidade final' : 'Parada ' + i, id = i === 0 ? 'in-a' : i === n - 1 ? 'in-b' : 'in-p' + i;
+      return '<label class="campo" for="' + id + '"><span class="rot"><i class="pino ' + (i === 0 ? 'a' : i === n - 1 ? 'b' : 'm') + '"></i>' + papel +
+        (i > 0 && i < n - 1 ? '<span class="ac"><button type="button" data-sobe="' + i + '" aria-label="Subir a parada">↑</button><button type="button" data-desce="' + i + '" aria-label="Descer a parada">↓</button><button type="button" data-rm="' + i + '" aria-label="Tirar a parada">✕</button></span>' : '') +
+        '</span><input id="' + id + '" data-i="' + i + '" type="text" inputmode="search" placeholder="' + (i === 0 ? 'Ex.: Araraquara' : i === n - 1 ? 'Ex.: Bauru' : 'Ex.: Jaú') + '" autocapitalize="words" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" value="' + esc(c.m ? rotulo(c.m) : (c.txt || '')) + '"><ul class="sug" role="listbox" hidden></ul></label>';
+    }).join('');
+    for (const inp of box.querySelectorAll('input')) ligarCampo(inp);
+    $('#bt-add').disabled = n >= MAXC;
+  }
+  function lerTextos() { for (const inp of document.querySelectorAll('#campos input')) { const c = campos[+inp.dataset.i]; if (c && !c.m) c.txt = inp.value; } }
+  function ligarCampo(inp) {
+    const i = +inp.dataset.i, ul = inp.parentElement.querySelector('.sug'); let itens = [], ativo = -1;
     const fechar = () => { ul.hidden = true; inp.setAttribute('aria-expanded', 'false'); ativo = -1; };
-    const escolher = m => { sel[chave] = m; inp.value = rotulo(m); fechar(); limparErro(); if (chave === 'a') $('#in-b').focus(); };
-    const marcar = () => { [...ul.children].forEach((li, i) => li.setAttribute('aria-selected', String(i === ativo))); };
+    const escolher = m => {
+      campos[i].m = m; campos[i].txt = ''; inp.value = rotulo(m); fechar(); limparErro();
+      const prox = document.querySelector('#campos input[data-i="' + (i + 1) + '"]'); if (prox && !campos[i + 1].m) prox.focus();
+    };
+    const marcar = () => { [...ul.children].forEach((li, k) => li.setAttribute('aria-selected', String(k === ativo))); };
     inp.addEventListener('input', () => {
-      sel[chave] = null; itens = achar(inp.value); ativo = itens.length ? 0 : -1;
-      ul.innerHTML = itens.map((m, i) => '<li role="option" data-i="' + i + '">' + m.nome.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '<span>' + m.uf + '</span></li>').join('');
+      campos[i].m = null; campos[i].txt = inp.value; itens = achar(inp.value); ativo = itens.length ? 0 : -1;
+      ul.innerHTML = itens.map((m, k) => '<li role="option" data-i="' + k + '">' + esc(m.nome) + '<span>' + m.uf + '</span></li>').join('');
       ul.hidden = !itens.length; inp.setAttribute('aria-expanded', String(!!itens.length)); marcar();
     });
     inp.addEventListener('keydown', e => {
-      if (ul.hidden || !itens.length) { return; }
+      if (ul.hidden || !itens.length) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); ativo = (ativo + 1) % itens.length; marcar(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); ativo = (ativo - 1 + itens.length) % itens.length; marcar(); }
       else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); escolher(itens[Math.max(0, ativo)]); }
@@ -51,14 +68,14 @@
     });
     ul.addEventListener('pointerdown', e => { const li = e.target.closest('li'); if (li) { e.preventDefault(); escolher(itens[+li.dataset.i]); } });
     inp.addEventListener('blur', () => setTimeout(fechar, 120));
-    inp.addEventListener('focus', () => { if (inp.value && !sel[chave]) inp.dispatchEvent(new Event('input')); });
+    inp.addEventListener('focus', () => { if (inp.value && !campos[i].m) inp.dispatchEvent(new Event('input')); });
   }
   /* texto digitado sem escolher da lista: aceita se só uma cidade combina exatamente */
-  function resolver(chave) {
-    if (sel[chave]) return sel[chave];
-    const txt = $('#in-' + chave).value, t = norm(txt); if (!t) return null;
-    const ex = achar(txt).filter(m => m.n === t.split('/')[0].trim());
-    if (ex.length === 1) { sel[chave] = ex[0]; $('#in-' + chave).value = rotulo(ex[0]); return ex[0]; }
+  function resolver(i) {
+    const c = campos[i]; if (c.m) return c.m;
+    const t = norm(c.txt || ''); if (!t) return null;
+    const ex = achar(c.txt).filter(m => m.n === t.split('/')[0].trim());
+    if (ex.length === 1) { c.m = ex[0]; return ex[0]; }
     return null;
   }
 
@@ -152,57 +169,79 @@
   function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 2200); }
   function erro(m) { const e = $('#erro'); e.textContent = m; e.hidden = false; }
   function limparErro() { $('#erro').hidden = true; }
-  function desenhar(a, b, ida, volta) {
-    const W = 600, H = 250, P = 26, todos = ida.coords.concat(volta.coords);
-    const mid = (a.lat + b.lat) / 2, fx = Math.cos(mid * Math.PI / 180);
+  function desenhar(pts, trechos) {
+    const W = 600, H = 260, P = 30, todos = trechos.flatMap(t => t.coords);
+    const mid = pts.reduce((s, m) => s + m.lat, 0) / pts.length, fx = Math.cos(mid * Math.PI / 180);
     const xs = todos.map(c => c[0] * fx), ys = todos.map(c => c[1]);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const esc = Math.min((W - 2 * P) / Math.max(x1 - x0, 1e-6), (H - 2 * P) / Math.max(y1 - y0, 1e-6));
-    const ox = (W - (x1 - x0) * esc) / 2, oy = (H - (y1 - y0) * esc) / 2;
-    const pt = c => [(c[0] * fx - x0) * esc + ox, H - ((c[1] - y0) * esc + oy)];
+    const esc2 = Math.min((W - 2 * P) / Math.max(x1 - x0, 1e-6), (H - 2 * P) / Math.max(y1 - y0, 1e-6));
+    const ox = (W - (x1 - x0) * esc2) / 2, oy = (H - (y1 - y0) * esc2) / 2;
+    const pt = c => [(c[0] * fx - x0) * esc2 + ox, H - ((c[1] - y0) * esc2 + oy)];
     const d = cs => cs.map((c, i) => { const p = pt(c); return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join('');
-    const A = pt([a.lon, a.lat]), B = pt([b.lon, b.lat]);
-    const nome = (m, p, dir) => '<text x="' + (p[0] + (dir > 0 ? 12 : -12)).toFixed(1) + '" y="' + (p[1] + 4).toFixed(1) + '" text-anchor="' + (dir > 0 ? 'start' : 'end') + '" font-size="15" font-weight="700" font-family="Barlow Semi Condensed,sans-serif" fill="currentColor">' + m.nome.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</text>';
-    $('#res-mapa').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="m-svg" aria-hidden="true"><path class="m-linha" d="' + d(volta.coords) + '" stroke="var(--mudo)" stroke-width="3" stroke-dasharray="2 7" opacity=".9"/><path class="m-linha" d="' + d(ida.coords) + '" stroke="var(--aqua)" stroke-width="4.5"/>' +
-      '<circle cx="' + A[0].toFixed(1) + '" cy="' + A[1].toFixed(1) + '" r="8" fill="var(--sup)" stroke="var(--tinta)" stroke-width="3.5"/><circle cx="' + B[0].toFixed(1) + '" cy="' + B[1].toFixed(1) + '" r="8" fill="var(--aqua)" stroke="var(--sup)" stroke-width="3.5"/>' +
-      nome(a, A, A[0] < W / 2 ? 1 : -1) + nome(b, B, B[0] < W / 2 ? 1 : -1) + '</svg>';
+    let linhas = '';
+    trechos.forEach(t => { linhas += '<path class="m-linha" d="' + d(t.coords) + '" stroke="' + (t.volta ? 'var(--mudo)' : 'var(--aqua)') + '" stroke-width="' + (t.volta ? 3 : 4.5) + '"' + (t.volta ? ' stroke-dasharray="2 7"' : '') + '/>'; });
+    const marc = pts.map((m, i) => {
+      const p = pt([m.lon, m.lat]), ult = i === pts.length - 1 && pts.length > 1, ini = i === 0, dir = p[0] < W / 2 ? 1 : -1;
+      return '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="9" fill="' + (ini ? 'var(--sup)' : 'var(--aqua)') + '" stroke="' + (ini ? 'var(--tinta)' : 'var(--sup)') + '" stroke-width="3.5"/>' +
+        '<text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 3.6).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="800" font-family="Barlow Semi Condensed,sans-serif" fill="' + (ini ? 'var(--tinta)' : 'var(--priTxt)') + '">' + (i + 1) + '</text>' +
+        '<text x="' + (p[0] + dir * 14).toFixed(1) + '" y="' + (p[1] + 4).toFixed(1) + '" text-anchor="' + (dir > 0 ? 'start' : 'end') + '" font-size="14" font-weight="700" font-family="Barlow Semi Condensed,sans-serif" fill="currentColor">' + esc(m.nome) + '</text>';
+    }).join('');
+    $('#res-mapa').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="m-svg" aria-hidden="true">' + linhas + marc + '</svg>';
   }
-  function mostrar(a, b, ida, volta) {
-    const total = ida.km + volta.km;
-    $('#res-rota').textContent = rotulo(a) + '  →  ' + rotulo(b) + '  →  ' + rotulo(a);
-    $('#res-total').textContent = km1(total);
-    $('#res-ida').textContent = km1(ida.km) + ' km'; $('#res-volta').textContent = km1(volta.km) + ' km'; $('#res-ida-t').textContent = tempo(ida.tempo) + ' de carro'; $('#res-volta-t').textContent = tempo(volta.tempo) + ' de carro'; $('#res-tempo').textContent = tempo(ida.tempo + volta.tempo);
-    desenhar(a, b, ida, volta);
-    ultimo = { a, b, ida: ida.km, volta: volta.km, total, min: ida.tempo + volta.tempo };
+  function mostrar(pts, trechos, volta) {
+    const idas = trechos.filter(t => !t.volta), vs = trechos.filter(t => t.volta);
+    const kmI = idas.reduce((s, t) => s + t.km, 0), kmV = vs.reduce((s, t) => s + t.km, 0), mI = idas.reduce((s, t) => s + t.tempo, 0), mV = vs.reduce((s, t) => s + t.tempo, 0);
+    const total = kmI + kmV, minT = mI + mV, nomes = pts.map(rotulo);
+    $('#res-rota').textContent = nomes.concat(volta ? [rotulo(pts[0])] : []).join('  →  ');
+    $('#res-total').textContent = km1(total); $('#res-total-r').textContent = volta ? 'km · percurso total, ida e volta' : 'km · percurso total';
+    $('#res-ida').textContent = km1(kmI) + ' km'; $('#res-ida-t').textContent = tempo(mI) + ' de carro';
+    $('#res-volta').textContent = volta ? km1(kmV) + ' km' : '—'; $('#res-volta-t').textContent = volta ? tempo(mV) + ' de carro' : 'sem volta';
+    $('#res-tempo').textContent = tempo(minT);
+    $('#res-trechos').innerHTML = trechos.map(t => '<li><span>' + esc(t.de.nome) + ' → ' + esc(t.para.nome) + (t.volta ? ' <small>(volta)</small>' : '') + '</span><b>' + km1(t.km) + ' km · ' + tempo(t.tempo) + '</b></li>').join('');
+    desenhar(pts, trechos);
+    ultimo = { pts, volta, ida: kmI, voltaKm: kmV, total, min: minT };
     const r = $('#res'); r.hidden = false; r.style.animation = 'none'; void r.offsetWidth; r.style.animation = ''; r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  function guardarRecente(a, b) {
-    const l = ls.ler('recentes', []).filter(x => !(x.a === a.code && x.b === b.code)); l.unshift({ a: a.code, b: b.code }); ls.gravar('recentes', l.slice(0, 5)); renderRecentes();
+  function guardarRecente(pts) {
+    const l = ls.ler('recentes', []).filter(x => x.join() !== pts.map(m => m.code).join()); l.unshift(pts.map(m => m.code)); ls.gravar('recentes', l.slice(0, 5)); renderRecentes();
   }
   function renderRecentes() {
-    const l = ls.ler('recentes', []).map(x => ({ a: MUN.find(m => m.code === x.a), b: MUN.find(m => m.code === x.b) })).filter(x => x.a && x.b);
+    const l = ls.ler('recentes', []).map(x => (Array.isArray(x) ? x : [x.a, x.b]).map(c => MUN.find(m => m.code === c))).filter(x => x.length > 1 && x.every(Boolean));
     $('#recentes').hidden = !l.length;
-    $('#rec-lista').innerHTML = l.map((x, i) => '<button type="button" data-i="' + i + '">' + x.a.nome + ' ⇄ ' + x.b.nome + '</button>').join('');
-    $('#rec-lista').onclick = e => { const bt = e.target.closest('button'); if (!bt) return; const x = l[+bt.dataset.i]; sel.a = x.a; sel.b = x.b; $('#in-a').value = rotulo(x.a); $('#in-b').value = rotulo(x.b); calcular(); };
+    $('#rec-lista').innerHTML = l.map((x, i) => '<button type="button" data-i="' + i + '">' + esc(x.map(m => m.nome).join(' → ')) + '</button>').join('');
+    $('#rec-lista').onclick = e => { const bt = e.target.closest('button'); if (!bt) return; campos = l[+bt.dataset.i].map(m => ({ m })); desenharCampos(); calcular(); };
   }
   async function calcular() {
-    if (ocupado) return; limparErro();
-    const a = resolver('a'), b = resolver('b');
-    if (!a) return erro($('#in-a').value.trim() ? 'Escolha a cidade inicial na lista que aparece enquanto você digita.' : 'Digite a cidade inicial.');
-    if (!b) return erro($('#in-b').value.trim() ? 'Escolha a cidade final na lista que aparece enquanto você digita.' : 'Digite a cidade final.');
-    if (a.code === b.code) return erro('As duas cidades são a mesma. Escolha uma cidade final diferente.');
+    if (ocupado) return; limparErro(); lerTextos();
+    const pts = [];
+    for (let i = 0; i < campos.length; i++) {
+      const m = resolver(i), papel = i === 0 ? 'a cidade inicial' : i === campos.length - 1 ? 'a cidade final' : 'a parada ' + i;
+      if (!m) { const t = (campos[i].txt || '').trim(); return erro(t ? 'Escolha ' + papel + ' na lista que aparece enquanto você digita.' : 'Digite ' + papel + '.'); }
+      pts.push(m);
+    }
+    if (pts.length === 2 && pts[0].code === pts[1].code) return erro('As duas cidades são a mesma. Escolha uma cidade final diferente.');
+    for (let i = 1; i < pts.length; i++) if (pts[i].code === pts[i - 1].code) return erro('Duas cidades seguidas são iguais (' + rotulo(pts[i]) + '). Troque uma delas.');
+    const volta = $('#chk-volta').checked;
     if (navigator.onLine === false) return erro('Sem internet. O Health Path precisa de rede para calcular: cada consulta é feita na hora, pela internet. Conecte e tente de novo.');
-    ocupado = true; const bt = $('#bt-calc'); bt.disabled = true; bt.classList.add('carregando'); $('.calc-t').textContent = 'Calculando…';
+    ocupado = true; const bt = $('#bt-calc'); bt.disabled = true; bt.classList.add('carregando');
     try {
-      const google = modo === 'google';
-      const ida = google ? await trechoGoogle(a, b) : await trecho(a, b), volta = google ? await trechoGoogle(b, a) : await trecho(b, a);
-      if (!google) { ida.tempo = await minRapido(a, b, ida); volta.tempo = await minRapido(b, a, volta); }
-      mostrar(a, b, ida, volta); guardarRecente(a, b);
-      if (ida.reserva || volta.reserva) toast('Serviço principal fora do ar: usei o reserva.');
+      const pares = []; for (let i = 1; i < pts.length; i++) pares.push([pts[i - 1], pts[i], false]);
+      if (volta && pts[pts.length - 1].code !== pts[0].code) pares.push([pts[pts.length - 1], pts[0], true]);
+      const google = modo === 'google', trechos = []; let reserva = false;
+      for (let i = 0; i < pares.length; i++) {
+        $('.calc-t').textContent = pares.length > 1 ? 'Calculando trecho ' + (i + 1) + ' de ' + pares.length + '…' : 'Calculando…';
+        const [a, b, v] = pares[i];
+        const t = google ? await trechoGoogle(a, b) : await trecho(a, b);
+        if (!google) t.tempo = await minRapido(a, b, t);
+        if (t.reserva) reserva = true;
+        trechos.push({ de: a, para: b, volta: v, coords: t.coords, km: t.km, tempo: t.tempo });
+      }
+      mostrar(pts, trechos, volta && pares.some(p => p[2])); guardarRecente(pts);
+      if (reserva) toast('Serviço principal fora do ar: usei o reserva.');
     } catch (e) { erro('Não consegui calcular agora (' + ((e && e.message) || e) + '). Confira a internet e tente de novo.'); }
     finally { ocupado = false; bt.disabled = false; bt.classList.remove('carregando'); $('.calc-t').textContent = 'Calcular KM ida e volta'; }
   }
-  function textoCopia() { const u = ultimo; return u ? rotulo(u.a) + ' → ' + rotulo(u.b) + ' → ' + rotulo(u.a) + ': ida ' + km1(u.ida) + ' km + volta ' + km1(u.volta) + ' km = ' + km1(u.total) + ' km (' + (modo === 'curto' ? 'caminho mais curto' : 'rota mais rápida, como o Google Maps') + ') · ' + tempo(u.min) + ' de carro ida e volta (sem trânsito) · Health Path' : ''; }
+  function textoCopia() { const u = ultimo; if (!u) return ''; const n = u.pts.map(rotulo); return n.concat(u.volta ? [n[0]] : []).join(' → ') + ': ' + km1(u.total) + ' km (' + (modo === 'curto' ? 'caminho mais curto' : 'rota mais rápida, como o Google Maps') + ') · ' + tempo(u.min) + ' de carro, sem trânsito · Health Path'; }
   async function copiar() {
     const t = textoCopia(); if (!t) return;
     try { await navigator.clipboard.writeText(t); toast('Resultado copiado.'); }
@@ -213,17 +252,27 @@
   async function iniciar() {
     $('#versao').textContent = 'v' + VERSAO;
     tema(ls.ler('tema', 'escuro') === 'claro' ? 'claro' : 'escuro');
-    ligarCampo('a'); ligarCampo('b');
-    const rede = () => { const off = navigator.onLine === false; $('#aviso-rede').hidden = !off; };
+    desenharCampos();
+    $('#form').addEventListener('submit', e => { e.preventDefault(); calcular(); });
+    $('#campos').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return; lerTextos();
+      if (b.dataset.rm) campos.splice(+b.dataset.rm, 1);
+      else if (b.dataset.sobe && +b.dataset.sobe > 1) { const i = +b.dataset.sobe; [campos[i - 1], campos[i]] = [campos[i], campos[i - 1]]; }
+      else if (b.dataset.desce && +b.dataset.desce < campos.length - 2) { const i = +b.dataset.desce; [campos[i + 1], campos[i]] = [campos[i], campos[i + 1]]; }
+      else return;
+      desenharCampos();
+    });
+    $('#bt-add').onclick = () => { lerTextos(); if (campos.length >= MAXC) return; campos.splice(campos.length - 1, 0, { m: null }); desenharCampos(); const novo = document.querySelector('#campos input[data-i="' + (campos.length - 2) + '"]'); if (novo) novo.focus(); };
+    $('#bt-troca').onclick = () => { lerTextos(); campos.reverse(); desenharCampos(); limparErro(); };
+    $('#bt-tema').onclick = () => tema(document.documentElement.getAttribute('data-tema') === 'claro' ? 'escuro' : 'claro');
+    $('#bt-copiar').onclick = copiar;
+    $('#bt-novo').onclick = () => { $('#res').hidden = true; campos = [{ m: null }, { m: null }]; desenharCampos(); limparErro(); window.scrollTo({ top: 0, behavior: 'smooth' }); $('#in-a').focus(); };
+    $('#chk-volta').onchange = () => { $('.calc-t').textContent = 'Calcular KM' + ($('#chk-volta').checked ? ' ida e volta' : ' do percurso'); if (!$('#res').hidden) calcular(); };
+    const rede = () => { $('#aviso-rede').hidden = navigator.onLine !== false; };
     window.addEventListener('online', rede); window.addEventListener('offline', rede); rede();
     const pintarModo = () => { for (const bt of document.querySelectorAll('[data-modo]')) bt.setAttribute('aria-pressed', String(bt.dataset.modo === modo)); const n = $('#nota-modo'); if (n) n.innerHTML = modo === 'curto' ? 'Os <b>km</b> são do caminho mais curto (rodovia, rua, vicinal ou estradinha). O <b>tempo em carro</b> é a média de dois serviços de rota pela rota mais rápida, sem trânsito.' : 'Rota <b>mais rápida</b>, como um GPS escolhe. <b>Km e tempo</b> são a média de dois serviços de rota (Valhalla e OSRM), sem trânsito e sem parar; por isso ficam perto do Google Maps, que ainda usa o trânsito.'; };
-    for (const bt of document.querySelectorAll('[data-modo]')) bt.onclick = () => { if (modo === bt.dataset.modo) return; modo = bt.dataset.modo; ls.gravar('modo', modo); pintarModo(); if (!$('#res').hidden && sel.a && sel.b) calcular(); };
+    for (const bt of document.querySelectorAll('[data-modo]')) bt.onclick = () => { if (modo === bt.dataset.modo) return; modo = bt.dataset.modo; ls.gravar('modo', modo); pintarModo(); if (!$('#res').hidden) calcular(); };
     pintarModo();
-    $('#form').addEventListener('submit', e => { e.preventDefault(); calcular(); });
-    $('#bt-tema').onclick = () => tema(document.documentElement.getAttribute('data-tema') === 'claro' ? 'escuro' : 'claro');
-    $('#bt-troca').onclick = () => { const t = sel.a, v = $('#in-a').value; sel.a = sel.b; sel.b = t; $('#in-a').value = $('#in-b').value; $('#in-b').value = v; limparErro(); };
-    $('#bt-copiar').onclick = copiar;
-    $('#bt-novo').onclick = () => { $('#res').hidden = true; sel.a = sel.b = null; $('#in-a').value = $('#in-b').value = ''; limparErro(); window.scrollTo({ top: 0, behavior: 'smooth' }); $('#in-a').focus(); };
     /* botão Instalar sempre visível; depois de instalado fica cinza e desativado */
     let evi = null; const bi = $('#bt-instalar'), it = $('#inst-t');
     const instalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || ls.ler('instalado', false);
@@ -238,9 +287,9 @@
     pintarInst();
     try { await carregarCidades(); } catch (e) { erro('Não consegui carregar a lista de cidades. Recarregue a página.'); }
     renderRecentes();
-    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { /* sem offline: segue */ });
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { /* sem instalação: segue */ });
     $('#in-a').focus();
-    window.HP = { sel, calcular, achar, textoCopia, get modo() { return modo; }, get ultimo() { return ultimo; } };
+    window.HP = { calcular, achar, textoCopia, get modo() { return modo; }, get campos() { return campos; }, get ultimo() { return ultimo; } };
   }
   document.addEventListener('DOMContentLoaded', iniciar);
 })();
