@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.39.0';
+  const VERSAO = '0.40.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -929,6 +929,7 @@
   const docsLigados = new WeakSet();
   function ligarDocumento(doc) {
     if (S.modoMapa || docsLigados.has(doc)) return; docsLigados.add(doc);   // (WeakSet desta janela: a janela do mapa tem a sua própria cópia do app e marca o mesmo document)
+    doc.addEventListener('pointerdown', e => { U.docEvento = doc; }, true); doc.addEventListener('keydown', () => { U.docEvento = doc; }, true);   // pop-ups abrem na tela de onde veio o clique/tecla
     doc.addEventListener('pointerdown', onPtrDown, true); doc.addEventListener('pointerup', onPtrUp, true); doc.addEventListener('pointercancel', onPtrUp, true); doc.addEventListener('dragend', onDragEnd, true);
     doc.addEventListener('pointerdown', onFocoDown, true); U.ligarZ && doc !== document && U.ligarZ(doc);
     if (doc !== document) doc.addEventListener('keydown', e => { if (S.onTecla) S.onTecla(e); });   // (nesta janela o teclado já é ligado no boot)
@@ -1524,6 +1525,7 @@
     $('#bt-enquadrar').onclick = e => (ajustarPadMapa(), S.mapa.enquadrar(null, e.shiftKey));
     $('#bt-ver-pend').onclick = () => janVer('pend', $('#jan-pend').hidden);
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
+    $('#bt-xml').onclick = () => RT.bip.xmlExtra();
     $('#bt-ver-rom').onclick = () => janVer('rom', $('#jan-rom').hidden);
     U.arrastavel($('#jan-rom'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:rom', p)); RT.romj.ligar();
     $('#pend-x').onclick = () => janVer('pend', false);

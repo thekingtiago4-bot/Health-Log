@@ -795,3 +795,7 @@ details.rm .rm-qt.parcial{background:var(--amarBg);color:var(--amarTxt)}
 .cli.nao-vai{opacity:.7;background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(150,160,165,.14) 8px 11px)}
 .cli.nao-vai .cli-lin{cursor:default}
 .estado.cinza{background:#7d8b8f;color:#fff}
+
+.xe-log{list-style:none;margin:10px 0 4px;padding:0;max-height:240px;overflow:auto;font-size:.84rem}
+.xe-log li{padding:5px 8px;border-radius:7px;margin:3px 0}
+.xe-ok{background:rgba(27,154,83,.16);color:#1B9A53}.xe-am{background:var(--amarBg);color:var(--amarTxt)}.xe-er{background:rgba(224,49,49,.14);color:#E03131}

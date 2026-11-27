@@ -68,7 +68,7 @@
   function notaDeNFe(d, volMil) {
     const mun = d.cMun ? N.municipioPorCodigo(d.cMun) : null, cidade = mun ? mun.nome : d.cidade, uf = mun ? mun.uf : N.norm(d.uf);
     const n = { id: '', nf: d.nf.padStart(9, '0'), remetente: d.emitNome ? d.emitNome : 'EMITENTE ' + d.emitCnpj, doc: N.soDigitos(d.doc), cliente: d.cliente || '(sem nome no XML)', cep: N.soDigitos(d.cep),
-      end: d.end + (d.compl ? ' ' + d.compl : ''), num: d.num, bairro: d.bairro, cidade: N.norm(cidade), uf, vol: Math.round(volMil / 1000), volMil, peso: d.peso, valor: d.valor, chave: d.chave, origem: 'ROMANEIO EXTRA ' + dd(), linha: 0, extra: true, viaMeuDanfe: true };
+      end: d.end + (d.compl ? ' ' + d.compl : ''), num: d.num, bairro: d.bairro, cidade: N.norm(cidade), uf, vol: Math.round(volMil / 1000), volMil, peso: d.peso, valor: d.valor, chave: d.chave, origem: 'ROMANEIO - EXTRA', linha: 0, extra: true, viaMeuDanfe: true };
     n.id = N.idNota(n); return n;
   }
 
@@ -141,7 +141,7 @@
     if (erro) { toast('⚠ ' + erro); return; }
     const mun = N.municipio(cidade, uf);
     const nota = { id: '', nf: e.nf.padStart(9, '0'), remetente: e.cnpj ? 'EMITENTE ' + e.cnpj : '', doc: '', cliente, cep: N.soDigitos(v('data-ex-cep')), end: v('data-ex-end').trim(), num: v('data-ex-num').trim(), bairro: v('data-ex-bairro').trim(),
-      cidade: mun ? mun.nome.toUpperCase() : cidade.toUpperCase(), uf, vol: Math.round(vol.v / 1000), volMil: vol.v, peso: peso.v, valor: valor.v, chave: e.chave, origem: 'ROMANEIO EXTRA ' + dd(), linha: 0, extra: true };
+      cidade: mun ? mun.nome.toUpperCase() : cidade.toUpperCase(), uf, vol: Math.round(vol.v / 1000), volMil: vol.v, peso: peso.v, valor: valor.v, chave: e.chave, origem: 'ROMANEIO - EXTRA', linha: 0, extra: true };
     nota.id = N.idNota(nota);
     if (o.notas.some(n => n.id === nota.id)) { toast('⚠ Essa nota já existe na operação.'); return; }
     o.notas.push(nota); o.extras = o.extras.filter(x => x.id !== id); o.bipes = o.bipes || {}; o.bipes[nota.id] = { em: e.em }; o.rev++;
@@ -187,5 +187,33 @@
     box.innerHTML = h;
     if (emFoco || (!document.activeElement || document.activeElement === document.body)) { const i = $('#bip-in'); if (i && $('#t-xmls') && !$('#t-xmls').hidden) i.focus(); }
   }
-  RT.bip = { render, processar, consultarMeuDanfe };
+
+  /* ---------- botão "XML" (Montar rotas): bipar a nota e ela entra sozinha no "ROMANEIO - EXTRA" com os dados do Meu Danfe ---------- */
+  function xmlExtra() {
+    const o = S().op; if (!o) { toast('Abra ou importe uma operação antes.'); return; }
+    const html = '<h2>XML · Romaneio - EXTRA</h2><p class="dica" style="margin-top:-6px">Bipe a nota (a chave de 44 dígitos). Se ela não estiver nos XMLs, busco no <b>Meu Danfe</b> e ela entra na operação no <b>ROMANEIO - EXTRA</b>, com cliente, cidade, volumes e valor.' + (S().apiKey ? '' : ' <b style="color:var(--amarTxt)">Falta a Api-Key do Meu Danfe (Configurações).</b>') + '</p>' +
+      '<input class="filtro modal-in" id="xe-in" style="max-width:none;width:100%" placeholder="Bipe ou cole a chave da NF-e…" autocomplete="off"><ul class="xe-log" id="xe-log" aria-live="polite"></ul><div class="botoes"><button class="btn pri" data-n type="button">Fechar</button></div>';
+    return U.modal(html, (f, fechar) => {
+      const inp = f.querySelector('#xe-in'), log = f.querySelector('#xe-log'); inp.focus();
+      f.querySelector('[data-n]').onclick = () => fechar(null);
+      const linha = (t, m, key) => { const li = document.createElement('li'); li.className = 'xe-' + t; li.textContent = m; if (key) { const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'lib'; bt.textContent = 'ver a cidade'; bt.onclick = () => { fechar(null); A().abrirCidade(key, { centrar: true }); }; li.appendChild(document.createTextNode(' ')); li.appendChild(bt); } log.insertBefore(li, log.firstChild); };
+      async function um(it) {
+        const op = S().op;
+        if (it.tipo === 'invalido') return linha('er', 'Leitura não reconhecida (' + it.valor.length + ' dígitos). Bipe a chave de 44 dígitos.');
+        const achados = N.acharBipe(op, it);
+        if (achados.length) { const n = achados[0]; return linha('am', 'NF ' + n.nf + ' já está na operação (' + n.origem.replace(/\.xml$/i, '') + ') · ' + n.cliente + ' · ' + n.cidade + '/' + n.uf + '.', S().idx.chaveCidadeDaNota.get(n.id)); }
+        if (it.tipo !== 'chave') return linha('er', 'NF ' + Number(it.valor) + ' não está nos XMLs. Para buscar no Meu Danfe preciso da chave de 44 dígitos.');
+        linha('am', '🔎 Buscando a NF ' + (N.lerChave(it.valor) || { nf: '' }).nf + ' no Meu Danfe…');
+        const antes = op.notas.length; aviso = null;
+        await fora(it);
+        const nova = op.notas.length > antes ? op.notas[op.notas.length - 1] : null;
+        log.removeChild(log.firstChild);   // troca a linha "Buscando…" pelo resultado
+        if (nova) linha('ok', '✓ NF ' + nova.nf + ' entrou no ROMANEIO - EXTRA: ' + nova.cliente + ' · ' + nova.cidade + '/' + nova.uf + ' · ' + i$(nova.vol) + ' vol · ' + m$(nova.valor), S().idx.chaveCidadeDaNota.get(nova.id));
+        else linha((aviso && aviso.t) || 'am', (aviso && aviso.m) || 'Não consegui trazer a nota.');
+      }
+      let fila2 = Promise.resolve();
+      inp.addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); const v = inp.value; inp.value = ''; if (!v.trim()) return; fila2 = fila2.then(async () => { for (const it of N.lerBipe(v)) await um(it); }).catch(err => linha('er', 'Erro: ' + ((err && err.message) || err))); });
+    });
+  }
+  RT.bip = { render, processar, consultarMeuDanfe, xmlExtra };
 })(typeof window !== 'undefined' ? window : globalThis);

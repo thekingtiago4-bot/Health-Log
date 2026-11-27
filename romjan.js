@@ -9,7 +9,9 @@
   function linhas() {
     const s = S(), o = s.op; if (!o || !s.idx) return [];
     const ativas = N.ativas(o), m$ = N.fmtMoeda;
-    return N.quadroXml(o).filter(l => l.xml).map(l => {
+    const base = N.quadroXml(o).filter(l => l.xml), nomes = new Set(base.map(l => l.xml.nome));
+    for (const n of ativas) if (n.extra && !nomes.has(n.origem)) { nomes.add(n.origem); base.push({ xml: { nome: n.origem }, rom: null }); }   // ROMANEIO - EXTRA (notas bipadas)
+    return base.map(l => {
       const nome = l.xml.nome, porCid = new Map();
       for (const n of ativas) if (n.origem === nome) { const k = s.idx.chaveCidadeDaNota.get(n.id); if (!porCid.has(k)) porCid.set(k, []); porCid.get(k).push(n); }
       const cidades = [...porCid.entries()].map(([k, notas]) => { const c = s.idx.cidades.get(k), vai = notas.filter(n => !N.naoVai(o, n)).length; return { k, nome: c ? c.nome : k, uf: c ? c.uf : '', notas, vai, tot: N.somar(notas) }; }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));

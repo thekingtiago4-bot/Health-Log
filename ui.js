@@ -71,16 +71,18 @@
   /* ---------- janelas modais (sem alert/confirm/prompt do navegador) ---------- */
   function modal(html, onMontar) {
     return new Promise(res => {
-      const f = document.createElement('div'); f.className = 'fundo';
+      /* o pop-up abre na MESMA tela de onde veio o clique (principal ou segunda tela) */
+      const D = (U.docEvento && U.docEvento !== document && U.docEvento.defaultView && !U.docEvento.defaultView.closed && U.docEvento.body) ? U.docEvento : document;
+      const f = D.createElement('div'); f.className = 'fundo';
       f.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + '</div>';
-      const fechar = v => { f.remove(); document.removeEventListener('keydown', tecla, true); res(v); };
+      const fechar = v => { f.remove(); D.removeEventListener('keydown', tecla, true); res(v); };
       const tecla = e => { if (e.key === 'Escape') { e.stopPropagation(); fechar(null); } };
-      document.addEventListener('keydown', tecla, true);
+      D.addEventListener('keydown', tecla, true);
       f.addEventListener('mousedown', e => { if (e.target === f) fechar(null); });
-      document.body.appendChild(f); U.som('popup');
+      D.body.appendChild(f); U.som('popup');
       onMontar(f, fechar);
       /* a digitação já entra: se a janela tem campo de texto e ninguém pediu foco, o primeiro campo recebe o cursor */
-      if (!f.contains(document.activeElement) || /^(BODY|HTML)$/.test(document.activeElement.tagName)) { const c = f.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color]):not([type=range]), textarea'); if (c && !c.disabled) { c.focus(); if (c.select && c.type !== 'date') { try { c.select(); } catch (e) { /* ok */ } } } }
+      if (!f.contains(D.activeElement) || /^(BODY|HTML)$/.test(D.activeElement.tagName)) { const c = f.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color]):not([type=range]), textarea'); if (c && !c.disabled) { c.focus(); if (c.select && c.type !== 'date') { try { c.select(); } catch (e) { /* ok */ } } } }
     });
   }
   U.modal = modal;
