@@ -561,6 +561,39 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 30000 });
   await p.click('#bt-ver-km');
 
+  console.log('\nBoletim diário (Relatórios)');
+  const dataOp = await p.evaluate(() => RT.S.op.data);
+  const dsSeed = await p.evaluate(async () => {
+    const base = JSON.parse(JSON.stringify(RT.S.op)), dd = base.data, soma = (s, n) => { const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const feitos = [];
+    for (const [off, frac, k] of [[-1, 0.8, 1.4], [-2, 0.6, 0.7], [-8, 0.7, 0.9]]) {
+      const o = JSON.parse(JSON.stringify(base)); o.id = 'boletim-teste-' + (-off); o.data = soma(dd, off); o.nome = 'Teste ' + off;
+      o.notas = base.notas.slice(0, Math.max(3, Math.round(base.notas.length * frac))).map(x => Object.assign({}, x, { id: x.id + '-b' + (-off), valor: Math.round(x.valor * k) }));
+      o.atrib = {}; for (const n of o.notas.slice(0, Math.round(o.notas.length / 2))) o.atrib[n.id] = o.carros[0] ? o.carros[0].id : 1; o.status = {}; o.naoVai = {};
+      await RT.DB.put('ops', o); feitos.push(o.data);
+    }
+    return feitos;
+  });
+  await p.click('.nav button[data-tela="relatorios"]');
+  await p.click('[data-rl-aba="boletim"]');
+  await p.waitForSelector('#bol-saida .rl-pag');
+  verdade(await p.locator('#bol-saida .rl-pag').count() === 4, 'Relatórios ganhou a aba "Boletim diário" com o boletim do dia em 4 páginas');
+  const txt = await p.innerText('#bol-saida');
+  verdade(/BOLETIM OPERACIONAL DIÁRIO/i.test(txt) && /VALOR DA OPERAÇÃO/.test(txt) && /CARGA POR TRANSPORTE/i.test(txt) && /Carro/.test(txt) && /Van/.test(txt) && /Caminhão/.test(txt) && /A definir/.test(txt), 'tem valor da operação, notas/cidades/paradas/volumes/kg e a carga por transporte (Carro, Van, Caminhão, A definir)');
+  verdade(/AGENDAMENTOS/i.test(txt) && /Volumes da semana/.test(txt) && /Valor das cargas da semana/.test(txt), 'tem agendamentos e os DOIS gráficos da semana (volumes e valor), um abaixo do outro');
+  verdade(await p.locator('#bol-saida .bol-graf svg').count() === 2 && await p.locator('#bol-saida img[src="icons/healthlog.png"]').count() === 4, 'gráficos em SVG e a logo do Health Log em todas as páginas');
+  verdade(/Sem dados/.test(txt), 'dias da semana sem operação aparecem como "Sem dados"');
+  verdade(/(Aumento|Queda) de \d/.test(txt) && /Dia × dia de operação anterior/.test(txt) && /Semana × semana anterior/.test(txt) && /Mês até hoje/.test(txt) && /Ano até hoje/.test(txt) && /Últimos dias de operação/.test(txt), 'compara com o dia anterior, a semana, o mês e o ano (aumento/queda) e lista os últimos dias');
+  verdade(/Histórico desde/.test(txt), 'o histórico começa na primeira rota criada');
+  await p.click('[data-bol-ant]'); await p.waitForFunction(d => document.querySelector('#bol-data').value !== d, dataOp);
+  verdade(await p.locator('#bol-saida .rl-pag').count() === 4, 'dá para navegar para o dia anterior (◀) e o boletim se refaz');
+  await p.evaluate(() => RT.U.pref.gravar('bolData', ''));
+  await p.click('[data-bol-ult]'); await p.waitForSelector('#bol-saida .rl-pag');
+  for (const [i, nome] of [[0, 'boletim1'], [1, 'boletim2'], [2, 'boletim3'], [3, 'boletim4']]) { await p.waitForTimeout(600); const pg = p.locator('#bol-saida .rl-pag').nth(i); await pg.screenshot({ path: '/tmp/claude-0/-home-user/e29cec66-ee3f-5752-bd59-92a5e47fd4bc/scratchpad/' + nome + '.png' }); }
+  await p.click('[data-rl-aba="demanda"]'); verdade(await p.locator('#rl-demanda:not([hidden])').count() === 1, 'a primeira aba continua gerando o relatório de demanda e valor');
+  await p.evaluate(async () => { for (const d of ['1', '2', '8']) await RT.DB.apagar('ops', 'boletim-teste-' + d); RT.U.pref.gravar('relAba', 'demanda'); RT.U.pref.gravar('bolData', ''); });
+  await p.click('.nav button[data-tela="rotas"]');
+
   console.log('\nJanela Música (Spotify)');
   await p.click('#bt-ver-mus');
   verdade(await p.locator('#jan-musica:not([hidden]) #mus-link').count() === 1, 'o botão Música abre a janela flutuante do Spotify');

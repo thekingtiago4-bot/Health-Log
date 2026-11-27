@@ -38,6 +38,7 @@
     if (p && p.A && p.A.de) { R.modo = p.modo; R.A = p.A; R.B = p.B || R.B; } else aplicarPreset('antatual');
     const raiz = $('#t-relatorios');
     raiz.addEventListener('click', e => {
+      const ab = e.target.closest('[data-rl-aba]'); if (ab) { U.pref.gravar('relAba', ab.dataset.rlAba); render(); return; }
       const m = e.target.closest('[data-rl-modo]'), pr = e.target.closest('[data-rl-pre]');
       if (m) { R.modo = m.dataset.rlModo; if (R.modo === 'comparar' && !R.B.de) aplicarPreset('antatual'); salvarPref(); render(); }
       if (pr) { aplicarPreset(pr.dataset.rlPre); render(); }
@@ -50,6 +51,10 @@
   }
   async function render() {
     iniciar();
+    const aba = U.pref.ler('relAba', 'demanda') === 'boletim' ? 'boletim' : 'demanda';
+    for (const b of document.querySelectorAll('[data-rl-aba]')) b.setAttribute('aria-pressed', String(b.dataset.rlAba === aba));
+    $('#rl-demanda').hidden = aba !== 'demanda'; $('#rl-boletim').hidden = aba !== 'boletim';
+    if (aba === 'boletim') { RT.bol.ligar(); return RT.bol.render(); }
     const ops = await RT.DB.todos('ops').catch(() => []);
     const cmp = R.modo === 'comparar', per = (id, tit, P) => '<div class="rl-per"><b>' + tit + '</b><input type="date" id="rl-' + id + '-de" value="' + P.de + '" aria-label="' + tit + ' início"> a <input type="date" id="rl-' + id + '-ate" value="' + P.ate + '" aria-label="' + tit + ' fim"></div>';
     $('#rl-ctrl').innerHTML = '<div class="seg" role="group" aria-label="Tipo"><button type="button" data-rl-modo="unico" aria-pressed="' + !cmp + '">Um período</button><button type="button" data-rl-modo="comparar" aria-pressed="' + cmp + '">Comparar dois períodos</button></div>' +

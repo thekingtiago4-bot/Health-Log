@@ -182,8 +182,15 @@
     <!-- RELATÓRIOS -->
     <section class="tela" id="t-relatorios" aria-labelledby="h-rel" hidden>
       <div class="folha-topo"><div><h1 id="h-rel">Relatórios</h1><p class="sub" style="margin:0">Escolha um período, ou compare dois. Notas repetidas entre operações entram uma vez só.</p></div><button class="btn pri" id="bt-imprimir-rel" type="button">Imprimir / salvar PDF</button></div>
-      <div class="rl-ctrl" id="rl-ctrl"></div><p class="dica" id="rl-fonte"></p>
-      <div id="rl-saida"></div>
+      <div class="rl-abas" id="rl-abas" role="group" aria-label="Tipo de relatório"><button type="button" data-rl-aba="demanda" aria-pressed="true">Demanda e valor das entregas</button><button type="button" data-rl-aba="boletim" aria-pressed="false">Boletim diário</button></div>
+      <div id="rl-demanda">
+        <div class="rl-ctrl" id="rl-ctrl"></div><p class="dica" id="rl-fonte"></p>
+        <div id="rl-saida"></div>
+      </div>
+      <div id="rl-boletim" hidden>
+        <div class="rl-ctrl" id="bol-ctrl"></div>
+        <div id="bol-saida"></div>
+      </div>
     </section>
 
     <!-- CONFIGURAÇÕES -->
@@ -313,6 +320,7 @@
 <script src="romjan.js"></script>
 <script src="kmjan.js"></script>
 <script src="musica.js"></script>
+<script src="boletim.js"></script>
 <script src="romaneio.js"></script>
 <script src="turno.js"></script>
 <script src="feriados.js"></script>
