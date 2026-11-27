@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://server.arcgisonline.com; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://server.arcgisonline.com https://api.meudanfe.com.br https://raw.githubusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://server.arcgisonline.com; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://server.arcgisonline.com https://api.meudanfe.com.br https://raw.githubusercontent.com; frame-src https://open.spotify.com; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F4B55">
 <title>Health Log. · Eficiência Máxima Em Roteirização</title>
@@ -61,6 +61,7 @@
         <button class="btn mini pri" id="bt-xml" type="button" title="Bipar uma nota que não está nos XMLs: ela entra no ROMANEIO - EXTRA com os dados do Meu Danfe">XML</button>
         <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
+        <button class="btn mini" id="bt-ver-mus" type="button" title="Janela de música: toca Spotify aqui dentro" aria-pressed="false">♪ Música</button>
         <button class="btn mini pri" id="bt-ver-km" type="button" title="Janela com o KM de cada rota (calcula sozinha) e o KM Total" aria-pressed="false">KM</button>
         <button class="btn mini" id="bt-ver-rom" type="button" title="Mostrar / esconder a janela de Romaneios de hoje (tirar cidades que não vão hoje)" aria-pressed="false">Romaneios</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a lista com TODOS os veículos e rotas" aria-pressed="false">Rotas</button>
@@ -108,6 +109,11 @@
         <div class="jan jan-busca" id="jan-busca" role="dialog" aria-label="Buscar nota" hidden>
           <div class="jan-cab"><b>Buscar nota</b><button type="button" class="jan-x" id="busca-x" aria-label="Fechar">✕</button></div>
           <div class="jan-corpo"><div class="pend-filtros"><input id="busca-q" class="filtro" placeholder="NF, cliente, cidade, endereço, origem…" autocomplete="off" aria-label="Buscar nota"><select id="busca-ordem" class="filtro" aria-label="Ordem das notas" title="Atalho: clique na janela e use Ctrl+V"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div><div id="busca-res" class="busca-res"></div></div>
+        </div>
+        <!-- janela flutuante: música (Spotify) -->
+        <div class="jan jan-musica" id="jan-musica" role="dialog" aria-label="Música" hidden>
+          <div class="jan-cab"><b>♪ Música</b><button type="button" class="jan-x" data-mus-limpar aria-label="Trocar a lista" title="Tirar a lista atual">⟲</button><button type="button" class="jan-x" data-mus-fechar aria-label="Fechar">✕</button></div>
+          <div class="jan-corpo mus-corpo"><div class="mus-barra"><input id="mus-link" class="filtro" placeholder="Cole o link do Spotify (playlist, álbum, música…)" autocomplete="off" aria-label="Link do Spotify"><button type="button" class="btn mini pri" id="mus-tocar">Tocar</button></div><p class="erro-linha" id="mus-erro" hidden></p><div class="mus-player" id="mus-player"></div></div>
         </div>
         <!-- janela flutuante: KM das rotas -->
         <div class="jan jan-km" id="jan-km" role="dialog" aria-label="KM das rotas" hidden>
@@ -306,6 +312,7 @@
 <script src="obs.js"></script>
 <script src="romjan.js"></script>
 <script src="kmjan.js"></script>
+<script src="musica.js"></script>
 <script src="romaneio.js"></script>
 <script src="turno.js"></script>
 <script src="feriados.js"></script>

@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.42.0';
+  const VERSAO = '0.43.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -896,13 +896,13 @@
   }
 
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
-  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca', rom: '#jan-rom', km: '#jan-km' };
+  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca', rom: '#jan-rom', km: '#jan-km', mus: '#jan-musica' };
   const posJan = id => { const p = U.pref.ler('pos:' + id, null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
   function restaurarPos(id) { const j = $(JANS[id]); if (!j) return; const p = U.pref.ler('pos:' + (j.classList.contains('na-ext') ? 'ext:' : '') + id, null); if (p && isFinite(p.x) && isFinite(p.y)) U.posicionar(j, j.parentElement || $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
     const j = $(JANS[id]); j.hidden = !vis; U.pref.gravar('ver:' + id, vis);
     const b = $('#bt-ver-' + id); if (b) b.setAttribute('aria-pressed', String(vis));
-    if (vis) { if (id === 'carros') renderJanCarros(); if (id === 'rom') RT.romj.render(); if (id === 'km') { atualizarVias(); RT.kmj.render(); } restaurarPos(id); }
+    if (vis) { if (id === 'carros') renderJanCarros(); if (id === 'rom') RT.romj.render(); if (id === 'km') { atualizarVias(); RT.kmj.render(); } if (id === 'mus') RT.mus.render(); restaurarPos(id); }
   }
 
   /* ================= janela de veículos e rotas ================= */
@@ -1574,11 +1574,13 @@
     $('#bt-xml').onclick = () => RT.bip.xmlExtra();
     $('#bt-ver-rom').onclick = () => janVer('rom', $('#jan-rom').hidden);
     $('#bt-ver-km').onclick = () => janVer('km', $('#jan-km').hidden);
+    $('#bt-ver-mus').onclick = () => janVer('mus', $('#jan-musica').hidden);
+    U.arrastavel($('#jan-musica'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'mus', p)); RT.mus.ligar();
     U.arrastavel($('#jan-km'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'km', p)); RT.kmj.ligar();
     U.arrastavel($('#jan-rom'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'rom', p)); RT.romj.ligar();
     $('#pend-x').onclick = () => janVer('pend', false);
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
-    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca', 'rom', 'km']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
+    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca', 'rom', 'km', 'mus']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
@@ -1715,7 +1717,7 @@
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
     await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await RT.obs.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
-    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); janVer('rom', U.pref.ler('ver:rom', false)); janVer('km', U.pref.ler('ver:km', false)); }
+    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); janVer('rom', U.pref.ler('ver:rom', false)); janVer('km', U.pref.ler('ver:km', false)); janVer('mus', U.pref.ler('ver:mus', false)); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     if (S.op && !S.modoMapa && !S.soGeo) setTimeout(() => RT.obs.avisar(), 1500);   // lembra das observações do dia
     irPara(S.soGeo ? 'geo' : 'rotas');

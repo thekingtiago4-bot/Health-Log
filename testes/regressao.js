@@ -40,6 +40,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
       const enc = pts => { let la = 0, lo = 0, s = ''; const e1 = v => { v = v < 0 ? ~(v << 1) : v << 1; let o = ''; while (v >= 32) { o += String.fromCharCode((32 | (v & 31)) + 63); v >>= 5; } return o + String.fromCharCode(v + 63); }; for (const [x, y] of pts) { const ila = Math.round(y * 1e6), ilo = Math.round(x * 1e6); s += e1(ila - la) + e1(ilo - lo); la = ila; lo = ilo; } return s; };
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ trip: { summary: { length: km + (evita ? 7 : 0), time: km * 55, has_toll: toll }, legs: [{ shape: enc([a, mid, b]), maneuvers: [{ begin_shape_index: 0, end_shape_index: 1, length: km / 2, toll: false, street_names: ['Rua A'] }, { begin_shape_index: 1, end_shape_index: 2, length: km / 2, toll, street_names: ['SP-255'] }] }] } }) });
     });
+    await ctx.route(/open\.spotify\.com/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>spotify simulado</body></html>' }));
     await ctx.route(/arcgisonline\.com/, r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') }));   // mapa de ruas da Geolocalização SIMULADO (1 pixel)
     await ctx.route(/raw\.githubusercontent\.com/, r => { // feriados SIMULADOS: um estadual (MG) e um municipal (Araraquara) HOJE
       const d = new Date(), br = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
@@ -559,6 +560,17 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('.nav button[data-tela="config"]'); await p.click('#cfg-km-google'); await p.waitForFunction(() => RT.vias.modo === 'google'); await p.click('.nav button[data-tela="rotas"]');
   await p.waitForFunction(() => RT.vias.pendentes() === 0, null, { timeout: 30000 });
   await p.click('#bt-ver-km');
+
+  console.log('\nJanela Música (Spotify)');
+  await p.click('#bt-ver-mus');
+  verdade(await p.locator('#jan-musica:not([hidden]) #mus-link').count() === 1, 'o botão Música abre a janela flutuante do Spotify');
+  await p.fill('#mus-link', 'bobagem'); await p.click('#mus-tocar');
+  verdade(await p.locator('#mus-erro:visible').count() === 1, 'link que não é do Spotify: avisa');
+  await p.fill('#mus-link', 'https://open.spotify.com/intl-pt/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc'); await p.click('#mus-tocar');
+  igual(await p.getAttribute('#mus-player iframe', 'src'), 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?theme=0', 'link do Spotify vira o player incorporado oficial dentro da janela');
+  verdade(await p.evaluate(() => RT.mus.analisar('spotify:album:1DFixLWuPkv3KT3TnV35m3') !== null && RT.mus.analisar('https://example.com/playlist/37i9dQZF1DXcBWIGoYBM5M') === null), 'aceita também o formato spotify:… e recusa outros sites');
+  verdade(await p.evaluate(() => /playlist\/37i9dQZF1DXcBWIGoYBM5M/.test(RT.U.pref.ler('spotify', ''))), 'a última lista fica guardada para a próxima vez');
+  await p.click('#bt-ver-mus');
 
   console.log('\nJanela Romaneios: tirar cidades que não vão hoje');
   await p.click('#bt-ver-rom');
