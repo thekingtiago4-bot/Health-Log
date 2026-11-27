@@ -3,7 +3,7 @@
    É ESTIMATIVA: sem trânsito e sem o percurso dentro das cidades. Nada é enviado além das coordenadas das duas sedes. */
 (function () {
   'use strict';
-  const VERSAO = '1.1.0';
+  const VERSAO = '1.2.0';
   const VAL = 'https://valhalla1.openstreetmap.de/route', OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
   const $ = s => document.querySelector(s);
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 /]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -99,8 +99,9 @@
       return { coords: rt.geometry.coordinates, km: rt.distance / 1000, min: (rt.duration || 0) / 60 };
     } catch (e) { clearTimeout(to); return null; }
   }
-  /* tempo em carro: a rota MAIS RÁPIDA entre as duas cidades (o que um GPS daria), separada do caminho mais curto dos km */
-  async function tempoRapido(a, b) {
+  /* TEMPO EM CARRO: média de dois motores de rota (Valhalla e OSRM), cada um pela rota mais RÁPIDA entre as duas cidades, sem trânsito.
+     Um costuma dar tempo um pouco acima e o outro um pouco abaixo do real; a média chega mais perto do que um GPS mostra. Se só um responder, usa ele. */
+  async function minValhallaRapido(a, b) {
     const ac = new AbortController(), to = setTimeout(() => ac.abort(), 25000);
     try {
       const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: 1.0, use_ferry: 0.0 } }, directions_options: { units: 'kilometers', language: 'pt-BR' } };
@@ -109,12 +110,20 @@
       const j = await r.json().catch(() => null), s = j && j.trip && j.trip.summary; return s && isFinite(s.time) ? s.time / 60 : null;
     } catch (e) { clearTimeout(to); return null; }
   }
+  async function minOsrmRapido(a, b) {
+    const ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000);
+    try {
+      const r = await fetch(OSRM + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=false&alternatives=false', { signal: ac.signal, redirect: 'error' });
+      clearTimeout(to); if (!r.ok) return null;
+      const j = await r.json(), rt = j && j.routes && j.routes[0]; return j.code === 'Ok' && rt && isFinite(rt.duration) ? rt.duration / 60 : null;
+    } catch (e) { clearTimeout(to); return null; }
+  }
   async function minRapido(a, b, curto) {
-    const k = 'rap:' + chaveVia(a, b), c = ls.ler(k, null);
+    const k = 'rap2:' + chaveVia(a, b), c = ls.ler(k, null);
     if (c && Date.now() - c.em < 30 * 24 * 3600 * 1000) return c.min;
-    const m = await tempoRapido(a, b);
-    if (m != null) { ls.gravar(k, { min: m, em: Date.now() }); return m; }
-    return curto.min;   // sem a rota rápida: usa o tempo do próprio caminho curto
+    const v = await minValhallaRapido(a, b), o = await minOsrmRapido(a, b), l = [v, o].filter(x => x != null);
+    if (!l.length) return curto.min;   // nenhum respondeu: usa o tempo do próprio caminho curto
+    const m = l.reduce((s, x) => s + x, 0) / l.length; ls.gravar(k, { min: m, em: Date.now() }); return m;
   }
   const espera = ms => new Promise(r => setTimeout(r, ms));
   async function trecho(a, b) {

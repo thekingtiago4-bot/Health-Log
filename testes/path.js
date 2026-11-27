@@ -8,7 +8,7 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
 (async () => {
   const srv = await subir(path.join(__dirname, '..'), 8123);
   const b = await chromium.launch();
-  const pedidos = [];
+  const pedidos = [], pedidosOsrm = []; let osrmFora = false;
   const rotear = async ctx => {
     await ctx.route('https://valhalla1.openstreetmap.de/**', async r => {
       const rq = r.request(); if (rq.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } });
@@ -21,7 +21,7 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
       const corpo = volta ? { trip: trip(91.1, 80), alternates: [] } : { trip: trip(100.4, 90), alternates: [{ trip: trip(90.2, 95) }] };
       r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(corpo) });
     });
-    await ctx.route('https://routing.openstreetmap.de/**', r => r.fulfill({ status: 500, headers: { 'access-control-allow-origin': '*' }, body: '{}' }));
+    await ctx.route('https://routing.openstreetmap.de/**', r => { pedidosOsrm.push(r.request().url()); if (osrmFora) return r.fulfill({ status: 500, headers: { 'access-control-allow-origin': '*' }, body: '{}' }); r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ code: 'Ok', routes: [{ distance: 95000, duration: 3000 }] }) }); });
   };
   /* ---------- computador ---------- */
   const ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, permissions: ['clipboard-read', 'clipboard-write'] });
@@ -43,12 +43,12 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
   await p.waitForSelector('#res:not([hidden])');
   igual(await p.innerText('#res-total'), '181,3', 'resultado: KM total de ida e volta (90,2 + 91,1), pelo caminho MAIS CURTO entre as alternativas');
   igual([await p.innerText('#res-ida'), await p.innerText('#res-volta')], ['90,2 km', '91,1 km'], 'ida e volta separadas');
-  igual([await p.innerText('#res-tempo'), await p.innerText('#res-ida-t')], ['2 h 00 min', '1 h 00 min de carro'], 'tempo em carro vem da rota MAIS RÁPIDA (1 h 00 por sentido), separado do caminho mais curto dos km');
+  igual([await p.innerText('#res-tempo'), await p.innerText('#res-ida-t')], ['1 h 50 min', '55 min de carro'], 'tempo em carro = média de dois serviços de rota pela rota mais rápida (Valhalla 60 min e OSRM 50 min → 55 min por sentido), separado do caminho mais curto dos km');
   verdade(await p.locator('#res-mapa svg path').count() >= 2 && /Araraquara/.test(await p.innerText('#res-mapa')), 'desenho do caminho com os nomes das cidades');
   const curtos = pedidos.filter(c => c.costing_options.auto.shortest); verdade(curtos.length === 2 && curtos.every(c => c.alternates === 2) && pedidos.length === 4, 'quatro pedidos: ida e volta pelo caminho mais curto (km) e ida e volta pela rota mais rápida (tempo)');
   verdade(curtos[0].locations[0].lon !== curtos[1].locations[0].lon, 'a volta é pedida de Bauru para Araraquara');
   verdade(JSON.stringify(pedidos).match(/Araraquara|Bauru/i) === null, 'só coordenadas das sedes vão para o serviço de rotas (nenhum nome/dado a mais)');
-  verdade(/2 h 00 min de carro/.test(await p.evaluate(() => HP.textoCopia())), 'o texto copiado inclui o tempo em carro');
+  verdade(/1 h 50 min de carro/.test(await p.evaluate(() => HP.textoCopia())), 'o texto copiado inclui o tempo em carro');
   await p.click('#bt-copiar');
   verdade(/181,3 km/.test(await p.evaluate(() => navigator.clipboard.readText())), 'copiar resultado coloca o texto na área de transferência');
   verdade(await p.locator('#rec-lista button').count() === 1, 'a consulta fica em "Recentes"');
@@ -56,6 +56,9 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
   igual(pedidos.length, n0, 'repetir a mesma consulta usa o que ficou guardado (não pede de novo)');
   await p.click('#bt-troca'); igual([await p.inputValue('#in-a'), await p.inputValue('#in-b')], ['Bauru/SP', 'Araraquara/SP'], 'o botão ⇅ inverte as cidades');
   await p.click('#bt-novo'); igual(await p.inputValue('#in-a'), '', 'Nova consulta limpa os campos');
+  osrmFora = true; await p.fill('#in-a', 'Jaú/SP'); await p.press('#in-a', 'Enter'); await p.fill('#in-b', 'Bauru/SP'); await p.press('#in-b', 'Enter'); await p.click('#bt-calc');
+  await p.waitForFunction(() => /1 h 00 min de carro/.test(document.querySelector('#res-ida-t').textContent));
+  verdade(true, 'se um dos serviços de tempo não responder, usa só o outro (sem travar)'); osrmFora = false;
   await p.fill('#in-a', 'Bauru'); await p.fill('#in-b', 'Bauru'); await p.click('#bt-calc');
   verdade(/mesma/.test(await p.innerText('#erro')), 'mesma cidade nas duas pontas: avisa');
   await p.fill('#in-b', 'xyzxyz'); await p.click('#bt-calc');
