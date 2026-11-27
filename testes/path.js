@@ -16,6 +16,7 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
       const [A, B] = c.locations, ida = A.lat > B.lat || A.lon < B.lon;   // só para distinguir os sentidos no teste
       const forma = [[A.lon, A.lat], [(A.lon + B.lon) / 2 + 0.05, (A.lat + B.lat) / 2 - 0.03], [B.lon, B.lat]];
       const trip = (km, min) => ({ legs: [{ shape: enc(forma) }], summary: { length: km, time: min * 60 } });
+      if (!c.costing_options.auto.shortest) return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ trip: trip(95, 60) }) });   // rota mais rápida: 60 min
       const volta = A.lon < B.lon;   // Araraquara (lon maior) → Bauru é a ida
       const corpo = volta ? { trip: trip(91.1, 80), alternates: [] } : { trip: trip(100.4, 90), alternates: [{ trip: trip(90.2, 95) }] };
       r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(corpo) });
@@ -42,11 +43,12 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
   await p.waitForSelector('#res:not([hidden])');
   igual(await p.innerText('#res-total'), '181,3', 'resultado: KM total de ida e volta (90,2 + 91,1), pelo caminho MAIS CURTO entre as alternativas');
   igual([await p.innerText('#res-ida'), await p.innerText('#res-volta')], ['90,2 km', '91,1 km'], 'ida e volta separadas');
-  verdade(/h|min/.test(await p.innerText('#res-tempo')), 'tempo estimado aparece');
+  igual([await p.innerText('#res-tempo'), await p.innerText('#res-ida-t')], ['2 h 00 min', '1 h 00 min de carro'], 'tempo em carro vem da rota MAIS RÁPIDA (1 h 00 por sentido), separado do caminho mais curto dos km');
   verdade(await p.locator('#res-mapa svg path').count() >= 2 && /Araraquara/.test(await p.innerText('#res-mapa')), 'desenho do caminho com os nomes das cidades');
-  verdade(pedidos.length === 2 && pedidos.every(c => c.costing_options.auto.shortest === true && c.alternates === 2), 'dois pedidos (ida e volta) pedindo o caminho mais curto');
-  verdade(pedidos[0].locations[0].lon !== pedidos[1].locations[0].lon, 'a volta é pedida de Bauru para Araraquara');
+  const curtos = pedidos.filter(c => c.costing_options.auto.shortest); verdade(curtos.length === 2 && curtos.every(c => c.alternates === 2) && pedidos.length === 4, 'quatro pedidos: ida e volta pelo caminho mais curto (km) e ida e volta pela rota mais rápida (tempo)');
+  verdade(curtos[0].locations[0].lon !== curtos[1].locations[0].lon, 'a volta é pedida de Bauru para Araraquara');
   verdade(JSON.stringify(pedidos).match(/Araraquara|Bauru/i) === null, 'só coordenadas das sedes vão para o serviço de rotas (nenhum nome/dado a mais)');
+  verdade(/2 h 00 min de carro/.test(await p.evaluate(() => HP.textoCopia())), 'o texto copiado inclui o tempo em carro');
   await p.click('#bt-copiar');
   verdade(/181,3 km/.test(await p.evaluate(() => navigator.clipboard.readText())), 'copiar resultado coloca o texto na área de transferência');
   verdade(await p.locator('#rec-lista button').count() === 1, 'a consulta fica em "Recentes"');
@@ -60,6 +62,10 @@ const enc = coords => { let lat = 0, lon = 0, s = ''; const c = v => { v = v < 0
   verdade(/Escolha a cidade final/.test(await p.innerText('#erro')), 'texto que não é cidade: pede para escolher da lista');
   await p.fill('#in-a', ''); await p.fill('#in-b', ''); await p.click('#bt-calc');
   verdade(/Digite a cidade inicial/.test(await p.innerText('#erro')), 'campo vazio: avisa');
+  verdade(await p.locator('#bt-instalar:visible').count() === 1 && !(await p.evaluate(() => document.querySelector('#bt-instalar').classList.contains('instalado'))), 'o botão Instalar fica sempre visível (ativo antes de instalar)');
+  await p.evaluate(() => window.dispatchEvent(Object.assign(new Event('beforeinstallprompt'), { prompt() { window.__prompt = true; }, userChoice: Promise.resolve({ outcome: 'accepted' }) })));
+  await p.click('#bt-instalar'); await p.waitForFunction(() => document.querySelector('#bt-instalar').classList.contains('instalado'));
+  verdade(await p.evaluate(() => window.__prompt === true && /Instalado/.test(document.querySelector('#bt-instalar').innerText) && getComputedStyle(document.querySelector('#bt-instalar')).filter.includes('grayscale')), 'ao instalar, o botão fica cinza e escrito "Instalado"');
   const t0 = await p.evaluate(() => document.documentElement.dataset.tema); await p.click('#bt-tema');
   verdade(await p.evaluate(t => document.documentElement.dataset.tema !== t && localStorage.getItem('hp:tema') !== null, t0), 'o botão ◐ troca o tema e lembra a escolha');
   const man = await p.evaluate(() => fetch('manifest.webmanifest').then(r => r.json()));

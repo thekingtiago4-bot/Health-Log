@@ -20,7 +20,7 @@
       <div><b>Health Path</b><span>KM ida e volta · caminho mais curto</span></div>
     </div>
     <div class="topo-bt">
-      <button type="button" class="ic-bt" id="bt-instalar" hidden title="Instalar o aplicativo" aria-label="Instalar o aplicativo">⬇</button>
+      <button type="button" class="inst" id="bt-instalar" title="Instalar o Health Path neste aparelho"><span class="inst-i" aria-hidden="true">⬇</span><span id="inst-t">Instalar</span></button>
       <button type="button" class="ic-bt" id="bt-tema" title="Trocar tema (claro/escuro)" aria-label="Trocar tema">◐</button>
     </div>
   </header>
@@ -50,16 +50,16 @@
     <div class="res-topo"><span class="rota" id="res-rota"></span></div>
     <div class="total"><b id="res-total">0</b><span>km · ida e volta</span></div>
     <div class="stats">
-      <div><small>Ida</small><b id="res-ida">0 km</b></div>
-      <div><small>Volta</small><b id="res-volta">0 km</b></div>
-      <div><small>Tempo (ida e volta)</small><b id="res-tempo">—</b></div>
+      <div><small>Ida</small><b id="res-ida">0 km</b><em id="res-ida-t"></em></div>
+      <div><small>Volta</small><b id="res-volta">0 km</b><em id="res-volta-t"></em></div>
+      <div><small>Tempo em carro</small><b id="res-tempo">—</b><em>ida e volta</em></div>
     </div>
     <div class="mapa" id="res-mapa" role="img" aria-label="Desenho do caminho"></div>
     <div class="acoes"><button type="button" class="sec" id="bt-copiar">Copiar resultado</button><button type="button" class="sec" id="bt-novo">Nova consulta</button></div>
-    <p class="nota">Estimativa pelo caminho mais curto (rodovia, rua, vicinal ou estradinha), dados do OpenStreetMap, sem trânsito e sem o percurso dentro das cidades. Cada trecho vai de sede de cidade a sede de cidade.</p>
+    <p class="nota">Os <b>km</b> são do caminho mais curto (rodovia, rua, vicinal ou estradinha). O <b>tempo em carro</b> é o da rota mais rápida entre as duas cidades, de carro, sem trânsito e sem parar. Dados do OpenStreetMap; cada trecho vai de sede de cidade a sede de cidade.</p>
   </section>
 
-  <footer class="rodape">Health Path · <span id="versao">v1.0.0</span> · Desenvolvido por Tiago</footer>
+  <footer class="rodape">Health Path · <span id="versao">v1.1.0</span> · Desenvolvido por Tiago</footer>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
 <script src="path.js"></script>

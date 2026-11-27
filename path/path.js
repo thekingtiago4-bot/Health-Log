@@ -3,7 +3,7 @@
    É ESTIMATIVA: sem trânsito e sem o percurso dentro das cidades. Nada é enviado além das coordenadas das duas sedes. */
 (function () {
   'use strict';
-  const VERSAO = '1.0.0';
+  const VERSAO = '1.1.0';
   const VAL = 'https://valhalla1.openstreetmap.de/route', OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
   const $ = s => document.querySelector(s);
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 /]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -99,6 +99,23 @@
       return { coords: rt.geometry.coordinates, km: rt.distance / 1000, min: (rt.duration || 0) / 60 };
     } catch (e) { clearTimeout(to); return null; }
   }
+  /* tempo em carro: a rota MAIS RÁPIDA entre as duas cidades (o que um GPS daria), separada do caminho mais curto dos km */
+  async function tempoRapido(a, b) {
+    const ac = new AbortController(), to = setTimeout(() => ac.abort(), 25000);
+    try {
+      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: 1.0, use_ferry: 0.0 } }, directions_options: { units: 'kilometers', language: 'pt-BR' } };
+      const r = await fetch(VAL, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json' }, signal: ac.signal, redirect: 'error' });
+      clearTimeout(to); if (!r.ok) return null;
+      const j = await r.json().catch(() => null), s = j && j.trip && j.trip.summary; return s && isFinite(s.time) ? s.time / 60 : null;
+    } catch (e) { clearTimeout(to); return null; }
+  }
+  async function minRapido(a, b, curto) {
+    const k = 'rap:' + chaveVia(a, b), c = ls.ler(k, null);
+    if (c && Date.now() - c.em < 30 * 24 * 3600 * 1000) return c.min;
+    const m = await tempoRapido(a, b);
+    if (m != null) { ls.gravar(k, { min: m, em: Date.now() }); return m; }
+    return curto.min;   // sem a rota rápida: usa o tempo do próprio caminho curto
+  }
   const espera = ms => new Promise(r => setTimeout(r, ms));
   async function trecho(a, b) {
     const k = chaveVia(a, b), c = ls.ler('via:' + k, null);
@@ -139,9 +156,9 @@
     const total = ida.km + volta.km;
     $('#res-rota').textContent = rotulo(a) + '  →  ' + rotulo(b) + '  →  ' + rotulo(a);
     $('#res-total').textContent = km1(total);
-    $('#res-ida').textContent = km1(ida.km) + ' km'; $('#res-volta').textContent = km1(volta.km) + ' km'; $('#res-tempo').textContent = tempo(ida.min + volta.min);
+    $('#res-ida').textContent = km1(ida.km) + ' km'; $('#res-volta').textContent = km1(volta.km) + ' km'; $('#res-ida-t').textContent = tempo(ida.tempo) + ' de carro'; $('#res-volta-t').textContent = tempo(volta.tempo) + ' de carro'; $('#res-tempo').textContent = tempo(ida.tempo + volta.tempo);
     desenhar(a, b, ida, volta);
-    ultimo = { a, b, ida: ida.km, volta: volta.km, total, min: ida.min + volta.min };
+    ultimo = { a, b, ida: ida.km, volta: volta.km, total, min: ida.tempo + volta.tempo };
     const r = $('#res'); r.hidden = false; r.style.animation = 'none'; void r.offsetWidth; r.style.animation = ''; r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   function guardarRecente(a, b) {
@@ -162,12 +179,13 @@
     ocupado = true; const bt = $('#bt-calc'); bt.disabled = true; bt.classList.add('carregando'); $('.calc-t').textContent = 'Calculando…';
     try {
       const ida = await trecho(a, b), volta = await trecho(b, a);
+      ida.tempo = await minRapido(a, b, ida); volta.tempo = await minRapido(b, a, volta);
       mostrar(a, b, ida, volta); guardarRecente(a, b);
       if (ida.reserva || volta.reserva) toast('Serviço principal fora do ar: usei o reserva.');
     } catch (e) { erro('Não consegui calcular agora (' + ((e && e.message) || e) + '). Confira a internet e tente de novo.'); }
     finally { ocupado = false; bt.disabled = false; bt.classList.remove('carregando'); $('.calc-t').textContent = 'Calcular KM ida e volta'; }
   }
-  function textoCopia() { const u = ultimo; return u ? rotulo(u.a) + ' → ' + rotulo(u.b) + ' → ' + rotulo(u.a) + ': ida ' + km1(u.ida) + ' km + volta ' + km1(u.volta) + ' km = ' + km1(u.total) + ' km (caminho mais curto, sem trânsito) · Health Path' : ''; }
+  function textoCopia() { const u = ultimo; return u ? rotulo(u.a) + ' → ' + rotulo(u.b) + ' → ' + rotulo(u.a) + ': ida ' + km1(u.ida) + ' km + volta ' + km1(u.volta) + ' km = ' + km1(u.total) + ' km (caminho mais curto) · ' + tempo(u.min) + ' de carro ida e volta (sem trânsito) · Health Path' : ''; }
   async function copiar() {
     const t = textoCopia(); if (!t) return;
     try { await navigator.clipboard.writeText(t); toast('Resultado copiado.'); }
@@ -184,14 +202,23 @@
     $('#bt-troca').onclick = () => { const t = sel.a, v = $('#in-a').value; sel.a = sel.b; sel.b = t; $('#in-a').value = $('#in-b').value; $('#in-b').value = v; limparErro(); };
     $('#bt-copiar').onclick = copiar;
     $('#bt-novo').onclick = () => { $('#res').hidden = true; sel.a = sel.b = null; $('#in-a').value = $('#in-b').value = ''; limparErro(); window.scrollTo({ top: 0, behavior: 'smooth' }); $('#in-a').focus(); };
-    let evi = null; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evi = e; $('#bt-instalar').hidden = false; });
-    $('#bt-instalar').onclick = async () => { if (!evi) return; evi.prompt(); try { await evi.userChoice; } catch (e) { /* ok */ } evi = null; $('#bt-instalar').hidden = true; };
-    window.addEventListener('appinstalled', () => { $('#bt-instalar').hidden = true; });
+    /* botão Instalar sempre visível; depois de instalado fica cinza e desativado */
+    let evi = null; const bi = $('#bt-instalar'), it = $('#inst-t');
+    const instalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || ls.ler('instalado', false);
+    const pintarInst = () => { const ja = instalado(); bi.classList.toggle('instalado', ja); bi.setAttribute('aria-disabled', String(ja)); it.textContent = ja ? 'Instalado' : 'Instalar'; bi.title = ja ? 'O Health Path já está instalado neste aparelho' : 'Instalar o Health Path neste aparelho'; };
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); evi = e; ls.gravar('instalado', false); pintarInst(); });
+    window.addEventListener('appinstalled', () => { evi = null; ls.gravar('instalado', true); pintarInst(); toast('Health Path instalado.'); });
+    bi.onclick = async () => {
+      if (instalado()) return;
+      if (evi) { evi.prompt(); try { const r = await evi.userChoice; if (r && r.outcome === 'accepted') { ls.gravar('instalado', true); pintarInst(); } } catch (e) { /* ok */ } evi = null; return; }
+      toast(location.protocol === 'file:' ? 'Para instalar, abra o Health Path pelo endereço do site (não pelo arquivo salvo).' : /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início".' : 'No menu do navegador (⋮), escolha "Instalar aplicativo" ou "Adicionar à tela inicial".');
+    };
+    pintarInst();
     try { await carregarCidades(); } catch (e) { erro('Não consegui carregar a lista de cidades. Recarregue a página.'); }
     renderRecentes();
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { /* sem offline: segue */ });
     $('#in-a').focus();
-    window.HP = { sel, calcular, achar, get ultimo() { return ultimo; } };
+    window.HP = { sel, calcular, achar, textoCopia, get ultimo() { return ultimo; } };
   }
   document.addEventListener('DOMContentLoaded', iniciar);
 })();

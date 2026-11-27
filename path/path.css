@@ -76,3 +76,9 @@ h1{margin:0 0 4px;font-family:"Barlow Semi Condensed";font-weight:700;font-size:
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 .m-svg{color:var(--tinta)}
 @media (max-width:520px){.stats{grid-template-columns:1fr 1fr}.stats>div:last-child{grid-column:1/3}}
+
+.inst{display:flex;align-items:center;gap:8px;height:42px;padding:0 14px;border-radius:12px;border:1.5px solid var(--aqua);background:linear-gradient(135deg,var(--aqua),var(--teal));color:var(--priTxt);font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(47,181,172,.25)}
+.inst:hover{filter:brightness(1.07)}
+.inst:disabled,.inst.instalado{background:var(--sup2);border-color:var(--linha);color:var(--mudo);box-shadow:none;cursor:default;filter:grayscale(1);opacity:.85}
+.stats em{display:block;font-style:normal;color:var(--mudo);font-size:.8rem;font-weight:500}
+@media (max-width:420px){.inst-i{display:none}.inst{padding:0 12px}}
