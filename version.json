@@ -1,1 +1,1 @@
-{"versao":"0.40.1","data":"2026-11-27","novidades":"Ajuste interno: o Health Log nao mexe nos arquivos do Health Path (aplicativo separado)."}
+{"versao":"0.41.0","data":"2026-11-27","novidades":"Janelas na segunda tela lembram posicao e tamanho e nao se mexem sozinhas; Foco (Ctrl+F) tambem vai para a segunda tela; conteudo das janelas diminui com o tamanho; Cancelar do Editar informacoes funciona; Levar para / lista Rotas abrem a janela do carro."}

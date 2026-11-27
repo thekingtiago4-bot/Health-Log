@@ -515,6 +515,32 @@ const cents = s => Math.round(parseFloat(s) * 100);
     await p.evaluate(() => { const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
   } else verdade(true, 'amostra sem veículo com carga neste ponto');
 
+  console.log('\nConteúdo das janelas diminui com o tamanho');
+  await p.evaluate(() => RT.A.janVer('rom', true));
+  const z0 = await p.evaluate(() => parseFloat(document.getElementById('jan-rom').style.getPropertyValue('--z') || '1'));
+  await p.evaluate(() => { const j = document.getElementById('jan-rom'); j.style.width = '260px'; RT.U.escalar(j); });
+  const z1 = await p.evaluate(() => parseFloat(document.getElementById('jan-rom').style.getPropertyValue('--z')));
+  verdade(z0 === 1 && z1 < 0.8 && z1 >= 0.55, 'janela mais estreita que o padrão: o conteúdo encolhe junto (' + z0 + ' → ' + z1 + ')');
+  verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#jan-rom .jan-corpo')).zoom !== '1'), 'e a escala vale de verdade no conteúdo (zoom)');
+  await p.evaluate(() => { const j = document.getElementById('jan-rom'); j.style.width = ''; RT.U.escalar(j); RT.A.janVer('rom', false); });
+
+  console.log('\nCancelar do Editar informações e abrir a janela do carro pelo "Levar para"');
+  const nb = await p.evaluate(() => RT.S.op.notas[0].id);
+  await p.evaluate(id => { RT.obs.editar(id, false); }, nb);
+  const rev0 = await p.evaluate(() => RT.S.op.rev);
+  await p.click('.modal-eo [data-cancelar]');
+  verdade(await p.locator('.modal-eo').count() === 0 && await p.evaluate(r => RT.S.op.rev === r, rev0), 'Cancelar fecha o Editar informações sem mudar nada (mesmo numa nota)');
+  await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); });
+  const kc = await p.evaluate(() => RT.S.res.cidades.find(r => !r.fora && !r.cinza).cidade.key);
+  await p.evaluate(k => RT.A.abrirCidade(k, {}), kc);
+  const cid1 = await p.evaluate(() => RT.S.op.carros[1] ? RT.S.op.carros[1].id : RT.S.op.carros[0].id);
+  await p.click('.jan-cid .mini-car[data-car="' + cid1 + '"]');
+  verdade(await p.evaluate(id => RT.S.veicAbertos.has(id) && !!document.getElementById('jan-v' + id) && !document.getElementById('jan-v' + id).hidden, cid1), 'clicar em "Levar para: Carro N" abre a janela só desse carro');
+  await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.fecharCidade(RT.S.cidadeAberta, true); RT.A.janVer('carros', true); });
+  await p.click('#car-corpo .vei[data-car="' + cid1 + '"] .vei-cab b');
+  verdade(await p.evaluate(id => RT.S.veicAbertos.has(id), cid1), 'clicar no carro na lista Rotas também abre a janela dele');
+  await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('carros', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
+
   console.log('\nJanela Romaneios: tirar cidades que não vão hoje');
   await p.click('#bt-ver-rom');
   verdade(await p.locator('#jan-rom:not([hidden]) details.rm').count() >= 1, 'o botão Romaneios abre a janela com os romaneios de hoje');
@@ -786,6 +812,20 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await pop.mouse.move(cabE.x + 10, cabE.y + 8); await pop.mouse.down(); await pop.mouse.move(cabE.x + 150, cabE.y + 90, { steps: 4 }); await pop.mouse.up();
   const pos1 = await pop.locator('#jan-pend').boundingBox();
   verdade(Math.abs(pos1.x - pos0.x - 140) < 8 && Math.abs(pos1.y - pos0.y - 82) < 8, 'dá para arrastar a janela pela segunda tela');
+  /* a posição na 2ª tela é lembrada (como na 1ª) */
+  await pop.click('#jan-pend .jan-ext'); await p.waitForFunction(() => !RT.S.janExt.has('pend'));
+  await p.click('#jan-pend .jan-ext'); await pop.waitForSelector('#jan-pend');
+  const pos2 = await pop.locator('#jan-pend').boundingBox();
+  verdade(Math.abs(pos2.x - pos1.x) < 3 && Math.abs(pos2.y - pos1.y) < 3, 'na segunda tela a janela volta EXATAMENTE onde você a deixou (' + Math.round(pos1.x) + ',' + Math.round(pos1.y) + ')');
+  await pop.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
+  await p.evaluate(() => RT.A.atualizarTudo()); await p.waitForTimeout(200);
+  const pos3 = await pop.locator('#jan-pend').boundingBox();
+  verdade(Math.abs(pos3.x - pos1.x) < 3 && Math.abs(pos3.y - pos1.y) < 3, 'e ela não se mexe sozinha quando a tela atualiza');
+  const cabE2 = await pop.locator('#jan-pend .jan-cab b').boundingBox();
+  await pop.mouse.move(cabE2.x + 10, cabE2.y + 8); await pop.mouse.down(); await pop.mouse.move(cabE2.x + 60, cabE2.y + 40, { steps: 3 }); await pop.mouse.up();
+  const antesMain = await p.evaluate(() => JSON.stringify(RT.U.pref.ler('pos:pend', null)));
+  verdade(await p.evaluate(() => RT.U.pref.ler('pos:ext:pend', null) !== null), 'mexer na janela da 2ª tela grava a posição de lá');
+  verdade(antesMain === await p.evaluate(() => JSON.stringify(RT.U.pref.ler('pos:pend', null))), 'sem estragar a posição que ela tem na 1ª tela');
   await pop.locator('#pend-lista li[data-cid]').first().click();
   await pop.waitForSelector('.jan-cid:not([hidden]) .cli');
   verdade(await p.evaluate(() => !document.querySelector('.jan-cid') && [...RT.S.janExt].some(k => /^c\d/.test(k))), 'clicar numa cidade dessa janela abre a janela da cidade também na segunda tela');
@@ -807,6 +847,14 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.evaluate(() => { const c = document.querySelector('.jan-cid .cl-chk'); if (c) c.click(); });   // mexer na cidade refaz o título da janela
   const semBt = await p.evaluate(() => [...document.querySelectorAll('.jan')].filter(j => !j.hidden && !j.querySelector('.jan-ext')).map(j => j.id));
   igual(semBt.join(','), '', 'toda janela flutuante aberta (pendentes, rotas, busca, veículo, cidade) tem o botão ⇥ da segunda tela');
+  await p.keyboard.press('Control+KeyF');
+  verdade(await p.locator('#pop-focar .jan-ext').count() === 1, 'a janela do Foco (Ctrl+F) também tem o botão da segunda tela');
+  await p.click('#pop-focar .jan-ext'); await pop.waitForSelector('#pop-focar');
+  verdade(await p.evaluate(() => !document.querySelector('#pop-focar') && RT.S.janExt.has('focar')), 'e ela vai para a segunda tela');
+  await pop.click('#pop-focar .jan-ext'); await p.waitForSelector('#pop-focar');
+  verdade(await pop.evaluate(() => !document.querySelector('#pop-focar')), 'e volta para a primeira');
+  await p.keyboard.press('Control+KeyF');
+
   await p.evaluate(() => { for (const k of [...RT.S.cidJan.keys()]) RT.A.fecharCidade(k, true); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('busca', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
   console.log('\nTela das janelas (mapa na outra tela): cor de fundo');
   verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#bt-parede-cor')).display !== 'none' && getComputedStyle(document.querySelector('#bt-realce')).display === 'none'), 'com o mapa na outra tela os botões do mapa somem e fica só o botão de cor de fundo');

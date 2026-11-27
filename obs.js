@@ -59,12 +59,12 @@
       (!cliente && outras ? '<label class="chk-cid"><input type="checkbox" data-f="junto"> Valer também para as outras ' + outras + ' nota(s) deste cliente (endereço e cidade)</label>' : '') +
       '<table class="eo-notas"><thead><tr><th>NF</th><th>Volumes</th><th>Valor (R$)</th><th></th></tr></thead><tbody>' + linhas.map(x =>
         '<tr data-n="' + esc(x.id) + '"><td>' + esc(x.nf) + '</td><td><input data-f="vol" inputmode="numeric" value="' + x.vol + '"></td><td><input data-f="valor" inputmode="decimal" value="' + brl(x.valor) + '"></td><td>' + (x.orig ? '<button type="button" class="lib" data-rest="' + esc(x.id) + '" title="Voltar ao que veio no XML (volumes ' + x.orig.vol + ', valor ' + brl(x.orig.valor) + ')">voltar ao XML</button>' : '') + '</td></tr>').join('') + '</tbody></table>' +
-      '<div class="botoes"><button class="btn" data-n type="button">Cancelar</button><button class="btn pri" data-s type="button">Salvar</button></div>';
+      '<div class="botoes"><button class="btn" data-cancelar type="button">Cancelar</button><button class="btn pri" data-s type="button">Salvar</button></div>';
     return U.modal(html, (f, fechar) => {
       f.querySelector('.modal').classList.add('modal-eo');
       const q = sel => f.querySelector(sel); let codeCid = null;
       const obsC = q('[data-f=obsC]'); obsC.focus(); obsC.setSelectionRange(obsC.value.length, obsC.value.length);
-      q('[data-n]').onclick = () => fechar(null);
+      q('[data-cancelar]').onclick = () => fechar(null);   // (antes pegava a 1ª linha de nota, que também tem data-n, e o Cancelar não fazia nada)
       f.addEventListener('click', e => {
         if (e.target.closest('[data-cid-volta]')) { RT.sit.trocarCidade(n.id, 'orig', cliente); fechar(true); return; }
         const r = e.target.closest('[data-rest]'); if (r) { const x = o.notas.find(z => z.id === r.dataset.rest), tr = r.closest('tr'); if (x && x.orig) { tr.querySelector('[data-f=vol]').value = x.orig.vol; tr.querySelector('[data-f=valor]').value = brl(x.orig.valor); } return; }

@@ -124,19 +124,26 @@
       const y = Math.max(4, Math.min(d.a.height - Math.min(h, 60) - 4, e.clientY - d.a.top - d.dy));
       jan.style.left = x + 'px'; jan.style.top = y + 'px'; jan.style.right = 'auto'; jan.style.bottom = 'auto';
     });
-    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo'); if (!jan.classList.contains('na-ext')) aoSoltar && aoSoltar({ x: parseFloat(jan.style.left), y: parseFloat(jan.style.top) }); };
+    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo'); aoSoltar && aoSoltar({ x: parseFloat(jan.style.left), y: parseFloat(jan.style.top) }, jan.classList.contains('na-ext')); };   // (a posição na 2ª tela é guardada à parte: 'pos:ext:<janela>')
     jan.addEventListener('pointerup', fim); jan.addEventListener('pointercancel', fim);
   };
   /* ---------- redimensionar janela flutuante (bordas direita e de baixo + canto) ----------
      O tamanho fica guardado neste aparelho (pref "tam:<chave>") e volta igual na próxima vez.
      As alças são recolocadas se a janela for redesenhada por dentro. */
+  /* o CONTEUDO da janela encolhe junto quando ela fica mais estreita que o tamanho padrao (--bw): tudo continua cabendo e legivel (min. 55%) */
+  U.escalar = function (jan) {
+    if (!jan || !jan.isConnected) return;
+    const w = jan.offsetWidth; if (!w) return;
+    const base = parseFloat(jan.ownerDocument.defaultView.getComputedStyle(jan).getPropertyValue('--bw')) || 380;
+    jan.style.setProperty('--z', Math.max(0.55, Math.min(1, w / base)).toFixed(3));
+  };
   U.redimensionavel = function (jan, chave, area, aoSoltar) {
     const MIN_W = 250, MIN_H = 150;
     const aplicar = (w, h) => {
       const a = (jan.parentElement || area).getBoundingClientRect();
       if (w != null) jan.style.width = Math.max(MIN_W, Math.min(a.width - 8, w)) + 'px';
       if (h != null) jan.style.height = Math.max(MIN_H, Math.min(a.height - 8, h)) + 'px';
-      jan.style.maxHeight = 'none'; jan.style.maxWidth = 'none'; jan.classList.add('redim');
+      jan.style.maxHeight = 'none'; jan.style.maxWidth = 'none'; jan.classList.add('redim'); U.escalar(jan);
     };
     const salvo = U.pref.ler('tam:' + chave, null);
     if (salvo && isFinite(salvo.w) && isFinite(salvo.h)) aplicar(salvo.w, salvo.h);
@@ -145,6 +152,8 @@
       for (const [cls, cur] of [['rz-d', 'ew-resize'], ['rz-b', 'ns-resize'], ['rz-c', 'nwse-resize']]) if (!jan.querySelector(':scope > .' + cls)) jan.appendChild(alca(cls, cur));
     };
     garantir();
+    if (typeof ResizeObserver === 'function') new ResizeObserver(() => U.escalar(jan)).observe(jan);
+    U.escalar(jan);
     new MutationObserver(() => { if (!jan.querySelector(':scope > .rz-c') || !jan.querySelector(':scope > .rz-d') || !jan.querySelector(':scope > .rz-b')) garantir(); }).observe(jan, { childList: true });
     let d = null;
     jan.addEventListener('pointerdown', e => {
@@ -162,7 +171,7 @@
     });
     const fim = e => {
       if (!d || e.pointerId !== d.id) return; d = null; jan.classList.remove('movendo');
-      if (!jan.classList.contains('na-ext')) U.pref.gravar('tam:' + chave, { w: jan.offsetWidth, h: jan.offsetHeight }); aoSoltar && aoSoltar();
+      U.pref.gravar('tam:' + (jan.classList.contains('na-ext') ? 'ext:' : '') + chave, { w: jan.offsetWidth, h: jan.offsetHeight }); aoSoltar && aoSoltar();
     };
     jan.addEventListener('pointerup', fim); jan.addEventListener('pointercancel', fim);
   };

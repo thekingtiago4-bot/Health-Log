@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.40.1';
+  const VERSAO = '0.41.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -208,9 +208,33 @@
   }
   const mercatorParaLatLon = (x, y) => ({ lon: x, lat: (2 * Math.atan(Math.exp(-y * Math.PI / 180)) - Math.PI / 2) * 180 / Math.PI });
   /* O pop-up fica na tela (móvel) até você fechar no ✕ ou apertar Ctrl+F de novo; acompanha os veículos que forem criados/alterados. */
-  function fecharFocar() { const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true); }
+  function fecharFocar() {
+    const p = $('#pop-focar'); if (p) p.remove(); document.removeEventListener('keydown', teclaFocar, true);
+    if (S.janExt.delete('focar')) { try { if (S.ext && !S.ext.closed) S.ext.document.removeEventListener('keydown', teclaFocar, true); } catch (e) { /* ok */ } U.pref.gravar('janExt', [...S.janExt]); }
+  }
+  /* o pop-up do Ctrl+F também vai para a 2ª tela (mesmo botão ⇥/⇤ das outras janelas) */
+  const posFocar = (p, x, y) => { const v = p.ownerDocument.defaultView, w = p.offsetWidth, h = p.offsetHeight; p.style.transform = 'none'; p.style.left = Math.max(4, Math.min(v.innerWidth - w - 4, x)) + 'px'; p.style.top = Math.max(4, Math.min(v.innerHeight - Math.min(h, 80) - 4, y)) + 'px'; };
+  function focarOutraTela(paraExt) {
+    const p = $('#pop-focar'); if (!p) return;
+    if (paraExt) {
+      if (!S.parede || !S.ext || S.ext.closed) { toast('Abra o mapa na segunda tela primeiro (botão “Mapa em outra tela”).'); return; }
+      let d; try { d = S.ext.document; } catch (e) { return; }
+      ligarDocumento(d); const el = d.adoptNode(p); el.classList.add('na-ext'); d.body.appendChild(el); S.janExt.add('focar'); d.documentElement.classList.add('tem-ext');
+      d.addEventListener('keydown', teclaFocar, true);
+      const ts = U.pref.ler('tam:ext:focar', null), ps = U.pref.ler('pos:ext:focar', null), v = d.defaultView;
+      if (ts && isFinite(ts.w) && isFinite(ts.h)) { el.style.width = Math.min(v.innerWidth - 8, Math.max(240, ts.w)) + 'px'; el.style.height = Math.min(v.innerHeight - 8, Math.max(150, ts.h)) + 'px'; }
+      if (ps && isFinite(ps.x) && isFinite(ps.y)) posFocar(el, ps.x, ps.y); else { el.style.transform = ''; el.style.left = '50%'; el.style.top = '18%'; }
+    } else {
+      try { if (S.ext && !S.ext.closed) S.ext.document.removeEventListener('keydown', teclaFocar, true); } catch (e) { /* ok */ }
+      const el = document.adoptNode(p); el.classList.remove('na-ext'); document.body.appendChild(el); S.janExt.delete('focar'); document.addEventListener('keydown', teclaFocar, true);
+      const ts = U.pref.ler('tam:focar', null), ps = U.pref.ler('pos:focar', null);
+      if (ts && isFinite(ts.w) && isFinite(ts.h)) { el.style.width = Math.min(innerWidth - 8, Math.max(240, ts.w)) + 'px'; el.style.height = Math.min(innerHeight - 8, Math.max(150, ts.h)) + 'px'; } else { el.style.width = ''; el.style.height = ''; }
+      if (ps && isFinite(ps.x) && isFinite(ps.y)) posFocar(el, ps.x, ps.y); else { el.style.transform = ''; el.style.left = '50%'; el.style.top = '18%'; }
+    }
+    U.pref.gravar('janExt', [...S.janExt]); atualizarBotoesExt();
+  }
   function teclaFocar(e) {   // digitar o número (1–9) vale com o pop-up aberto, desde que o cursor não esteja num campo de texto
-    const p = $('#pop-focar'), ae = document.activeElement; if (!p || e.ctrlKey || e.metaKey || e.altKey || !/^\d$/.test(e.key)) return;
+    const p = $('#pop-focar'), ae = (e.target && e.target.ownerDocument || document).activeElement; if (!p || e.ctrlKey || e.metaKey || e.altKey || !/^\d$/.test(e.key)) return;
     if (ae && (/^(TEXTAREA|SELECT)$/.test(ae.tagName) || (ae.tagName === 'INPUT' && !/^(checkbox|radio|button)$/.test(ae.type)) || ae.isContentEditable)) return;   // digitando num campo: o número é do campo
     const b = p.querySelector('[data-foco-n="' + e.key + '"]'); if (b) { e.preventDefault(); e.stopPropagation(); b.click(); }
   }
@@ -231,16 +255,18 @@
     });
     document.body.appendChild(p); document.addEventListener('keydown', teclaFocar, true); desenharFocar();
     /* o pop-up é móvel: arraste pelo título; o lugar fica guardado (pref pos:focar) */
-    const pos = (x, y) => { const w = p.offsetWidth, h = p.offsetHeight; p.style.transform = 'none'; p.style.left = Math.max(4, Math.min(innerWidth - w - 4, x)) + 'px'; p.style.top = Math.max(4, Math.min(innerHeight - Math.min(h, 80) - 4, y)) + 'px'; };
+    const pos = (x, y) => posFocar(p, x, y);
     const tm = U.pref.ler('tam:focar', null); if (tm && isFinite(tm.w) && isFinite(tm.h)) { p.style.width = Math.min(innerWidth - 8, Math.max(240, tm.w)) + 'px'; p.style.height = Math.min(innerHeight - 8, Math.max(150, tm.h)) + 'px'; }
-    if (typeof ResizeObserver === 'function') { let ini = true; new ResizeObserver(() => { if (ini) { ini = false; return; } clearTimeout(p._rt); p._rt = setTimeout(() => { if (p.isConnected) U.pref.gravar('tam:focar', { w: p.offsetWidth, h: p.offsetHeight }); }, 250); }).observe(p); }
+    if (typeof ResizeObserver === 'function') { let ini = true; new ResizeObserver(() => { if (ini) { ini = false; return; } clearTimeout(p._rt); U.escalar(p); p._rt = setTimeout(() => { if (p.isConnected) U.pref.gravar('tam:' + (p.classList.contains('na-ext') ? 'ext:' : '') + 'focar', { w: p.offsetWidth, h: p.offsetHeight }); }, 250); }).observe(p); }
     const sv = U.pref.ler('pos:focar', null); if (sv && isFinite(sv.x) && isFinite(sv.y)) pos(sv.x, sv.y);
     let d = null; const cab = p.querySelector('.pf-cab');
     cab.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; const r = p.getBoundingClientRect(); d = { dx: e.clientX - r.left, dy: e.clientY - r.top, id: e.pointerId }; cab.setPointerCapture(e.pointerId); p.classList.add('movendo'); e.preventDefault(); });
     cab.addEventListener('pointermove', e => { if (d && e.pointerId === d.id) pos(e.clientX - d.dx, e.clientY - d.dy); });
-    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; p.classList.remove('movendo'); U.pref.gravar('pos:focar', { x: parseFloat(p.style.left), y: parseFloat(p.style.top) }); };
+    const fim = e => { if (!d || e.pointerId !== d.id) return; d = null; p.classList.remove('movendo'); U.pref.gravar('pos:' + (p.classList.contains('na-ext') ? 'ext:' : '') + 'focar', { x: parseFloat(p.style.left), y: parseFloat(p.style.top) }); };
     cab.addEventListener('pointerup', fim); cab.addEventListener('pointercancel', fim);
     const at = p.querySelector('.pf-q.ativo') || p.querySelector('.pf-q'); if (at) at.focus();
+    atualizarBotoesExt();   // botão ⇥ (segunda tela)
+    if (S.parede && S.janExt.has('focar')) focarOutraTela(true);   // se estava na 2ª tela, abre lá
   }
   async function novoVeiculo(tipo) {
     if (!S.op) { toast('Importe os XMLs primeiro.'); return; }
@@ -487,7 +513,7 @@
     const area = document.getElementById('mapa-area'), jan = document.createElement('div');
     jan.className = 'jan jan-cid'; jan.id = 'jan-' + ctx.id; jan.dataset.key = ctx.key; jan.setAttribute('role', 'dialog'); jan.setAttribute('aria-label', 'Clientes da cidade');
     area.appendChild(jan);
-    U.arrastavel(jan, '.jan-cab', area, pp => U.pref.gravar('pos:cid', pp));
+    U.arrastavel(jan, '.jan-cab', area, (pp, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'cid', pp));
     U.redimensionavel(jan, 'cid', area, () => { ajustarPadMapa(); S.mapa.redimensionar(); });
     jan.addEventListener('click', e => {
       const t = e.target, a = t.closest('[data-a]');
@@ -496,7 +522,7 @@
       if (a && a.dataset.a === 'abrirrom') return janVer('rom', true);
       if (a && a.dataset.a === 'forarota') return alternarFora(ctx.key);
       const oe = t.closest('[data-obs-ed]'); if (oe) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+oe.dataset.obsEd]; if (cl && cl.notas.length) RT.obs.editar(cl.notas[0].id, true); return; }
-      const car = t.closest('.mini-car'); if (car) return selecionarCarro(+car.dataset.car);
+      const car = t.closest('.mini-car'); if (car) return abrirJanelaVeiculo(+car.dataset.car);   // clicar em "Levar para: Carro N" abre a janela só desse carro (e as notas vão para ele)
       const lc = t.closest('[data-libc]'); if (lc) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+lc.dataset.libc]; return liberar(cl.notas.filter(n => S.op.atrib[n.id] != null && S.op.atrib[n.id] !== S.carroAtivo).map(n => n.id), 'liberar notas de ' + cl.nome); }
       const ln = t.closest('[data-libn]'); if (ln) return liberar([ln.dataset.libn], 'liberar nota');
       const ex = t.closest('.cli-exp'); if (ex) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+ex.dataset.i]; ctx.expand.has(cl.key) ? ctx.expand.delete(cl.key) : ctx.expand.add(cl.key); return renderJanCidade(ctx); }
@@ -516,7 +542,7 @@
   function posicionarCidade(ctx, o) {
     const jan = ctx.el, area = jan.parentElement; if (!area) return;
     const W = area.clientWidth, H = area.clientHeight;
-    const salvo = posJan('cid');   // onde você deixou a última janela de cidade, as novas abrem (uma não cobre exatamente a outra)
+    const salvo = (() => { const p = U.pref.ler('pos:' + (jan.classList.contains('na-ext') ? 'ext:' : '') + 'cid', null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; })();   // onde você deixou a última janela de cidade, as novas abrem (uma não cobre exatamente a outra)
     const anchor = (o.centrar || S.parede) ? { x: W / 2, y: H / 2 } : (S.mapa.posicaoDaCidade(ctx.key) || { x: W * 0.55, y: H * 0.3 });
     const w = jan.offsetWidth; let x = anchor.x + 28; if (x + w > W - 8) x = anchor.x - w - 28; let y = anchor.y - 70;
     if (salvo) { x = salvo.x; y = salvo.y; }
@@ -615,7 +641,7 @@
       '<button type="button" class="btn" data-a="cancelar">Cancelar</button><button type="button" class="btn concluir" data-a="concluir"' + (draftSujo(ctx) && car ? '' : ' disabled') + '>Concluir' + (car ? ' → ' + N.nomeCarro(car) : '') + '</button></div>';
     atualizarBotoesExt();   // o título foi refeito: devolve o botão da segunda tela
     const l = $('.cid-lista', jan); if (l) l.scrollTop = rolagem;
-    const areaH = $('#mapa-area').clientHeight, topo = parseFloat(jan.style.top) || 0;
+    const areaH = (jan.parentElement || $('#mapa-area')).clientHeight, topo = parseFloat(jan.style.top) || 0;
     if (topo + jan.offsetHeight > areaH - 6) jan.style.top = Math.max(6, areaH - jan.offsetHeight - 6) + 'px';
     if (foco) {
       const seletor = foco.n != null ? '.nt-chk[data-n="' + CSS.escape(foco.n) + '"]' : foco.i != null ? '.' + String(foco.cls).split(' ')[0] + '[data-i="' + foco.i + '"]' : null;
@@ -870,7 +896,7 @@
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
   const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca', rom: '#jan-rom' };
   const posJan = id => { const p = U.pref.ler('pos:' + id, null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
-  function restaurarPos(id) { const j = $(JANS[id]), p = posJan(id); if (j && p) U.posicionar(j, $('#mapa-area'), p.x, p.y); }
+  function restaurarPos(id) { const j = $(JANS[id]); if (!j) return; const p = U.pref.ler('pos:' + (j.classList.contains('na-ext') ? 'ext:' : '') + id, null); if (p && isFinite(p.x) && isFinite(p.y)) U.posicionar(j, j.parentElement || $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
     const j = $(JANS[id]); j.hidden = !vis; U.pref.gravar('ver:' + id, vis);
     const b = $('#bt-ver-' + id); if (b) b.setAttribute('aria-pressed', String(vis));
@@ -934,7 +960,7 @@
     doc.addEventListener('pointerdown', onFocoDown, true); U.ligarZ && doc !== document && U.ligarZ(doc);
     if (doc !== document) doc.addEventListener('keydown', e => { if (S.onTecla) S.onTecla(e); });   // (nesta janela o teclado já é ligado no boot)
     doc.addEventListener('contextmenu', aoBotaoDireito);
-    doc.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jan-ext'); if (b) { const j = b.closest('.jan'); if (j) janParaOutraTela(j.id.replace('jan-', ''), !j.classList.contains('na-ext')); } });
+    doc.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jan-ext'); if (b) { const j = b.closest('.jan, #pop-focar'); if (j) janParaOutraTela(j.id.replace(/^(jan|pop)-/, ''), !j.classList.contains('na-ext')); } });
   }
   /* botão direito num cliente ou numa nota (janela da cidade, tabela de Notas, Buscar nota, lista do veículo): Editar informações */
   function aoBotaoDireito(e) {
@@ -954,7 +980,7 @@
   ligarDocumento(document);
   /* ================= janela PRÓPRIA de cada veículo ================= */
   S.veicJan = new Map(); S.veicAbertos = new Set();
-  const selJan = id => JANS[id] || '#jan-' + id;
+  const selJan = id => (id === 'focar' ? '#pop-focar' : JANS[id] || '#jan-' + id);
   const gravarVeicAbertos = () => { if (S.op) U.pref.gravar('veic:' + S.op.id, [...S.veicAbertos]); };
   function abrirJanelaVeiculo(id) {
     if (!S.op || !carroPorId(id)) return;
@@ -974,7 +1000,7 @@
     const pos = U.pref.ler('pos:' + key, null);
     if (pos && isFinite(pos.x) && isFinite(pos.y)) U.posicionar(j, area, pos.x, pos.y);
     else { const W = area.clientWidth || 1200; j.style.left = Math.max(8, W - 400 - 38 * (k % 6)) + 'px'; j.style.top = (12 + 34 * (k % 6)) + 'px'; j.style.right = 'auto'; }
-    U.arrastavel(j, '.jan-cab', area, p => U.pref.gravar('pos:' + key, p));
+    U.arrastavel(j, '.jan-cab', area, (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + key, p));
     U.redimensionavel(j, key, area, () => { ajustarPadMapa(); });
     ligarCorpoVeiculos(j.querySelector('.car-lista'));
     j.addEventListener('pointerdown', () => { if (S.carroAtivo !== id) selecionarCarro(id); });
@@ -1052,7 +1078,7 @@
       }
       if (t.closest('input,select')) return;
       const cab = t.closest('.vei-cab'), vei = t.closest('.vei');
-      if (cab && vei) { const id = +vei.dataset.car; S.carAberto.has(id) ? S.carAberto.delete(id) : S.carAberto.add(id); selecionarCarro(id); renderJanCarros(); const rc = S.res && S.res.carros.find(x => x.carro.id === id); if (rc && rc.carro.cidades.length) { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); } }
+      if (cab && vei) { const id = +vei.dataset.car; S.carAberto.has(id) ? S.carAberto.delete(id) : S.carAberto.add(id); if (corpo.id === 'car-corpo') abrirJanelaVeiculo(id); else selecionarCarro(id); renderJanCarros(); const rc = S.res && S.res.carros.find(x => x.carro.id === id); if (rc && rc.carro.cidades.length) { ajustarPadMapa(); S.mapa.enquadrar(rc.carro.cidades); } }
     });
     corpo.addEventListener('change', e => {
       const t = e.target;
@@ -1069,7 +1095,7 @@
   }
   function ligarJanCarros() {
     const jan = $('#jan-carros'), corpo = $('#car-corpo');
-    U.arrastavel(jan, '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:carros', p));
+    U.arrastavel(jan, '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'carros', p));
     $('#car-min').onclick = () => { const r = jan.classList.toggle('recolhida'); $('#car-min').textContent = r ? '+' : '–'; };
     $('#car-x').onclick = () => janVer('carros', false);
     ligarCorpoVeiculos(corpo);
@@ -1294,7 +1320,9 @@
   /* ---------- janelas flutuantes na SEGUNDA TELA ----------
      A janela (elemento) é "adotada" pelo document do mapa da outra tela: continua sendo a mesma, com os mesmos botões; quem a controla
      segue sendo esta janela principal (a operação e as gravações ficam num lugar só). Fechou/recarregou o mapa: elas voltam para cá. */
+  const prefDeJanela = id => (/^c\d+$/.test(id) ? 'cid' : id);   // janelas de cidade dividem a mesma preferência
   function janParaOutraTela(id, paraExt) {
+    if (id === 'focar') return focarOutraTela(paraExt);
     const j = $(selJan(id)); if (!j) return;
     if (paraExt) {
       if (!S.parede || !S.ext || S.ext.closed) { toast('Abra o mapa na segunda tela primeiro (botão “Mapa em outra tela”).'); return; }
@@ -1303,11 +1331,19 @@
       S.janProx = S.janProx || {}; S.janProx[id] = j.nextElementSibling ? j.nextElementSibling.id : '';   // lugar original na ordem das janelas (quem vem depois cobre quem vem antes)
       const el = d.adoptNode(j); el.classList.add('na-ext'); alvo.appendChild(el); S.janExt.add(id);
       el.style.left = (24 + n * 34) + 'px'; el.style.top = (56 + n * 34) + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.zIndex = String(++U.z);
+      const pk = prefDeJanela(id), ts = U.pref.ler('tam:ext:' + pk, null), ps = U.pref.ler('pos:ext:' + pk, null);   // na 2ª tela a janela volta ONDE e COM O TAMANHO que você deixou lá
+      if (ts && isFinite(ts.w) && isFinite(ts.h)) { const ar = alvo.getBoundingClientRect(); el.style.width = Math.max(250, Math.min(ar.width - 8, ts.w)) + 'px'; el.style.height = Math.max(150, Math.min(ar.height - 8, ts.h)) + 'px'; el.style.maxHeight = 'none'; el.style.maxWidth = 'none'; el.classList.add('redim'); }
+      if (ps && isFinite(ps.x) && isFinite(ps.y)) U.posicionar(el, alvo, ps.x, ps.y);
+      U.escalar(el);
       d.documentElement.classList.add('tem-ext');
     } else {
       const el = document.adoptNode(j); el.classList.remove('na-ext'); S.janExt.delete(id);
       const alvo = document.getElementById('mapa-area'), prox = S.janProx && S.janProx[id] ? alvo.querySelector('#' + S.janProx[id]) : null; alvo.insertBefore(el, prox); el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = ''; el.style.zIndex = '';
-      const pos = posJan(id); if (pos) U.posicionar(el, alvo, pos.x, pos.y);
+      const pk = prefDeJanela(id), ts = U.pref.ler('tam:' + pk, null);   // de volta à 1ª tela: posição e tamanho de lá
+      if (ts && isFinite(ts.w) && isFinite(ts.h)) { el.style.width = ts.w + 'px'; el.style.height = ts.h + 'px'; el.style.maxHeight = 'none'; el.style.maxWidth = 'none'; el.classList.add('redim'); }
+      else { for (const q of ['width', 'height', 'maxHeight', 'maxWidth']) el.style[q] = ''; el.classList.remove('redim'); }
+      const pos = posJan(pk); if (pos) U.posicionar(el, alvo, pos.x, pos.y);
+      U.escalar(el);
     }
     U.pref.gravar('janExt', [...S.janExt]); ajustarPadMapa(); atualizarBotoesExt(); atualizarTudo();
   }
@@ -1316,8 +1352,8 @@
   /* botão ⧉ no título de cada janela (só aparece com o mapa na segunda tela) */
   function atualizarBotoesExt() {
     document.documentElement.classList.toggle('tem-ext', !!S.parede);
-    for (const id of [...Object.keys(JANS), ...[...S.veicJan.keys()].map(k => 'v' + k), ...[...S.cidJan.values()].map(x => x.id)]) {
-      const j = $(selJan(id)); if (!j) continue; const cab = j.querySelector('.jan-cab'); if (!cab) continue;
+    for (const id of [...Object.keys(JANS), 'focar', ...[...S.veicJan.keys()].map(k => 'v' + k), ...[...S.cidJan.values()].map(x => x.id)]) {
+      const j = $(selJan(id)); if (!j) continue; const cab = j.querySelector('.jan-cab, .pf-cab'); if (!cab) continue;
       let b = cab.querySelector('.jan-ext');
       if (!b) { b = j.ownerDocument.createElement('button'); b.type = 'button'; b.className = 'jan-x jan-ext'; const x = cab.querySelector('.jan-x'); cab.insertBefore(b, x || null); }
       const fora = j.classList.contains('na-ext'); b.textContent = fora ? '⇤' : '⇥'; b.title = fora ? 'Trazer esta janela de volta para a tela principal' : 'Mandar esta janela para a segunda tela'; b.setAttribute('aria-label', b.title);
@@ -1479,6 +1515,7 @@
     ajustarPadMapa(); S.mapa.redimensionar(); S.mapa.marcar();
     U.pref.apagar('tam:cid');
     for (const ctx of S.cidJan.values()) { for (const p of ['left', 'top', 'right', 'bottom', 'width', 'height', 'maxHeight', 'maxWidth']) ctx.el.style[p] = ''; ctx.el.classList.remove('redim', 'recolhida'); posicionarCidade(ctx, {}); }
+    for (const j of $$('.jan')) U.escalar(j);
     toast('Janelas flutuantes voltaram ao tamanho e à posição padrão.');
   }
   function ligarConfig() {
@@ -1527,7 +1564,7 @@
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
     $('#bt-xml').onclick = () => RT.bip.xmlExtra();
     $('#bt-ver-rom').onclick = () => janVer('rom', $('#jan-rom').hidden);
-    U.arrastavel($('#jan-rom'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:rom', p)); RT.romj.ligar();
+    U.arrastavel($('#jan-rom'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'rom', p)); RT.romj.ligar();
     $('#pend-x').onclick = () => janVer('pend', false);
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
     window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca', 'rom']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
@@ -1569,7 +1606,7 @@
     $('#pend-ordem').value = S.pend.ordem;
     $('#pend-min').addEventListener('click', () => { const j = $('#jan-pend'); const r = j.classList.toggle('recolhida'); $('#pend-min').textContent = r ? '+' : '–'; U.pref.gravar('pendMin', r); });
     $('#pend-qt').addEventListener('dblclick', () => { S.pend.mostrarTodas = !S.pend.mostrarTodas; renderPend(); toast(S.pend.mostrarTodas ? 'Mostrando também as cidades completas.' : 'Mostrando só as que ainda faltam.'); });
-    U.arrastavel($('#jan-pend'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:pend', p));
+    U.arrastavel($('#jan-pend'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'pend', p));
     if (U.pref.ler('pendMin', window.innerWidth < 860)) { $('#jan-pend').classList.add('recolhida'); $('#pend-min').textContent = '+'; }
 
     for (const id of Object.keys(JANS)) U.redimensionavel($(JANS[id]), id, $('#mapa-area'), () => { ajustarPadMapa(); S.mapa.redimensionar(); });

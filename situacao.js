@@ -131,7 +131,7 @@
       marcarEscolha(e.key === 'Enter');
     });
     $('#bt-busca').onclick = () => { const j = $('#jan-busca'); A().janVer('busca', j.hidden); if (!j.hidden) setTimeout(() => $('#busca-q').focus(), 30); };
-    U.arrastavel($('#jan-busca'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:busca', p));
+    U.arrastavel($('#jan-busca'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'busca', p));
   }
 
   /* ---------- aba Agendamentos ---------- */
