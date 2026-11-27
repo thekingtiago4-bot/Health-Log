@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.38.0';
+  const VERSAO = '0.39.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -31,7 +31,7 @@
   const corDe = id => { const c = carroPorId(id); return c ? c.cor : '#888'; };
 
   function empurrarHist(rotulo) {
-    S.hist.push({ rotulo, snap: JSON.stringify({ atrib: S.op.atrib, carros: S.op.carros, proxCarro: S.op.proxCarro, status: S.op.status || {}, agIgnorar: S.op.agIgnorar || {} }) });
+    S.hist.push({ rotulo, snap: JSON.stringify({ atrib: S.op.atrib, carros: S.op.carros, proxCarro: S.op.proxCarro, status: S.op.status || {}, agIgnorar: S.op.agIgnorar || {}, naoVai: S.op.naoVai || {} }) });
     if (S.hist.length > 60) S.hist.shift();
   }
   function mutar(rotulo, fn) {
@@ -43,7 +43,7 @@
     const h = S.hist.pop();
     if (!h) { toast('Não há nada para desfazer.'); return; }
     const s = JSON.parse(h.snap);
-    S.op.atrib = s.atrib; S.op.carros = s.carros; S.op.proxCarro = s.proxCarro; S.op.status = s.status || {}; S.op.agIgnorar = s.agIgnorar || {}; S.op.rev++;
+    S.op.atrib = s.atrib; S.op.carros = s.carros; S.op.proxCarro = s.proxCarro; S.op.status = s.status || {}; S.op.agIgnorar = s.agIgnorar || {}; S.op.naoVai = s.naoVai || {}; S.op.rev++;
     if (!carroPorId(S.carroAtivo)) S.carroAtivo = S.op.carros.length ? S.op.carros[0].id : null;
     S.ordOp = null; reindexar(); for (const x of S.cidJan.values()) resetDraftMantendoMarcas(x); salvar(); atualizarTudo();
     toast('Desfeito: ' + h.rotulo);
@@ -158,7 +158,7 @@
   }
   function atualizarTudo() {
     if (S.parede || document.documentElement.classList.contains('tem-ext')) atualizarBotoesExt();
-    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), (() => { const jb = $('#jan-busca'); return jb && !jb.hidden && RT.sit.renderBusca(); })());
+    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.romj && RT.romj.render(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), (() => { const jb = $('#jan-busca'); return jb && !jb.hidden && RT.sit.renderBusca(); })());
     if (tela !== 'rotas') renderTelaAtual();
     if (!$('#mural').hidden) renderMural();
   }
@@ -347,7 +347,7 @@
         return { cor: prim != null ? corDe(prim) : null, parcial: e.estado === 'parcial' };
       });
       const fer = ferMap && c.code != null ? ferMap.get(String(c.code)) : null;
-      return { key: c.key, nome: c.nome, uf: c.uf, lat: c.lat, lon: c.lon, code: c.code, obs: RT.obs ? RT.obs.contagem(c) : 0, fer: fer ? { n: fer.n, hoje: fer.iso === hojeIso, iso: fer.iso } : null, fora: rc.fora, estado: rc.estado, alocadas: rc.alocadas, total: rc.total, notas: rc.total, cores, clientes };
+      return { cinza: !!rc.cinza, key: c.key, nome: c.nome, uf: c.uf, lat: c.lat, lon: c.lon, code: c.code, obs: RT.obs ? RT.obs.contagem(c) : 0, fer: fer ? { n: fer.n, hoje: fer.iso === hojeIso, iso: fer.iso } : null, fora: rc.fora, estado: rc.estado, alocadas: rc.alocadas, total: rc.total, notas: rc.total, cores, clientes };
     });
   }
   function ajustarPadMapa() { const j = $('#jan-pend'); S.mapa.padEsq = (j && !j.classList.contains('recolhida') && j.offsetWidth && parseFloat(j.style.left || 12) < 120) ? j.offsetWidth + 24 : 0; }
@@ -363,10 +363,10 @@
     const t = $('#tip');
     if (!h || !S.res) { t.hidden = true; return; }
     const rc = S.res.cidades.find(x => x.cidade.key === h.key); if (!rc) { t.hidden = true; return; }
-    const tot = N.somar(rc.cidade.notas);
-    const est = { pendente: 'sem veículo', parcial: 'falta nota', completa: 'tudo em veículo' }[rc.estado] + (rc.fora ? ' · FORA DE ROTA' : '');
+    const tot = N.somar(rc.cidade.cinza ? rc.cidade.notasFora : rc.cidade.notas);
+    const est = { pendente: 'sem veículo', parcial: 'falta nota', completa: 'tudo em veículo', cinza: 'não vai hoje' }[rc.estado] + (rc.fora ? ' · FORA DE ROTA' : '');
     const carros = [...rc.porCarro.entries()].map(([id, x]) => nomeId(id) + ' (' + x.notas + ')').join(', ');
-    t.innerHTML = '<b>' + esc(rc.cidade.nome) + '/' + esc(rc.cidade.uf) + '</b> · ' + est + '<br>' + rc.cidade.listaClientes.length + ' cliente(s) · ' + tot.notas + ' nota(s) · ' + m$(tot.valor) + (carros ? '<br>' + esc(carros) : '');
+    t.innerHTML = '<b>' + esc(rc.cidade.nome) + '/' + esc(rc.cidade.uf) + '</b> · ' + est + '<br>' + (rc.cidade.cinza ? rc.cidade.listaFora : rc.cidade.listaClientes).length + ' cliente(s) · ' + tot.notas + ' nota(s) · ' + m$(tot.valor) + (carros ? '<br>' + esc(carros) : '');
     const fe = h.fer; if (fe) t.innerHTML += '<br><b style="color:#E03131">Feriado' + (fe.hoje ? ' hoje' : ' em ' + U.dataBR(fe.iso)) + ':</b> ' + esc(fe.n);
     t.hidden = false;
     const a = $('#mapa-area').getBoundingClientRect();
@@ -424,7 +424,7 @@
     const casa = rc => !q || N.norm(rc.cidade.nome).includes(q);
     const ordenar = (a, b) => ord === 'valor' ? b.livres.valor - a.livres.valor || cmp(a.cidade.nome, b.cidade.nome)
       : ord === 'volume' ? b.livres.vol - a.livres.vol || cmp(a.cidade.nome, b.cidade.nome) : cmp(a.cidade.nome, b.cidade.nome);
-    const emRota = S.res.cidades.filter(rc => !rc.fora), fora = S.res.cidades.filter(rc => rc.fora);
+    const emRota = S.res.cidades.filter(rc => !rc.fora && !rc.cinza), fora = S.res.cidades.filter(rc => rc.fora && !rc.cinza), cinzas = S.res.cidades.filter(rc => rc.cinza);
     const total = emRota.filter(rc => rc.estado !== 'completa').length;
     $('#pend-qt').textContent = String(total);
     $('#pend-qt').style.background = total ? '' : 'var(--ok)'; $('#pend-qt').style.color = total ? '' : '#fff';
@@ -450,6 +450,10 @@
       const fv = fora.reduce((t, rc) => t + N.somar(rc.cidade.notas).valor, 0);
       h += '<li class="fora-sep" style="display:block;padding:0"><button type="button" class="fora-cab" id="pend-fora-cab" aria-expanded="' + !!S.pend.foraAberto + '"><span>Fora de rota (' + fora.length + ')</span><span>' + m$(fv) + ' ' + (S.pend.foraAberto ? '▾' : '▸') + '</span></button></li>';
       if (S.pend.foraAberto) h += fora.filter(casa).sort(ordenar).map(rc => linha(rc, true)).join('');
+    }
+    if (cinzas.length) {   // cidades cujas notas todas saíram da rota de hoje (pelo Romaneio): continuam no mapa, em cinza, e dá para abrir
+      h += '<li class="fora-sep" style="display:block;padding:0"><button type="button" class="fora-cab" id="pend-nv-cab" aria-expanded="' + !!S.pend.nvAberto + '"><span>Não vão hoje (' + cinzas.length + ')</span><span>' + (S.pend.nvAberto ? '▾' : '▸') + '</span></button></li>';
+      if (S.pend.nvAberto) h += cinzas.filter(casa).map(rc => '<li class="fora" data-cid="' + esc(rc.cidade.key) + '"><span></span><span class="pt"></span><b class="cn"><span class="cn-nome">' + esc(rc.cidade.nome) + '</span><span class="tag">' + esc(rc.cidade.uf) + '</span></b><span class="n">' + rc.cidade.notasFora.length + '</span><span class="v"></span><span class="vl">' + m$(N.somar(rc.cidade.notasFora).valor) + '</span></li>').join('');
     }
     lista.innerHTML = h;
   }
@@ -489,6 +493,7 @@
       const t = e.target, a = t.closest('[data-a]');
       if (a && (a.dataset.a === 'fechar' || a.dataset.a === 'cancelar')) return fecharCidade(ctx);
       if (a && a.dataset.a === 'concluir') return concluirCidade(ctx);
+      if (a && a.dataset.a === 'abrirrom') return janVer('rom', true);
       if (a && a.dataset.a === 'forarota') return alternarFora(ctx.key);
       const oe = t.closest('[data-obs-ed]'); if (oe) { const cl = S.idx.cidades.get(ctx.key).listaClientes[+oe.dataset.obsEd]; if (cl && cl.notas.length) RT.obs.editar(cl.notas[0].id, true); return; }
       const car = t.closest('.mini-car'); if (car) return selecionarCarro(+car.dataset.car);
@@ -570,7 +575,7 @@
     else if (ctx.ordem === 'maior') clientes.sort((a, b) => vcli(b) - vcli(a) || cmp(a.nome, b.nome));
     else if (ctx.ordem === 'menor') clientes.sort((a, b) => vcli(a) - vcli(b) || cmp(a.nome, b.nome));
     jan.style.setProperty('--cor', car ? car.cor : 'var(--teal)');
-    const est = { pendente: 'Sem carro', parcial: 'Falta nota', completa: 'Completa' }[rc.estado];
+    const est = { pendente: 'Sem carro', parcial: 'Falta nota', completa: 'Completa', cinza: 'Não vai hoje' }[rc.estado];
     const sel = c.notas.filter(n => ctx.draft.has(n.id)), st = N.somar(sel), par = new Set(sel.map(N.chaveCliente)).size;
     const linhas = clientes.map(cl => {
       const e = N.estadoCliente(cl, S.op.atrib), dsp = cl.notas.filter(disponivel), nsel = dsp.filter(n => ctx.draft.has(n.id)).length;
@@ -594,6 +599,8 @@
       }
       return h + '</div>';
     }).join('');
+    const foraHtml = (c.listaFora || []).map(cl => { const t = N.somar(cl.notas); return '<div class="cli nao-vai"><div class="cli-lin"><input type="checkbox" disabled aria-label="Indisponível"><span></span><div class="cli-nome nv"><b>' + esc(cl.nome) + '</b><small>' + esc(cl.end) + (cl.num && cl.num !== '0' ? ', ' + esc(cl.num) : '') + (cl.bairro ? ' · ' + esc(cl.bairro) : '') + ' · NF ' + cl.notas.map(n => esc(n.nf)).join(', ') + '</small></div><div class="cli-num">' + m$(t.valor) + '<small>' + t.notas + ' nota' + (t.notas > 1 ? 's' : '') + ' · ' + i$(t.vol) + ' vol</small></div></div></div>'; }).join('');
+    const avisoNv = (c.notasFora && c.notasFora.length) ? '<div class="cid-nao-vai"><b>' + (c.cinza ? 'Esta cidade não vai hoje.' : c.notasFora.length + ' nota(s) não vão hoje.') + '</b> Tiradas pelo Romaneio: dá para ver, mas <b>não dá para pôr em carro</b>. <button type="button" class="lib" data-a="abrirrom">abrir Romaneios</button></div>' : '';
     jan.innerHTML =
       '<div class="jan-cab"><b>' + esc(c.nome) + ' <small class="tag">' + esc(c.uf) + '</small></b><span class="estado ' + rc.estado + '">' + est + '</span><button type="button" class="jan-x" data-a="fechar" aria-label="Fechar">✕</button></div>' +
       '<div class="cid-info"><span><b>' + c.listaClientes.length + '</b> clientes</span><span><b>' + tot.notas + '</b> notas</span><span><b>' + i$(tot.vol) + '</b> vol</span><span><b>' + m$(tot.valor) + '</b></span>' +
@@ -602,7 +609,8 @@
       '<div class="cid-ctrl">' + chipsAlvo() +
       '<select class="filtro jc-ordem" style="min-height:28px;padding:1px 6px;font-size:.78rem" aria-label="Ordenar clientes"><option value="nome"' + (ctx.ordem === 'nome' ? ' selected' : '') + '>A–Z</option><option value="vol"' + (ctx.ordem === 'vol' ? ' selected' : '') + '>Maior volume</option><option value="maior"' + (ctx.ordem === 'maior' ? ' selected' : '') + '>Maior valor</option><option value="menor"' + (ctx.ordem === 'menor' ? ' selected' : '') + '>Menor valor</option></select>' +
       '<label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" class="jc-todos" data-a="todos"' + (disp.length && selDisp === disp.length ? ' checked' : '') + (disp.length ? '' : ' disabled') + '> todos</label></div>' +
-      '<div class="cid-lista">' + (linhas || '<div class="vazio-lista">Sem clientes.</div>') + '</div>' +
+      avisoNv +
+      '<div class="cid-lista">' + (linhas || (foraHtml ? '' : '<div class="vazio-lista">Sem clientes.</div>')) + (foraHtml ? '<div class="cid-nv-tit" style="padding:6px 10px;font-size:.72rem;font-weight:700;color:var(--mudo)">NÃO VÃO HOJE (indisponíveis)</div>' + foraHtml : '') + '</div>' +
       '<div class="cid-rod"><div class="sel">' + (sel.length ? '<b>' + sel.length + '</b> nota(s) · <b>' + par + '</b> parada(s)<br><b>' + i$(st.vol) + '</b> vol · <b>' + m$(st.valor) + '</b>' : 'Marque os clientes (ou abra ▸ para escolher notas) e clique em Concluir.') + '</div>' +
       '<button type="button" class="btn" data-a="cancelar">Cancelar</button><button type="button" class="btn concluir" data-a="concluir"' + (draftSujo(ctx) && car ? '' : ' disabled') + '>Concluir' + (car ? ' → ' + N.nomeCarro(car) : '') + '</button></div>';
     atualizarBotoesExt();   // o título foi refeito: devolve o botão da segunda tela
@@ -860,13 +868,13 @@
   }
 
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
-  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca' };
+  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca', rom: '#jan-rom' };
   const posJan = id => { const p = U.pref.ler('pos:' + id, null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
   function restaurarPos(id) { const j = $(JANS[id]), p = posJan(id); if (j && p) U.posicionar(j, $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
     const j = $(JANS[id]); j.hidden = !vis; U.pref.gravar('ver:' + id, vis);
     const b = $('#bt-ver-' + id); if (b) b.setAttribute('aria-pressed', String(vis));
-    if (vis) { if (id === 'carros') renderJanCarros(); restaurarPos(id); }
+    if (vis) { if (id === 'carros') renderJanCarros(); if (id === 'rom') RT.romj.render(); restaurarPos(id); }
   }
 
   /* ================= janela de veículos e rotas ================= */
@@ -1516,9 +1524,11 @@
     $('#bt-enquadrar').onclick = e => (ajustarPadMapa(), S.mapa.enquadrar(null, e.shiftKey));
     $('#bt-ver-pend').onclick = () => janVer('pend', $('#jan-pend').hidden);
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
+    $('#bt-ver-rom').onclick = () => janVer('rom', $('#jan-rom').hidden);
+    U.arrastavel($('#jan-rom'), '.jan-cab', $('#mapa-area'), p => U.pref.gravar('pos:rom', p)); RT.romj.ligar();
     $('#pend-x').onclick = () => janVer('pend', false);
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
-    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
+    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca', 'rom']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
@@ -1544,6 +1554,7 @@
     /* painel de pendentes */
     $('#pend-lista').addEventListener('click', e => {
       const bf = e.target.closest('.bt-fora'); if (bf) { alternarFora(bf.dataset.fora); return; }
+      if (e.target.closest('#pend-nv-cab')) { S.pend.nvAberto = !S.pend.nvAberto; renderPend(); return; }
       if (e.target.closest('#pend-fora-cab')) { S.pend.foraAberto = !S.pend.foraAberto; U.pref.gravar('foraAberto', S.pend.foraAberto); renderPend(); return; }
       const pe = e.target.closest('.pend-exp'); if (pe) { e.stopPropagation(); const k = pe.dataset.exp; S.pend.expand.has(k) ? S.pend.expand.delete(k) : S.pend.expand.add(k); renderPend(); return; }
       if (e.target.closest('.pend-notas')) return;
@@ -1654,7 +1665,7 @@
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
     await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await RT.obs.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
-    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); }
+    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); janVer('rom', U.pref.ler('ver:rom', false)); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     if (S.op && !S.modoMapa && !S.soGeo) setTimeout(() => RT.obs.avisar(), 1500);   // lembra das observações do dia
     irPara(S.soGeo ? 'geo' : 'rotas');

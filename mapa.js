@@ -410,6 +410,16 @@
       for (const [code, c] of com) {
         const pl = this.poli.get(code); if (!pl) continue;
         if (pl.b[2] < x0 || pl.b[0] > x1 || pl.b[3] < y0 || pl.b[1] > y1) continue;
+        if (c.cinza) {   // todas as notas saíram da rota de hoje: cinza com listras brancas (ainda dá para clicar e ver as notas)
+          ctx.save(); ctx.clip(pl.path);
+          const alt = pl.b[3] - pl.b[1], step = 7 / k;
+          ctx.globalAlpha = comTiles ? 0.88 : 1; ctx.fillStyle = P.escuro ? '#56666B' : '#9AA7AA'; ctx.fillRect(pl.b[0], pl.b[1], pl.b[2] - pl.b[0], alt);
+          ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2.4 / k;
+          for (let x = pl.b[0] - alt; x < pl.b[2]; x += step) { ctx.beginPath(); ctx.moveTo(x, pl.b[3]); ctx.lineTo(x + alt, pl.b[1]); ctx.stroke(); }
+          ctx.restore();
+          ctx.lineWidth = (c.key === this.sel ? 2.4 : 1.2) / k; ctx.strokeStyle = c.key === this.sel ? P.tinta : '#8A979A'; ctx.stroke(pl.path);
+          continue;
+        }
         const emCarro = c.cores && c.cores.length;
         const re = this.realce; // forte | suave | nenhum: quanto as cidades do dia se destacam das demais
         if (!c.fora && !emCarro && re !== 'nenhum') { ctx.fillStyle = P.destaque; ctx.globalAlpha = comTiles ? (re === 'forte' ? (P.escuro ? 0.34 : 0.55) : (P.escuro ? 0.12 : 0.22)) : (re === 'forte' ? 1 : 0.45); ctx.fill(pl.path); ctx.globalAlpha = 1; }
@@ -677,6 +687,15 @@
     }
     _marcador(ctx, c, p, P) {
       const sel = c.key === this.sel, hov = c.key === this.hover;
+      if (c.cinza) {   // bolinha cinza com listras brancas: a cidade não vai hoje
+        const r = R_MARC - 1;
+        if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, 6.2832); ctx.fillStyle = 'rgba(160,170,175,.45)'; ctx.fill(); }
+        ctx.beginPath(); ctx.arc(p.x, p.y, r + 2, 0, 6.2832); ctx.fillStyle = P.escuro ? '#071E22' : '#fff'; ctx.fill();
+        ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.clip(); ctx.fillStyle = P.escuro ? '#56666B' : '#9AA7AA'; ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.2; for (let d = -r * 2; d < r * 2; d += 6) { ctx.beginPath(); ctx.moveTo(p.x + d - r, p.y + r); ctx.lineTo(p.x + d + r, p.y - r); ctx.stroke(); } ctx.restore();
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832); ctx.lineWidth = 2; ctx.strokeStyle = '#7d8b8f'; ctx.stroke();
+        return;
+      }
       if (c.fora) { // cidade fora de rota: bolinha cinza discreta (continua clicável)
         const r = 9.5, laranja = P.escuro ? '#FFB454' : '#C2410C';
         if (sel || hov) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, 6.2832); ctx.fillStyle = 'rgba(255,180,84,.45)'; ctx.fill(); }

@@ -243,7 +243,15 @@
   };
 
   /* Move/aloca notas para um carro (id) — ou libera (carroId = null). Mantém a lista de cidades do carro. */
+  /* "Não vai hoje": nota tirada da rota do dia pelo Romaneio. Continua na operação e na cidade (que pode ficar cinza), mas NÃO entra em carro nem nos totais da rota. */
+  N.naoVai = (op, n) => !!(op.naoVai && op.naoVai[n.id]);
+  N.marcarNaoVai = function (op, idx, ids, sim) {
+    op.naoVai = op.naoVai || {};
+    for (const id of ids) { if (sim) { op.naoVai[id] = true; delete op.atrib[id]; } else delete op.naoVai[id]; }
+    N.reorganizarCidades(op, idx); op.rev++;
+  };
   N.alocar = function (op, idx, notaIds, carroId) {
+    if (carroId != null && op.naoVai) notaIds = notaIds.filter(id => !op.naoVai[id]);
     for (const id of notaIds) {
       if (carroId == null) delete op.atrib[id]; else op.atrib[id] = carroId;
     }
@@ -392,13 +400,19 @@
         cidades.set(k, c);
       }
       const ck = N.chaveCliente(n);
+      chaveCidadeDaNota.set(n.id, k); notaPorId.set(n.id, n);
+      if (N.naoVai(op, n)) {   // tirada da rota de hoje: guardada à parte (aparece na janela da cidade como indisponível)
+        c.notasFora = c.notasFora || []; c.clientesFora = c.clientesFora || new Map();
+        let cf = c.clientesFora.get(ck);
+        if (!cf) { cf = { key: ck, nome: n.cliente, doc: n.doc, end: n.end, num: n.num, bairro: n.bairro, cep: n.cep, notas: [] }; c.clientesFora.set(ck, cf); }
+        cf.notas.push(n); c.notasFora.push(n); continue;
+      }
       let cl = c.clientes.get(ck);
       if (!cl) { cl = { key: ck, nome: n.cliente, doc: n.doc, end: n.end, num: n.num, bairro: n.bairro, cep: n.cep, notas: [] }; c.clientes.set(ck, cl); }
       cl.notas.push(n); c.notas.push(n);
-      chaveCidadeDaNota.set(n.id, k); notaPorId.set(n.id, n);
     }
     const lista = [...cidades.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-    for (const c of lista) c.listaClientes = [...c.clientes.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    for (const c of lista) { c.listaClientes = [...c.clientes.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')); c.listaFora = c.clientesFora ? [...c.clientesFora.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')) : []; c.notasFora = c.notasFora || []; c.cinza = !c.notas.length && c.notasFora.length > 0; }
     return { cidades, lista, chaveCidadeDaNota, notaPorId };
   };
 
@@ -438,6 +452,7 @@
     const fora = { cidades: 0, notas: 0, vol: 0, peso: 0, valor: 0 };
     const rota = zero(), alocRota = zero();
     for (const c of idx.lista) {
+      if (c.cinza) { cidades.push({ cidade: c, estado: 'cinza', alocadas: 0, total: 0, porCarro: new Map(), livres: zero(), paradasLivres: 0, fora: !!c.fora, cinza: true }); continue; }   // todas as notas saíram da rota de hoje
       const e = N.estadoCidade(c, atrib);
       const porCarro = new Map();
       const livres = zero(); const clientesLivres = new Set();
@@ -452,7 +467,7 @@
         cont[e.estado]++;
         for (const n of c.notas) { rota.notas++; rota.vol += n.vol; rota.peso += n.peso; rota.valor += n.valor; if (atrib[n.id] != null) { alocRota.notas++; alocRota.vol += n.vol; alocRota.peso += n.peso; alocRota.valor += n.valor; } }
       }
-      cidades.push({ cidade: c, estado: e.estado, alocadas: e.alocadas, total: e.total, porCarro, livres, paradasLivres: clientesLivres.size, fora: !!c.fora });
+      cidades.push({ cidade: c, estado: e.estado, alocadas: e.alocadas, total: e.total, porCarro, livres, paradasLivres: clientesLivres.size, fora: !!c.fora, cinza: false });
     }
     const carros = op.carros.map(car => {
       const notas = op.notas.filter(n => atrib[n.id] === car.id);

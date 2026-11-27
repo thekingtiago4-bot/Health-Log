@@ -60,6 +60,7 @@
         <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
         <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
+        <button class="btn mini" id="bt-ver-rom" type="button" title="Mostrar / esconder a janela de Romaneios de hoje (tirar cidades que não vão hoje)" aria-pressed="false">Romaneios</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a lista com TODOS os veículos e rotas" aria-pressed="false">Rotas</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
         <button class="btn mini pri" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">🌙 Final de Turno</button>
@@ -105,6 +106,11 @@
         <div class="jan jan-busca" id="jan-busca" role="dialog" aria-label="Buscar nota" hidden>
           <div class="jan-cab"><b>Buscar nota</b><button type="button" class="jan-x" id="busca-x" aria-label="Fechar">✕</button></div>
           <div class="jan-corpo"><div class="pend-filtros"><input id="busca-q" class="filtro" placeholder="NF, cliente, cidade, endereço, origem…" autocomplete="off" aria-label="Buscar nota"><select id="busca-ordem" class="filtro" aria-label="Ordem das notas" title="Atalho: clique na janela e use Ctrl+V"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div><div id="busca-res" class="busca-res"></div></div>
+        </div>
+        <!-- janela flutuante: romaneios de hoje -->
+        <div class="jan jan-rom" id="jan-rom" role="dialog" aria-label="Romaneios de hoje" hidden>
+          <div class="jan-cab"><b>Romaneios</b><span class="jan-qt" id="rom-qt">0</span><button type="button" class="jan-x" data-rm-fechar aria-label="Fechar">✕</button></div>
+          <div class="jan-corpo" id="rom-corpo"></div>
         </div>
         <!-- janela flutuante: veículos, ordem das paradas e mover notas -->
         <div class="jan jan-carros" id="jan-carros" role="dialog" aria-label="Veículos e rotas" hidden>
@@ -286,6 +292,7 @@
 <script src="bipagem.js"></script>
 <script src="situacao.js"></script>
 <script src="obs.js"></script>
+<script src="romjan.js"></script>
 <script src="romaneio.js"></script>
 <script src="turno.js"></script>
 <script src="feriados.js"></script>

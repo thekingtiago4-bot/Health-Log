@@ -502,6 +502,28 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => /observação hoje/.test(document.querySelector('#toast').textContent) && /14h/.test(document.querySelector('#toast').textContent)), 'ao abrir a operação o app avisa que há cliente com observação hoje');
   await p.evaluate(async () => { RT.obs.dados = { c: {}, n: {} }; await RT.DB.put('meta', { k: 'obs', v: RT.obs.dados }); RT.A.fecharCidade(RT.S.cidadeAberta, true); RT.A.atualizarTudo(); });
 
+  console.log('\nJanela Romaneios: tirar cidades que não vão hoje');
+  await p.click('#bt-ver-rom');
+  verdade(await p.locator('#jan-rom:not([hidden]) details.rm').count() >= 1, 'o botão Romaneios abre a janela com os romaneios de hoje');
+  const alvoRom = await p.evaluate(() => { const o = RT.S.op, idx = RT.S.idx; for (const c of idx.cidades.values()) { if (c.fora || !c.notas.length) continue; const origs = new Set(c.notas.map(n => n.origem)); if (origs.size === 1) return { k: c.key, nome: c.nome, x: [...origs][0], notas: c.notas.map(n => n.id) }; } return null; });
+  if (alvoRom) {
+    await p.evaluate(a => RT.romj.aberto.add(a.x), alvoRom); await p.evaluate(() => RT.A.atualizarTudo());
+    const car0 = await p.evaluate(a => { const c = RT.S.op.carros[0]; RT.N.alocar(RT.S.op, RT.S.idx, [a.notas[0]], c.id); RT.A.reindexar(); RT.A.atualizarTudo(); return c.id; }, alvoRom);
+    await p.locator('#jan-rom details.rm[data-x="' + alvoRom.x + '"] [data-rm-cid="' + alvoRom.k + '"]').uncheck();
+    const r1 = await p.evaluate(a => { const rc = RT.S.res.cidades.find(x => x.cidade.key === a.k); return { cinza: rc.estado === 'cinza', atrib: a.notas.some(id => RT.S.op.atrib[id] != null), nv: a.notas.every(id => RT.S.op.naoVai[id]), mapa: RT.S.mapa.porChave.get(a.k).cinza === true }; }, alvoRom);
+    verdade(r1.nv && r1.cinza && r1.mapa, 'desmarcar a cidade no romaneio a tira da rota de hoje: no mapa ela fica cinza com listras');
+    verdade(!r1.atrib, 'e as notas dela saem de qualquer carro');
+    verdade(await p.evaluate(a => !document.querySelector('#pend-lista li[data-cid="' + a.k + '"]:not(.fora)'), alvoRom), 'ela deixa de aparecer nas pendentes (fica em "Não vão hoje")');
+    await p.evaluate(a => RT.A.abrirCidade(a.k, {}), alvoRom);
+    verdade(/não vai hoje/i.test(await p.innerText('.jan-cid .cid-nao-vai')) && await p.locator('.jan-cid .cli.nao-vai').count() >= 1, 'dá para clicar na cidade e ver as notas (indisponíveis)');
+    verdade(await p.evaluate(a => { RT.N.alocar(RT.S.op, RT.S.idx, a.notas, RT.S.op.carros[0].id); return a.notas.every(id => RT.S.op.atrib[id] == null); }, alvoRom), 'mas não dá para colocar em carro');
+    verdade(await p.evaluate(() => document.querySelector('.jan-cid .cid-lista input:not([disabled])') === null), 'os campos da cidade ficam desabilitados');
+    await p.evaluate(a => RT.A.fecharCidade(a.k, true), alvoRom);
+    await p.locator('#jan-rom details.rm[data-x="' + alvoRom.x + '"] [data-rm-cid="' + alvoRom.k + '"]').check();
+    verdade(await p.evaluate(a => { const rc = RT.S.res.cidades.find(x => x.cidade.key === a.k); return rc.estado !== 'cinza' && a.notas.every(id => !RT.S.op.naoVai[id]); }, alvoRom), 'marcando de novo, a cidade volta para a rota de hoje');
+  } else verdade(true, 'amostra sem cidade de um só romaneio');
+  await p.click('#bt-ver-rom');
+
   console.log('\nAviso de rodagem mínima (400 km)');
   await p.evaluate(() => { RT.A.janVer('carros', true); });
   const kmAv = await p.evaluate(() => { const c = RT.S.op.carros.find(x => x.cidades.length); if (!c) return null; const k = RT.A.kmDe(c); return { id: c.id, km: k.km, faltam: k.faltam }; });
