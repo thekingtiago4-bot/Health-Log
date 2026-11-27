@@ -17,7 +17,7 @@
   <header class="topo">
     <div class="marca">
       <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e444b"/><stop offset="1" stop-color="#061f23"/></linearGradient><linearGradient id="lt" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2fb5ac"/><stop offset="1" stop-color="#9af5ea"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#lg)"/><path d="M19 45C19 31 30 41 33 32S45 21 45 19" fill="none" stroke="url(#lt)" stroke-width="5" stroke-linecap="round"/><circle cx="19" cy="46" r="6" fill="#fff"/><circle cx="45" cy="18" r="6" fill="#9af5ea"/></svg>
-      <div><b>Health Path</b><span>KM ida e volta · caminho mais curto</span></div>
+      <div><b>Health Path</b><span>KM ida e volta · como o Google Maps</span></div>
     </div>
     <div class="topo-bt">
       <button type="button" class="inst" id="bt-instalar" title="Instalar o Health Path neste aparelho"><span class="inst-i" aria-hidden="true">⬇</span><span id="inst-t">Instalar</span></button>
@@ -25,9 +25,11 @@
     </div>
   </header>
 
+  <div class="aviso-rede" id="aviso-rede" role="status" hidden>Sem internet. O Health Path precisa de rede: cada consulta é feita na hora, pela internet.</div>
+
   <section class="card" aria-labelledby="h-calc">
     <h1 id="h-calc">Quantos km de ida e volta?</h1>
-    <p class="sub">Escolha as duas cidades e clique em calcular. O app mostra o <b>caminho mais curto</b> de ida e de volta.</p>
+    <p class="sub">Escolha as duas cidades e clique em calcular. O app mostra os <b>km de ida e de volta</b> e o <b>tempo em carro</b>.</p>
     <form id="form" autocomplete="off" novalidate>
       <div class="par">
         <label class="campo" for="in-a"><span class="rot"><i class="pino a"></i>Cidade inicial</span>
@@ -40,6 +42,7 @@
           <ul class="sug" id="sug-b" role="listbox" hidden></ul>
         </label>
       </div>
+      <div class="modo" role="group" aria-label="Como calcular o caminho"><button type="button" data-modo="google" aria-pressed="true">Como o Google Maps</button><button type="button" data-modo="curto" aria-pressed="false">Mais curto</button></div>
       <p class="erro" id="erro" role="alert" hidden></p>
       <button type="submit" class="calc" id="bt-calc"><span class="calc-t">Calcular KM ida e volta</span><span class="calc-s" aria-hidden="true"></span></button>
     </form>
@@ -56,10 +59,10 @@
     </div>
     <div class="mapa" id="res-mapa" role="img" aria-label="Desenho do caminho"></div>
     <div class="acoes"><button type="button" class="sec" id="bt-copiar">Copiar resultado</button><button type="button" class="sec" id="bt-novo">Nova consulta</button></div>
-    <p class="nota">Os <b>km</b> são do caminho mais curto (rodovia, rua, vicinal ou estradinha). O <b>tempo em carro</b> é a média de dois serviços de rota (rota mais rápida, de carro, sem trânsito e sem parar), por isso pode ficar um pouco diferente do Google Maps, que usa o trânsito. Dados do OpenStreetMap; cada trecho vai de sede de cidade a sede de cidade.</p>
+    <p class="nota" id="nota-modo"></p>
   </section>
 
-  <footer class="rodape">Health Path · <span id="versao">v1.2.0</span> · Desenvolvido por Tiago</footer>
+  <footer class="rodape">Health Path · <span id="versao">v1.4.0</span> · Desenvolvido por Tiago</footer>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
 <script src="path.js"></script>

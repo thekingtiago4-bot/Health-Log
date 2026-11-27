@@ -82,3 +82,7 @@ h1{margin:0 0 4px;font-family:"Barlow Semi Condensed";font-weight:700;font-size:
 .inst:disabled,.inst.instalado{background:var(--sup2);border-color:var(--linha);color:var(--mudo);box-shadow:none;cursor:default;filter:grayscale(1);opacity:.85}
 .stats em{display:block;font-style:normal;color:var(--mudo);font-size:.8rem;font-weight:500}
 @media (max-width:420px){.inst-i{display:none}.inst{padding:0 12px}}
+.modo{display:flex;gap:6px;margin-top:14px;padding:4px;border-radius:12px;background:var(--sup2);border:1px solid var(--linha)}
+.modo button{flex:1;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--tinta2);font-weight:600;cursor:pointer}
+.modo button[aria-pressed="true"]{background:var(--sup);color:var(--acento);box-shadow:0 2px 8px rgba(0,0,0,.18);outline:1.5px solid var(--aqua)}
+.aviso-rede{padding:10px 14px;border-radius:12px;background:var(--noBg);color:var(--no);font-weight:600;font-size:.9rem;border:1px solid var(--no)}

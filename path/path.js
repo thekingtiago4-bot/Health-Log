@@ -1,15 +1,16 @@
 /* Health Path · KM de ida e volta entre duas cidades, pelo caminho mais curto.
    Cada trecho vai da sede de uma cidade à da outra (coordenadas do IBGE). Rota: Valhalla público do FOSSGIS (OpenStreetMap), com OSRM de reserva.
-   É ESTIMATIVA: sem trânsito e sem o percurso dentro das cidades. Nada é enviado além das coordenadas das duas sedes. */
+   É ESTIMATIVA: sem trânsito e sem o percurso dentro das cidades. Nada é enviado além das coordenadas das duas sedes.
+   PRECISA DE REDE: toda consulta é feita na hora, pela internet (nada de resultado guardado). */
 (function () {
   'use strict';
-  const VERSAO = '1.2.0';
+  const VERSAO = '1.4.0';
   const VAL = 'https://valhalla1.openstreetmap.de/route', OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
   const $ = s => document.querySelector(s);
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 /]/g, ' ').replace(/\s+/g, ' ').trim();
   const ls = { ler(k, d) { try { const v = localStorage.getItem('hp:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, gravar(k, v) { try { localStorage.setItem('hp:' + k, JSON.stringify(v)); } catch (e) { /* sem armazenamento: segue */ } } };
   const sel = { a: null, b: null };
-  let MUN = [], ocupado = false, ultimo = null;
+  let MUN = [], ocupado = false, ultimo = null, modo = ls.ler('modo', 'google') === 'curto' ? 'curto' : 'google';
 
   /* ---------- cidades ---------- */
   async function carregarCidades() {
@@ -73,10 +74,10 @@
   }
   const simplificar = (c, max) => { if (c.length <= max) return c; const p = Math.ceil(c.length / max), o = c.filter((_, i) => i % p === 0); if (o[o.length - 1] !== c[c.length - 1]) o.push(c[c.length - 1]); return o; };
   const chaveVia = (a, b) => a.lon.toFixed(4) + ',' + a.lat.toFixed(4) + ';' + b.lon.toFixed(4) + ',' + b.lat.toFixed(4);
-  async function viaValhalla(a, b) {
+  async function viaValhalla(a, b, curto = true) {
     const ac = new AbortController(), to = setTimeout(() => ac.abort(), 25000);
     try {
-      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: 1.0, use_ferry: 0.0, shortest: true, use_tracks: 0.5, use_living_streets: 0.5 } }, alternates: 2, directions_options: { units: 'kilometers', language: 'pt-BR' } };
+      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: curto ? { use_tolls: 1.0, use_ferry: 0.0, shortest: true, use_tracks: 0.5, use_living_streets: 0.5 } : { use_tolls: 1.0, use_ferry: 0.0 } }, alternates: curto ? 2 : 0, directions_options: { units: 'kilometers', language: 'pt-BR' } };
       const r = await fetch(VAL, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json' }, signal: ac.signal, redirect: 'error' });
       clearTimeout(to);
       if (r.status === 429 || r.status >= 500) return { erro: 'o serviço de rotas respondeu ' + r.status, repetir: true };
@@ -119,20 +120,25 @@
     } catch (e) { clearTimeout(to); return null; }
   }
   async function minRapido(a, b, curto) {
-    const k = 'rap2:' + chaveVia(a, b), c = ls.ler(k, null);
-    if (c && Date.now() - c.em < 30 * 24 * 3600 * 1000) return c.min;
     const v = await minValhallaRapido(a, b), o = await minOsrmRapido(a, b), l = [v, o].filter(x => x != null);
     if (!l.length) return curto.min;   // nenhum respondeu: usa o tempo do próprio caminho curto
-    const m = l.reduce((s, x) => s + x, 0) / l.length; ls.gravar(k, { min: m, em: Date.now() }); return m;
+    return l.reduce((s, x) => s + x, 0) / l.length;
   }
   const espera = ms => new Promise(r => setTimeout(r, ms));
+  /* MODO "COMO O GOOGLE MAPS": rota mais RÁPIDA (como um GPS escolhe). KM e tempo = média dos dois motores (Valhalla e OSRM), que juntos chegam bem
+     perto do Google (cada um sozinho erra para um lado). O desenho é o do Valhalla (ou do OSRM, se o outro falhar). */
+  async function trechoGoogle(a, b) {
+    const v = await viaValhalla(a, b, false), o = await viaOsrm(a, b), l = [v.ok, o].filter(Boolean);
+    if (!l.length) throw new Error(v.erro || 'falha ao calcular a rota');
+    const med = f => l.reduce((s, x) => s + x[f], 0) / l.length;
+    const r = { coords: simplificar((v.ok || o).coords, 250), km: med('km'), min: med('min'), tempo: med('min'), mv: 2, em: Date.now(), motores: l.length };
+    return r;
+  }
   async function trecho(a, b) {
-    const k = chaveVia(a, b), c = ls.ler('via:' + k, null);
-    if (c && c.mv === 1 && Date.now() - c.em < 30 * 24 * 3600 * 1000) return c;
     let ult = '';
     for (let t = 0; t < 3; t++) {
       const r = await viaValhalla(a, b);
-      if (r.ok) { const v = { coords: simplificar(r.ok.coords, 250), km: r.ok.km, min: r.ok.min, mv: 1, em: Date.now() }; ls.gravar('via:' + k, v); return v; }
+      if (r.ok) return { coords: simplificar(r.ok.coords, 250), km: r.ok.km, min: r.ok.min };
       ult = r.erro; if (r.repetir && t < 2) { await espera(t ? 4000 : 1500); continue; } break;
     }
     const o = await viaOsrm(a, b);
@@ -185,16 +191,18 @@
     if (!a) return erro($('#in-a').value.trim() ? 'Escolha a cidade inicial na lista que aparece enquanto você digita.' : 'Digite a cidade inicial.');
     if (!b) return erro($('#in-b').value.trim() ? 'Escolha a cidade final na lista que aparece enquanto você digita.' : 'Digite a cidade final.');
     if (a.code === b.code) return erro('As duas cidades são a mesma. Escolha uma cidade final diferente.');
+    if (navigator.onLine === false) return erro('Sem internet. O Health Path precisa de rede para calcular: cada consulta é feita na hora, pela internet. Conecte e tente de novo.');
     ocupado = true; const bt = $('#bt-calc'); bt.disabled = true; bt.classList.add('carregando'); $('.calc-t').textContent = 'Calculando…';
     try {
-      const ida = await trecho(a, b), volta = await trecho(b, a);
-      ida.tempo = await minRapido(a, b, ida); volta.tempo = await minRapido(b, a, volta);
+      const google = modo === 'google';
+      const ida = google ? await trechoGoogle(a, b) : await trecho(a, b), volta = google ? await trechoGoogle(b, a) : await trecho(b, a);
+      if (!google) { ida.tempo = await minRapido(a, b, ida); volta.tempo = await minRapido(b, a, volta); }
       mostrar(a, b, ida, volta); guardarRecente(a, b);
       if (ida.reserva || volta.reserva) toast('Serviço principal fora do ar: usei o reserva.');
     } catch (e) { erro('Não consegui calcular agora (' + ((e && e.message) || e) + '). Confira a internet e tente de novo.'); }
     finally { ocupado = false; bt.disabled = false; bt.classList.remove('carregando'); $('.calc-t').textContent = 'Calcular KM ida e volta'; }
   }
-  function textoCopia() { const u = ultimo; return u ? rotulo(u.a) + ' → ' + rotulo(u.b) + ' → ' + rotulo(u.a) + ': ida ' + km1(u.ida) + ' km + volta ' + km1(u.volta) + ' km = ' + km1(u.total) + ' km (caminho mais curto) · ' + tempo(u.min) + ' de carro ida e volta (sem trânsito) · Health Path' : ''; }
+  function textoCopia() { const u = ultimo; return u ? rotulo(u.a) + ' → ' + rotulo(u.b) + ' → ' + rotulo(u.a) + ': ida ' + km1(u.ida) + ' km + volta ' + km1(u.volta) + ' km = ' + km1(u.total) + ' km (' + (modo === 'curto' ? 'caminho mais curto' : 'rota mais rápida, como o Google Maps') + ') · ' + tempo(u.min) + ' de carro ida e volta (sem trânsito) · Health Path' : ''; }
   async function copiar() {
     const t = textoCopia(); if (!t) return;
     try { await navigator.clipboard.writeText(t); toast('Resultado copiado.'); }
@@ -206,6 +214,11 @@
     $('#versao').textContent = 'v' + VERSAO;
     tema(ls.ler('tema', 'escuro') === 'claro' ? 'claro' : 'escuro');
     ligarCampo('a'); ligarCampo('b');
+    const rede = () => { const off = navigator.onLine === false; $('#aviso-rede').hidden = !off; };
+    window.addEventListener('online', rede); window.addEventListener('offline', rede); rede();
+    const pintarModo = () => { for (const bt of document.querySelectorAll('[data-modo]')) bt.setAttribute('aria-pressed', String(bt.dataset.modo === modo)); const n = $('#nota-modo'); if (n) n.innerHTML = modo === 'curto' ? 'Os <b>km</b> são do caminho mais curto (rodovia, rua, vicinal ou estradinha). O <b>tempo em carro</b> é a média de dois serviços de rota pela rota mais rápida, sem trânsito.' : 'Rota <b>mais rápida</b>, como um GPS escolhe. <b>Km e tempo</b> são a média de dois serviços de rota (Valhalla e OSRM), sem trânsito e sem parar; por isso ficam perto do Google Maps, que ainda usa o trânsito.'; };
+    for (const bt of document.querySelectorAll('[data-modo]')) bt.onclick = () => { if (modo === bt.dataset.modo) return; modo = bt.dataset.modo; ls.gravar('modo', modo); pintarModo(); if (!$('#res').hidden && sel.a && sel.b) calcular(); };
+    pintarModo();
     $('#form').addEventListener('submit', e => { e.preventDefault(); calcular(); });
     $('#bt-tema').onclick = () => tema(document.documentElement.getAttribute('data-tema') === 'claro' ? 'escuro' : 'claro');
     $('#bt-troca').onclick = () => { const t = sel.a, v = $('#in-a').value; sel.a = sel.b; sel.b = t; $('#in-a').value = $('#in-b').value; $('#in-b').value = v; limparErro(); };
@@ -227,7 +240,7 @@
     renderRecentes();
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => { /* sem offline: segue */ });
     $('#in-a').focus();
-    window.HP = { sel, calcular, achar, textoCopia, get ultimo() { return ultimo; } };
+    window.HP = { sel, calcular, achar, textoCopia, get modo() { return modo; }, get ultimo() { return ultimo; } };
   }
   document.addEventListener('DOMContentLoaded', iniciar);
 })();
