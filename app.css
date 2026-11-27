@@ -804,3 +804,18 @@ details.rm .rm-qt.parcial{background:var(--amarBg);color:var(--amarTxt)}
 .jan{--bw:380px}.jan-cid{--bw:430px}.jan-busca{--bw:470px}.jan-veic{--bw:390px}
 .jan>*:not(.jan-rz){zoom:var(--z,1)}
 #pop-focar{--bw:340px}#pop-focar>*{zoom:var(--z,1)}
+
+/* janela KM das rotas */
+.jan-km{width:400px;left:330px;top:70px;max-height:min(75%,620px)}
+.jan-km .jan-corpo{overflow:auto;padding:0 0 6px}
+.km-tot{margin:8px 10px;padding:10px 14px;border-radius:12px;background:var(--tealBg);border:1px solid var(--linha)}
+.km-tot small{display:block;color:var(--mudo);font-size:.7rem;font-weight:700;letter-spacing:.06em}
+.km-tot b{font-family:"Barlow Semi Condensed";font-size:2.4rem;line-height:1.05;color:var(--acento)}.km-tot b span{font-size:1rem;color:var(--mudo)}
+.km-prog{margin:4px 10px;font-size:.78rem;color:var(--mudo);display:flex;gap:8px;align-items:center}
+.km-prog i{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--aqua);border-right-color:transparent;animation:gira 1s linear infinite;display:inline-block}
+@keyframes gira{to{transform:rotate(360deg)}}
+.km-tab{width:calc(100% - 20px);margin:6px 10px;border-collapse:collapse;font-size:.84rem}
+.km-tab th{text-align:left;color:var(--mudo);font-size:.7rem;text-transform:uppercase;padding:3px 4px}
+.km-tab td,.km-tab th{padding:5px 4px;border-bottom:1px solid var(--linha2)}.km-tab .d{text-align:right;white-space:nowrap}
+.km-pt{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--cor);margin-right:7px}
+.f-blk tr.km td{font-weight:700}

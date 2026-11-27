@@ -9,13 +9,14 @@
   const RT = (g.RT = g.RT || {});
   const VAL = 'https://valhalla1.openstreetmap.de/route';
   const OSRM = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/';
-  const TESTE = !!g.__HR_TESTE, MV = 4;   // MV = versão do formato guardado (3 = Valhalla menor distância, com pedágio)
+  const TESTE = !!g.__HR_TESTE, MV = 5;   // MV = versão do formato guardado (3 = Valhalla menor distância, com pedágio)
   const V = RT.vias = {
     intervalo: TESTE ? 0 : 1100, esperas: TESTE ? [0, 0, 0] : [2000, 5000, 10000], validade: 30 * 24 * 3600 * 1000,
     mem: new Map(), fila: [], rodando: false, ultimo: 0, falhas: 0, ultimoErro: '', aoChegar: null, total: 0, feitos: 0,
-    evitar: false                                                                   // true = "Evitar pedágio"
+    evitar: false,                                                                  // true = "Evitar pedágio"
+    modo: 'google'                                                                  // 'google' = rota mais rápida, km e tempo = média Valhalla+OSRM (como o Google Maps) · 'curto' = caminho mais curto
   };
-  const sufixo = () => (V.evitar ? '#sempedagio' : '');
+  const sufixo = () => (V.modo === 'google' ? '#g' : '') + (V.evitar ? '#sempedagio' : '');
   V.chave = (a, b) => a.lon.toFixed(4) + ',' + a.lat.toFixed(4) + ';' + b.lon.toFixed(4) + ',' + b.lat.toFixed(4) + sufixo();
   V.igual = (a, b) => Math.abs(a.lon - b.lon) < 1e-4 && Math.abs(a.lat - b.lat) < 1e-4;
   V.pendentes = () => V.fila.length + (V.rodando ? 1 : 0);
@@ -39,9 +40,10 @@
   const refDe = nome => { const m = /^([A-Z]{2,3})[\s-]?(\d{1,4})/.exec(String(nome || '').trim().toUpperCase()); return m ? m[1] + '-' + m[2].padStart(m[1] === 'BR' ? 3 : 0, '0') : ''; };
 
   async function viaValhalla(a, b) {
+    const curto = V.modo === 'curto';
     const ac = new AbortController(), to = setTimeout(() => ac.abort(), 25000);
     try {
-      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: { use_tolls: V.evitar ? 0.0 : 1.0, use_ferry: 0.0, shortest: true, use_tracks: 0.5, use_living_streets: 0.5 } }, alternates: 2, directions_options: { units: 'kilometers', language: 'pt-BR' } };   // sem forçar rodovia (isso alongava o caminho); pede alternativas para escolher a mais curta
+      const corpo = { locations: [{ lon: a.lon, lat: a.lat }, { lon: b.lon, lat: b.lat }], costing: 'auto', costing_options: { auto: curto ? { use_tolls: V.evitar ? 0.0 : 1.0, use_ferry: 0.0, shortest: true, use_tracks: 0.5, use_living_streets: 0.5 } : { use_tolls: V.evitar ? 0.0 : 1.0, use_ferry: 0.0 } }, alternates: curto ? 2 : 0, directions_options: { units: 'kilometers', language: 'pt-BR' } };   // sem forçar rodovia (isso alongava o caminho); pede alternativas para escolher a mais curta
       const r = await fetch(VAL, { method: 'POST', body: JSON.stringify(corpo), headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'health-log' }, signal: ac.signal, redirect: 'error' });
       clearTimeout(to);
       if (r.status === 429 || r.status >= 500) return { erro: 'o serviço de rotas respondeu ' + r.status, repetir: true };
@@ -63,6 +65,7 @@
       const cand = [monta(j && j.trip), ...((j && j.alternates) || []).map(a => monta(a && a.trip))].filter(Boolean);
       if (!cand.length) return { erro: 'resposta do serviço de rotas inválida' };
       /* caminho mais DIRETO: menor distância (shortest), passando por estradas menores; só descarta opção que leve mais que o dobro do tempo da mais rápida */
+      if (!curto) return { ok: cand[0] };   // modo Google: a rota mais rápida que o próprio serviço escolhe
       const rapida = Math.min(...cand.map(c => c.min)), ok = cand.filter(c => c.min <= rapida * 2).sort((a, b) => a.km - b.km)[0];
       return { ok };
     } catch (e) { clearTimeout(to); return { erro: navigator.onLine === false ? 'sem internet' : 'não consegui falar com o serviço de rotas', repetir: true }; }
@@ -93,6 +96,15 @@
     if (!V.evitar) { const o = await viaOsrm(a, b); if (o) return { ok: o, reserva: true }; }   // Valhalla fora do ar: OSRM salva o desenho e o KM (sem pedágio)
     return { erro: ult || 'falha ao calcular a rota' };
   }
+  /* MODO GOOGLE: KM e tempo = média da rota mais rápida do Valhalla e do OSRM (um erra para cima, o outro para baixo; juntos chegam perto do Google Maps).
+     Desenho, rodovias e pedágio vêm do Valhalla. "Evitar pedágio" só existe no Valhalla (o OSRM não sabe), então nesse caso não entra na média. */
+  async function pedirGoogle(a, b) {
+    const r = await pedirRede(a, b);
+    if (!r.ok || r.reserva || V.evitar) return r;
+    const o = await viaOsrm(a, b);
+    if (o) { const m = Object.assign({}, r.ok, { km: (r.ok.km + o.km) / 2, min: (r.ok.min + o.min) / 2, motores: 2 }); return { ok: m }; }
+    return r;
+  }
   async function rodar() {
     if (V.rodando) return; V.rodando = true;
     while (V.fila.length) {
@@ -101,7 +113,7 @@
       let v = await doCache(it.k), r = null;
       if (v) r = { ok: v };
       else {
-        r = await pedirRede(it.a, it.b);
+        r = V.modo === 'google' ? await pedirGoogle(it.a, it.b) : await pedirRede(it.a, it.b);
         if (r.ok) { V.falhas = 0; V.ultimoErro = ''; if (!r.reserva) RT.DB.put('meta', { k: 'via:' + it.k, v: r.ok }).catch(() => { }); } else { V.falhas++; V.ultimoErro = r.erro; }
       }
       V.mem.set(it.k, r.ok ? { ok: r.ok } : { erro: r.erro, em: Date.now() });
@@ -122,4 +134,5 @@
   };
   /* liga/desliga "evitar pedágio": os trechos já calculados de cada modo ficam guardados separadamente */
   V.definirEvitar = function (v) { V.evitar = !!v; V.fila.length = 0; };
+  V.definirModo = function (m) { V.modo = m === 'curto' ? 'curto' : 'google'; V.fila.length = 0; };   // trechos de cada modo ficam guardados separados
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -61,6 +61,7 @@
         <button class="btn mini pri" id="bt-xml" type="button" title="Bipar uma nota que não está nos XMLs: ela entra no ROMANEIO - EXTRA com os dados do Meu Danfe">XML</button>
         <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
+        <button class="btn mini pri" id="bt-ver-km" type="button" title="Janela com o KM de cada rota (calcula sozinha) e o KM Total" aria-pressed="false">KM</button>
         <button class="btn mini" id="bt-ver-rom" type="button" title="Mostrar / esconder a janela de Romaneios de hoje (tirar cidades que não vão hoje)" aria-pressed="false">Romaneios</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a lista com TODOS os veículos e rotas" aria-pressed="false">Rotas</button>
         <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
@@ -107,6 +108,11 @@
         <div class="jan jan-busca" id="jan-busca" role="dialog" aria-label="Buscar nota" hidden>
           <div class="jan-cab"><b>Buscar nota</b><button type="button" class="jan-x" id="busca-x" aria-label="Fechar">✕</button></div>
           <div class="jan-corpo"><div class="pend-filtros"><input id="busca-q" class="filtro" placeholder="NF, cliente, cidade, endereço, origem…" autocomplete="off" aria-label="Buscar nota"><select id="busca-ordem" class="filtro" aria-label="Ordem das notas" title="Atalho: clique na janela e use Ctrl+V"><option value="nome">A–Z</option><option value="volume">Maior volume</option><option value="valor">Maior valor</option></select></div><div id="busca-res" class="busca-res"></div></div>
+        </div>
+        <!-- janela flutuante: KM das rotas -->
+        <div class="jan jan-km" id="jan-km" role="dialog" aria-label="KM das rotas" hidden>
+          <div class="jan-cab"><b>KM das rotas</b><span class="jan-qt" id="km-qt">0</span><button type="button" class="jan-x" data-km-fechar aria-label="Fechar">✕</button></div>
+          <div class="jan-corpo" id="km-corpo"></div>
         </div>
         <!-- janela flutuante: romaneios de hoje -->
         <div class="jan jan-rom" id="jan-rom" role="dialog" aria-label="Romaneios de hoje" hidden>
@@ -196,6 +202,11 @@
         <h2>Tema</h2>
         <p class="sub" style="margin-bottom:10px">Cores da tela. O tema escuro é o padrão.</p>
         <label class="chave"><input type="checkbox" role="switch" id="cfg-tema" data-on="Sim" data-off="Não" checked><span class="trilho" aria-hidden="true"></span><span class="chave-rot">Tema escuro</span><span class="chave-est"></span></label>
+      </div>
+      <div class="cfg-card">
+        <h2>Cálculo do KM</h2>
+        <p class="sub" style="margin-bottom:10px"><b>Como o Google Maps</b> (padrão): a rota mais rápida, com KM e tempo pela média de dois serviços de rota, bem perto do Google. <b>Caminho mais curto</b>: a menor distância, aceitando estradinha e vicinal. Sempre sem trânsito.</p>
+        <div class="botoes-linha" role="group" aria-label="Cálculo do KM"><button class="btn" id="cfg-km-google" type="button" aria-pressed="true">Como o Google Maps</button><button class="btn" id="cfg-km-curto" type="button" aria-pressed="false">Caminho mais curto</button></div>
       </div>
       <div class="cfg-card">
         <h2>Visual do mapa</h2>
@@ -294,6 +305,7 @@
 <script src="situacao.js"></script>
 <script src="obs.js"></script>
 <script src="romjan.js"></script>
+<script src="kmjan.js"></script>
 <script src="romaneio.js"></script>
 <script src="turno.js"></script>
 <script src="feriados.js"></script>

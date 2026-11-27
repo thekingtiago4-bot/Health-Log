@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.41.0';
+  const VERSAO = '0.42.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -158,7 +158,7 @@
   }
   function atualizarTudo() {
     if (S.parede || document.documentElement.classList.contains('tem-ext')) atualizarBotoesExt();
-    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.romj && RT.romj.render(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), (() => { const jb = $('#jan-busca'); return jb && !jb.hidden && RT.sit.renderBusca(); })());
+    desenharFocar(); renderRail(); renderCarros(); atualizarMapa(); renderPend(); renderJanCidade(); renderJanCarros(); RT.romj && RT.romj.render(); RT.kmj && RT.kmj.render(); RT.rom && RT.rom.badge(); RT.sit && (RT.sit.contadores(), (() => { const jb = $('#jan-busca'); return jb && !jb.hidden && RT.sit.renderBusca(); })());
     if (tela !== 'rotas') renderTelaAtual();
     if (!$('#mural').hidden) renderMural();
   }
@@ -726,9 +726,11 @@
       h += '<div class="f-blk"><table><tr><th class="lbl"></th>' + cel(c => esc((c.carro.motorista || N.nomeCarro(c.carro)).toUpperCase()), 'th') + '</tr>' +
         '<tr><td class="lbl"></td>' + bl.map(c => '<td class="cidades">' + c.cidades.map(x => esc(N.norm(x.nome))).join('<br>') + '</td>').concat(pad('<td class="cidades"></td>')).join('') + '</tr>' +
         '<tr class="vol"><td class="lbl">VOLUMES</td>' + cel(c => i$(c.vol)) + '</tr><tr class="par"><td class="lbl">PARADAS</td>' + cel(c => c.paradas) + '</tr>' +
-        '<tr class="val"><td class="lbl">VALOR</td>' + cel(c => m$(c.valor)) + '</tr></table></div>';
+        '<tr class="val"><td class="lbl">VALOR</td>' + cel(c => m$(c.valor)) + '</tr>' +
+        '<tr class="km"><td class="lbl">KM TOTAL</td>' + cel(c => { const k = kmDe(c.carro); return k.n ? (k.faltam ? '…' : Math.round(k.km).toLocaleString('pt-BR') + ' km') : '—'; }) + '</tr></table></div>';
     }
-    h += '<div class="f-tot"><div>TOTAL (' + cars.length + ' rotas)</div><div>VOLUMES: ' + i$(tot.vol) + '</div><div>PARADAS: ' + i$(tot.par) + '</div><div>VALOR: ' + m$(tot.val) + '</div></div></div>';
+    const kt = RT.kmj.total();
+    h += '<div class="f-tot"><div>TOTAL (' + cars.length + ' rotas)</div><div>VOLUMES: ' + i$(tot.vol) + '</div><div>PARADAS: ' + i$(tot.par) + '</div><div>VALOR: ' + m$(tot.val) + '</div><div>KM TOTAL: ' + (kt.faltam ? '…' : Math.round(kt.km).toLocaleString('pt-BR') + ' km') + '</div></div></div>';
     box.innerHTML = h;
   }
 
@@ -894,13 +896,13 @@
   }
 
   /* ================= janelas flutuantes: a posição fica onde você deixou ================= */
-  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca', rom: '#jan-rom' };
+  const JANS = { pend: '#jan-pend', carros: '#jan-carros', busca: '#jan-busca', rom: '#jan-rom', km: '#jan-km' };
   const posJan = id => { const p = U.pref.ler('pos:' + id, null); return p && isFinite(p.x) && isFinite(p.y) ? p : null; };
   function restaurarPos(id) { const j = $(JANS[id]); if (!j) return; const p = U.pref.ler('pos:' + (j.classList.contains('na-ext') ? 'ext:' : '') + id, null); if (p && isFinite(p.x) && isFinite(p.y)) U.posicionar(j, j.parentElement || $('#mapa-area'), p.x, p.y); }
   function janVer(id, vis) {
     const j = $(JANS[id]); j.hidden = !vis; U.pref.gravar('ver:' + id, vis);
     const b = $('#bt-ver-' + id); if (b) b.setAttribute('aria-pressed', String(vis));
-    if (vis) { if (id === 'carros') renderJanCarros(); if (id === 'rom') RT.romj.render(); restaurarPos(id); }
+    if (vis) { if (id === 'carros') renderJanCarros(); if (id === 'rom') RT.romj.render(); if (id === 'km') { atualizarVias(); RT.kmj.render(); } restaurarPos(id); }
   }
 
   /* ================= janela de veículos e rotas ================= */
@@ -1444,6 +1446,12 @@
   /* mapa de fundo das ROTAS: "Ruas" = mapa de ruas completo, com todas as estradas, sinais e nomes (padrão) · "Rodoviário" = nosso estilo limpo só de rodovias */
   const fundoRotas = () => 'ruas';   // fundo fixo: mapa de ruas COMPLETO (Esri: todas as estradas, sinais e nomes), sem botão de escolha
   const visualMapa = () => (U.pref.ler('visualMapa', 'padrao') === 'simplificado' ? 'simplificado' : 'padrao');
+  const kmModo = () => (U.pref.ler('kmModo', 'google') === 'curto' ? 'curto' : 'google');
+  function aplicarKmModo(refazer) {
+    const m = kmModo(); RT.vias.definirModo(m);
+    const g = $('#cfg-km-google'), c = $('#cfg-km-curto'); if (g) g.setAttribute('aria-pressed', String(m === 'google')); if (c) c.setAttribute('aria-pressed', String(m === 'curto'));
+    if (refazer && S.mapa) { S.mapa.pernas.clear(); atualizarVias(); atualizarTudo(); }
+  }
   function aplicarVisualMapa() {
     const v = visualMapa(); if (S.mapa) S.mapa.setSimples(v === 'simplificado');
     const p = $('#cfg-vis-padrao'), s = $('#cfg-vis-simples'); if (p) p.setAttribute('aria-pressed', String(v === 'padrao')); if (s) s.setAttribute('aria-pressed', String(v === 'simplificado'));
@@ -1495,7 +1503,7 @@
   function rotuloChave(el) { const e = el.closest('.chave'); if (e) e.querySelector('.chave-est').textContent = el.checked ? el.dataset.on : el.dataset.off; }
   function renderConfig() {
     $('#cfg-tema').checked = document.documentElement.getAttribute('data-tema') !== 'claro';
-    $('#cfg-anim').checked = !S.cfg.rotaFixa; aplicarVisualMapa();
+    $('#cfg-anim').checked = !S.cfg.rotaFixa; aplicarVisualMapa(); aplicarKmModo(false);
     $('#cfg-som').checked = U.som.ligado();
     for (const c of $$('.chave input')) rotuloChave(c);
     $('#cfg-md').value = '';
@@ -1523,6 +1531,7 @@
     $('#cfg-tema').onchange = e => { const t = e.target.checked ? 'escuro' : 'claro'; U.pref.gravar('tema', t); aplicarTemaPara(t); rotuloChave(e.target); enviar({ t: 'tema' }); };
     $('#cfg-som-ok').onclick = () => U.som('ok', true); $('#cfg-som-pop').onclick = () => U.som('popup', true);
     $('#cfg-jan-reset').onclick = async () => { if (await U.confirmar('Resetar janelas flutuantes?', 'Todas as janelas (cidades pendentes, veículos, busca e clientes da cidade) voltam ao tamanho e ao lugar de fábrica. Seus dados não mudam.', 'Resetar')) resetarJanelas(); };
+    for (const [id, v] of [['cfg-km-google', 'google'], ['cfg-km-curto', 'curto']]) $('#' + id).onclick = () => { U.pref.gravar('kmModo', v); aplicarKmModo(true); toast(v === 'curto' ? 'KM pelo caminho mais curto.' : 'KM como o Google Maps (rota mais rápida).'); };
     for (const [id, v] of [['cfg-vis-padrao', 'padrao'], ['cfg-vis-simples', 'simplificado']]) $('#' + id).onclick = () => { U.pref.gravar('visualMapa', v); aplicarVisualMapa(); enviar({ t: 'tema' }); toast(v === 'simplificado' ? 'Mapa simplificado: só as bolinhas e os caminhos.' : 'Mapa padrão: cidades com destaque.'); };
     $('#cfg-anim').onchange = e => { S.cfg.rotaFixa = !e.target.checked; rotuloChave(e.target); salvarCfg(); toast(S.cfg.rotaFixa ? 'Linha da rota desligada: fica inteira e parada.' : 'Linha da rota em movimento.'); };
     $('#cfg-base-ok').onclick = () => {
@@ -1564,10 +1573,12 @@
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
     $('#bt-xml').onclick = () => RT.bip.xmlExtra();
     $('#bt-ver-rom').onclick = () => janVer('rom', $('#jan-rom').hidden);
+    $('#bt-ver-km').onclick = () => janVer('km', $('#jan-km').hidden);
+    U.arrastavel($('#jan-km'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'km', p)); RT.kmj.ligar();
     U.arrastavel($('#jan-rom'), '.jan-cab', $('#mapa-area'), (p, ext) => U.pref.gravar('pos:' + (ext ? 'ext:' : '') + 'rom', p)); RT.romj.ligar();
     $('#pend-x').onclick = () => janVer('pend', false);
     ligarJanCarros(); ligarGeo(); ligarConfig(); RT.sit.ligar(); RT.rom.ligar();
-    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca', 'rom']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
+    window.addEventListener('resize', () => { for (const id of ['pend', 'carros', 'busca', 'rom', 'km']) { const j = $(JANS[id]); if (j && !j.hidden && j.style.left) U.posicionar(j, $('#mapa-area'), parseFloat(j.style.left), parseFloat(j.style.top)); } });
     $('#aviso-fora').onclick = () => { ajustarPadMapa(); S.mapa.enquadrar(null, true); };
     const REAL = ['forte', 'suave', 'nenhum'], rotuloReal = v => 'Realce: ' + v;
     $('#bt-realce').onclick = () => { const v = REAL[(REAL.indexOf(S.mapa.realce) + 1) % 3]; U.pref.gravar('realce', v); S.mapa.setRealce(v); $('#bt-realce').textContent = rotuloReal(v); };
@@ -1683,7 +1694,7 @@
       onHover: (h, e) => tip(h, e), onMover: () => { $('#tip').hidden = true; },
       onFora: nomes => { const b = $('#aviso-fora'); b.hidden = !nomes.length; b.textContent = nomes.length ? '+' + nomes.length + ' fora do quadro: ' + nomes.slice(0, 2).join(', ') + (nomes.length > 2 ? '…' : '') : ''; }
     }, { fundo: fundoRotas() });
-    RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); } };
+    RT.vias.aoChegar = (k, p) => { if (k && p) S.mapa.setPerna(k, p); statusVias(); RT.kmj.render(); if (!k || (RT.vias.fila.length % 5 === 0)) { renderCarros(); renderJanCarros(); if (tela === 'folha') renderFolha(); } };
     ligar(); ligarCanal();
     if (S.modoMapa) { document.body.classList.add('modo-mapa'); document.title = 'Health Log. · Mapa'; } else if (S.soGeo) { document.body.classList.add('so-geo'); document.title = 'Health Log. · Geolocalização'; } else muralAbrir(); // o mural aparece atrás da animação de abertura, como no Health Search
     const okDb = await DB.abrir();
@@ -1704,7 +1715,7 @@
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
     await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await RT.obs.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
-    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); janVer('rom', U.pref.ler('ver:rom', false)); }
+    if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); janVer('rom', U.pref.ler('ver:rom', false)); janVer('km', U.pref.ler('ver:km', false)); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     if (S.op && !S.modoMapa && !S.soGeo) setTimeout(() => RT.obs.avisar(), 1500);   // lembra das observações do dia
     irPara(S.soGeo ? 'geo' : 'rotas');
@@ -1712,7 +1723,7 @@
     await malha; S.mapa.marcar();
     aplicarBase();
     { const re = U.pref.ler('realce', 'suave'); S.mapa.setRealce(re); $('#bt-realce').textContent = 'Realce: ' + re; }
-    aplicarVisualMapa(); S.mapa.setVias(true); atualizarVias();   // rotas sempre pelas rodovias, no caminho mais curto
+    aplicarKmModo(false); aplicarVisualMapa(); S.mapa.setVias(true); atualizarVias();   // rotas sempre pelas rodovias, no caminho mais curto
     S.mapa.setEstradas(true);
     if (S.mun) { const rota = new Set(); for (const r of ((S.reg && S.reg.regioes) || [])) if (r.grupo !== 'fora') for (const c of r.cidades) rota.add(String(c)); S.mapa.setTodas(Object.entries(S.mun).map(([c, v]) => ({ code: c, nome: v[0], lat: v[2], lon: v[3], pri: rota.has(c) ? 1 : 0 })).sort((x, y) => y.pri - x.pri || x.nome.length - y.nome.length)); }
     if (S.op && tela === 'rotas') { ajustarPadMapa(); S.mapa.enquadrar(); S.precisaEnquadrar = false; }
@@ -1726,6 +1737,6 @@
     }
     RT.pronto = true;
   }
-  RT.A = { kmDe, abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { atualizarVias, kmDe, abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();
