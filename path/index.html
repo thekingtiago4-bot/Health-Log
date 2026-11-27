@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR" data-tema="escuro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://valhalla1.openstreetmap.de https://routing.openstreetmap.de; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Health Path · KM ida e volta</title>
+<meta name="description" content="Health Path: KM de ida e volta entre duas cidades, pelo caminho mais curto.">
+<meta name="theme-color" content="#071E22">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icone.svg">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="path.css">
+</head>
+<body>
+<main class="app">
+  <header class="topo">
+    <div class="marca">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e444b"/><stop offset="1" stop-color="#061f23"/></linearGradient><linearGradient id="lt" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2fb5ac"/><stop offset="1" stop-color="#9af5ea"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#lg)"/><path d="M19 45C19 31 30 41 33 32S45 21 45 19" fill="none" stroke="url(#lt)" stroke-width="5" stroke-linecap="round"/><circle cx="19" cy="46" r="6" fill="#fff"/><circle cx="45" cy="18" r="6" fill="#9af5ea"/></svg>
+      <div><b>Health Path</b><span>KM ida e volta · caminho mais curto</span></div>
+    </div>
+    <div class="topo-bt">
+      <button type="button" class="ic-bt" id="bt-instalar" hidden title="Instalar o aplicativo" aria-label="Instalar o aplicativo">⬇</button>
+      <button type="button" class="ic-bt" id="bt-tema" title="Trocar tema (claro/escuro)" aria-label="Trocar tema">◐</button>
+    </div>
+  </header>
+
+  <section class="card" aria-labelledby="h-calc">
+    <h1 id="h-calc">Quantos km de ida e volta?</h1>
+    <p class="sub">Escolha as duas cidades e clique em calcular. O app mostra o <b>caminho mais curto</b> de ida e de volta.</p>
+    <form id="form" autocomplete="off" novalidate>
+      <div class="par">
+        <label class="campo" for="in-a"><span class="rot"><i class="pino a"></i>Cidade inicial</span>
+          <input id="in-a" type="text" inputmode="search" placeholder="Ex.: Araraquara" autocapitalize="words" spellcheck="false" aria-autocomplete="list" aria-controls="sug-a" role="combobox" aria-expanded="false">
+          <ul class="sug" id="sug-a" role="listbox" hidden></ul>
+        </label>
+        <button type="button" class="troca" id="bt-troca" title="Inverter as cidades" aria-label="Inverter as cidades">⇅</button>
+        <label class="campo" for="in-b"><span class="rot"><i class="pino b"></i>Cidade final</span>
+          <input id="in-b" type="text" inputmode="search" placeholder="Ex.: Bauru" autocapitalize="words" spellcheck="false" aria-autocomplete="list" aria-controls="sug-b" role="combobox" aria-expanded="false">
+          <ul class="sug" id="sug-b" role="listbox" hidden></ul>
+        </label>
+      </div>
+      <p class="erro" id="erro" role="alert" hidden></p>
+      <button type="submit" class="calc" id="bt-calc"><span class="calc-t">Calcular KM ida e volta</span><span class="calc-s" aria-hidden="true"></span></button>
+    </form>
+    <div class="recentes" id="recentes" hidden><span>Recentes</span><div id="rec-lista"></div></div>
+  </section>
+
+  <section class="card res" id="res" aria-live="polite" hidden>
+    <div class="res-topo"><span class="rota" id="res-rota"></span></div>
+    <div class="total"><b id="res-total">0</b><span>km · ida e volta</span></div>
+    <div class="stats">
+      <div><small>Ida</small><b id="res-ida">0 km</b></div>
+      <div><small>Volta</small><b id="res-volta">0 km</b></div>
+      <div><small>Tempo (ida e volta)</small><b id="res-tempo">—</b></div>
+    </div>
+    <div class="mapa" id="res-mapa" role="img" aria-label="Desenho do caminho"></div>
+    <div class="acoes"><button type="button" class="sec" id="bt-copiar">Copiar resultado</button><button type="button" class="sec" id="bt-novo">Nova consulta</button></div>
+    <p class="nota">Estimativa pelo caminho mais curto (rodovia, rua, vicinal ou estradinha), dados do OpenStreetMap, sem trânsito e sem o percurso dentro das cidades. Cada trecho vai de sede de cidade a sede de cidade.</p>
+  </section>
+
+  <footer class="rodape">Health Path · <span id="versao">v1.0.0</span> · Desenvolvido por Tiago</footer>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="path.js"></script>
+</body>
+</html>
