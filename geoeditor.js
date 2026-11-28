@@ -9,6 +9,7 @@
   const G = () => RT.G;
   const CORES = ['#2A9D8F', '#E07A1F', '#7B5CC4', '#D1495B', '#3A86C8', '#4C9A2A', '#137F7A', '#3D5A80', '#B5651D', '#C2185B', '#00838F', '#6D4C41', '#7CB342', '#5E35B1'];
   const NF = '-';                                       // "Não fazemos"
+  const ESQV = '~';                                     // marca guardada em aprend: cidade "esquecida"
   const ESQ = '__esquecer';                             // "Esquecer": a cidade deixa de ser de qualquer lista e volta à cor normal (não vira cinza)
   const ED = (RT.ged = { on: false, pts: [], dentro: new Set(), alvo: '', soLivres: true, desfazer: null });
   const tipo = () => G().S.geo.tipo, tipoN = () => (tipo() === 'base' ? 'base' : 'região');
@@ -39,7 +40,7 @@
       '<label class="ged-l">Aplicar em<select id="ged-alvo"><option value="">— escolha a ' + tipoN() + ' —</option>' + ls.map(l => '<option value="' + esc(l.id) + '"' + (l.id === ED.alvo ? ' selected' : '') + '>' + esc(l.nome) + '</option>').join('') +
       '<option value="__nova"' + (ED.alvo === '__nova' ? ' selected' : '') + '>+ Nova ' + tipoN() + '…</option><option value="' + NF + '"' + (ED.alvo === NF ? ' selected' : '') + '>⛔ Não fazemos — clique na cidade (' + nNf + ')</option><option value="' + ESQ + '"' + (ED.alvo === ESQ ? ' selected' : '') + '>🧹 Esquecer — clique na cidade (volta à cor normal)</option></select></label>' +
       (ED.alvo === '__nova' ? '<label class="ged-l">Nome da nova ' + tipoN() + '<input id="ged-novo" class="filtro" placeholder="Ex.: Bauru e Região" autocomplete="off"></label>' : '') +
-      (ED.alvo === ESQ ? '<p class="ged-info">Modo “Esquecer”: cada clique numa cidade a <b>tira de qualquer lista e de qualquer etiqueta</b> desta camada. Ela não é nossa, mas <b>fica na cor normal do mapa</b> (não fica cinza).</p>' : ED.alvo === NF ? '<p class="ged-info">Modo “Não fazemos”: cada clique numa cidade a deixa <b>cinza</b> (ou desmarca). Ela sai das listas desta camada.</p>' :
+      (ED.alvo === ESQ ? '<p class="ged-info">Modo “Esquecer”: cada clique numa cidade a <b>tira das listas</b> desta camada e a marca como esquecida: ela não é nossa, <b>fica na cor normal do mapa</b> (não fica cinza) e <b>não volta</b> pintada pela vizinhança. Clique de novo para desfazer.</p>' : ED.alvo === NF ? '<p class="ged-info">Modo “Não fazemos”: cada clique numa cidade a deixa <b>cinza</b> (ou desmarca). Ela sai das listas desta camada.</p>' :
         '<div class="ged-pts">' + (ED.pts.length ? ED.pts.map((c, i) => { const o = G().info(c); return '<span>' + (i + 1) + '. ' + esc(o ? o.nome : c) + '</span>'; }).join('') : '<span class="sec">Nenhum ponto ainda.</span>') + '</div>' +
         '<div class="ged-info">' + (ED.pts.length < 3 ? 'Faltam ' + (3 - ED.pts.length) + ' ponto(s) para fechar.' : '<b>' + ED.dentro.size + '</b> cidade(s) dentro' + (alvo ? ' · <b>' + mud + '</b> mudam, ' + ja + ' já são de ' + esc(alvo.nome) : '') + '.') + '</div>' +
         '<div class="ged-bts"><button class="btn mini" type="button" id="ged-volta"' + (ED.pts.length ? '' : ' disabled') + '>Desfazer ponto</button><button class="btn mini" type="button" id="ged-limpa"' + (ED.pts.length ? '' : ' disabled') + '>Limpar</button><button class="btn mini pri" type="button" id="ged-aplica"' + (ED.pts.length >= 3 ? '' : ' disabled') + '>Fechar e aplicar</button></div>' +
@@ -67,10 +68,13 @@
   /* clique numa cidade (mapa ou busca) enquanto o editor está aberto */
   function clicar(code) {
     if (!ED.on) return false; const c = String(code), S = G().S, tp = tipo();
-    if (ED.alvo === ESQ) {                             // "Esquecer": tira a cidade de listas e etiquetas; fica sem nada (cor normal)
+    if (ED.alvo === ESQ) {                             // "Esquecer": tira a cidade das listas e a marca como "esquecida" (cor normal; o mapa NÃO a pinta de volta pela vizinhança)
       salvarDesfazer(); S.reg.aprend = S.reg.aprend || {}; const o = G().info(c);
-      for (const l of S.reg.regioes) if (l.tipo === tp && l.cidades.some(x => String(x) === c)) l.cidades = l.cidades.filter(x => String(x) !== c);
-      esquecer(c, tp); toast((o ? o.nome : 'Cidade') + ': esquecida (sem região nem base, cor normal).');
+      if (((S.reg.aprend[c] || {})[tp]) === ESQV) { esquecer(c, tp); toast((o ? o.nome : 'Cidade') + ': deixou de ser esquecida (volta a ser classificada pela vizinhança).'); }
+      else {
+        for (const l of S.reg.regioes) if (l.tipo === tp && l.cidades.some(x => String(x) === c)) l.cidades = l.cidades.filter(x => String(x) !== c);
+        S.reg.aprend[c] = S.reg.aprend[c] || {}; S.reg.aprend[c][tp] = ESQV; toast((o ? o.nome : 'Cidade') + ': esquecida (sem região nem base, cor normal).');
+      }
       G().salvarReg(); painel(); return true;
     }
     if (ED.alvo === NF) {                              // "Não fazemos": liga/desliga a cidade

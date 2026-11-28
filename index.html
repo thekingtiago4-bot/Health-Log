@@ -56,19 +56,19 @@
         <button class="btn mini pri" id="bt-novo-carro" type="button">+ Carro</button>
         <button class="btn mini pri" id="bt-novo-van" type="button">+ Van</button>
         <button class="btn mini pri" id="bt-novo-caminhao" type="button">+ Caminhão</button>
-        <span class="sep"></span>
-        <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…" autocomplete="off" aria-label="Buscar cidade"><ul class="sug" id="sug-cidade" hidden></ul></div>
-        <button class="btn mini pri" id="bt-xml" type="button" title="Bipar uma nota que não está nos XMLs: ela entra no ROMANEIO - EXTRA com os dados do Meu Danfe">XML</button>
-        <button class="btn mini pri" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
+        <div class="campo-cidade"><input id="busca-cidade" class="filtro" placeholder="Buscar cidade…  (atalho: Ctrl+C)" autocomplete="off" aria-label="Buscar cidade (atalho Ctrl+C)"><ul class="sug" id="sug-cidade" hidden></ul></div>
+        <button class="btn mini" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
+        <button class="btn mini" id="bt-xml" type="button" title="Bipar uma nota que não está nos XMLs: ela entra no ROMANEIO - EXTRA com os dados do Meu Danfe">XML</button>
+        <span class="mola"></span>
+        <button class="btn mini pri largo" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">☀ Final de Turno</button>
+        <span class="mola"></span>
+        <button class="btn mini" id="bt-ver-km" type="button" title="Janela com o KM de cada rota (calcula sozinha) e o KM Total" aria-pressed="false">KM</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
-        <button class="btn mini" id="bt-ver-mus" type="button" title="Janela de música: toca Spotify aqui dentro" aria-pressed="false">♪ Música</button>
-        <button class="btn mini pri" id="bt-ver-km" type="button" title="Janela com o KM de cada rota (calcula sozinha) e o KM Total" aria-pressed="false">KM</button>
         <button class="btn mini" id="bt-ver-rom" type="button" title="Mostrar / esconder a janela de Romaneios de hoje (tirar cidades que não vão hoje)" aria-pressed="false">Romaneios</button>
         <button class="btn mini" id="bt-ver-carros" type="button" title="Mostrar / esconder a lista com TODOS os veículos e rotas" aria-pressed="false">Rotas</button>
-        <button class="btn mini" id="bt-desfazer" type="button" title="Desfazer a última alteração (Ctrl+Z)">↶ Desfazer</button>
-        <button class="btn mini pri" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">🌙 Final de Turno</button>
-        <button class="btn mini" id="bt-mapa-fora" type="button" title="Abre o mapa em outra janela (para o segundo monitor). Esta tela vira uma parede para as janelas flutuantes.">Mapa em outra tela</button>
+        <button class="btn mini" id="bt-ver-mus" type="button" title="Janela de música: toca Spotify aqui dentro" aria-pressed="false">♪ Música</button>
         <button class="btn mini" id="bt-enquadrar" type="button" title="Enquadra as cidades da operação (Shift: inclui as muito isoladas)">Enquadrar mapa</button>
+        <button class="btn mini" id="bt-mapa-fora" type="button" title="Abre o mapa em outra janela (para o segundo monitor). Esta tela vira uma parede para as janelas flutuantes.">Mapa em outra tela</button>
       </div>
       <div class="faixa-carro" id="faixa-carro"></div>
       <div class="mapa-area" id="mapa-area">

@@ -885,3 +885,9 @@ details.rm .rm-qt.parcial{background:var(--amarBg);color:var(--amarTxt)}
 /* logo do Health Log em todo documento */
 .fl-topo img{height:48px;width:auto;display:block;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .doc-logo{background:#003B5B;border-radius:10px;padding:8px 14px;display:flex;justify-content:flex-end;margin-bottom:10px}.doc-logo img{height:40px;width:auto;display:block}
+
+/* barra de cima do Montar rotas: +Carro +Van +Caminhão | buscar cidade (longa) | Final de Turno (largo, no meio) | janelas e mapa à direita */
+.barra-carros .campo-cidade{flex:1 1 240px;max-width:440px;min-width:160px}
+.barra-carros .campo-cidade input{width:100%}
+.barra-carros .mola{flex:1 1 0;min-width:4px}
+.barra-carros .btn.largo{min-width:200px;justify-content:center;font-weight:700;padding-left:22px;padding-right:22px}

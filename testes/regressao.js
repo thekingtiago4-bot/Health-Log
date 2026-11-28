@@ -175,7 +175,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual(Object.keys((await estado(p)).atrib).length, 4, 'liberar tira as 2 notas do cliente do outro carro');
   igual((await estado(p)).cont.parcial, 1, 'cidade volta a ficar com "falta nota"');
   await p.keyboard.press('Escape');
-  await p.click('#bt-desfazer');
+  await p.evaluate(() => RT.A.desfazer());
   igual(Object.keys((await estado(p)).atrib).length, 6, 'Desfazer devolve as notas ao Carro 2');
   igual((await estado(p)).cont.completa, 1, 'e a cidade volta a completa');
 
@@ -317,7 +317,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   igual((await estado(p)).cont.completa, 0, 'excluir o carro devolve as notas dele (nenhuma cidade completa)');
   const bks = await p.evaluate(() => RT.DB.todos('bk').then(x => x.map(b => b.motivo)));
   verdade(bks.some(m => /excluir Carro 2/.test(m)), 'cópia de segurança guardada ANTES de excluir o carro');
-  await p.click('#bt-desfazer');
+  await p.evaluate(() => RT.A.desfazer());
   igual((await estado(p)).carros, [1, 2], 'desfazer traz o carro de volta');
 
   console.log('\nReimportar o mesmo arquivo não duplica');
@@ -381,7 +381,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('[data-mv="mover"]');
   igual([antes2, await p.evaluate(id => RT.S.op.atrib[id], idNota)], [3, 1], 'selecionar uma nota e "mover para" o Carro 1 muda o veículo da nota');
   verdade(await p.evaluate(() => RT.S.res.carros.find(c => c.carro.id === 1).cidades.some(c => c.key === 'SAO CARLOS|SP')), 'e o Carro 1 passa a ter São Carlos na rota (tudo atualiza junto)');
-  await p.click('#bt-desfazer');
+  await p.evaluate(() => RT.A.desfazer());
   igual(await p.evaluate(id => RT.S.op.atrib[id], idNota), 3, 'desfazer devolve a nota');
 
   console.log('\nJanelas flutuantes ficam onde você deixou');
@@ -553,6 +553,21 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#car-corpo .vei[data-car="' + cid1 + '"] .vei-cab b');
   verdade(await p.evaluate(id => RT.S.veicAbertos.has(id), cid1), 'clicar no carro na lista Rotas também abre a janela dele');
   await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('carros', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
+
+  console.log('\nBarra de cima: ordem, cores e Ctrl+C');
+  verdade(await p.evaluate(() => { const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#mapa-area').dispatchEvent(ev); const ev2 = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#busca-cidade').dispatchEvent(ev2); return ev.defaultPrevented === true && ev2.defaultPrevented === false; }), 'botão direito onde não há função é bloqueado (sem menu do Windows); em campo de texto o menu continua');
+  await p.click('.nav button[data-tela="rotas"]');
+  const ordemBt = await p.evaluate(() => [...document.querySelectorAll('.barra-carros > button')].map(b => b.id));
+  verdade(ordemBt.slice(0, 3).join() === 'bt-novo-carro,bt-novo-van,bt-novo-caminhao' && ordemBt.slice(-7).join() === 'bt-ver-km,bt-ver-pend,bt-ver-rom,bt-ver-carros,bt-ver-mus,bt-enquadrar,bt-mapa-fora', '+Carro, +Van, +Caminhão à esquerda; à direita (da esquerda p/ direita) KM, Pendentes, Romaneios, Rotas, Música, Enquadrar mapa e Mapa em outra tela');
+  verdade(await p.locator('#bt-desfazer').count() === 0, 'o botão Desfazer saiu da barra (Ctrl+Z continua)');
+  verdade(/Final de Turno/.test(await p.innerText('#bt-turno')) && /☀/.test(await p.innerText('#bt-turno')) && !/🌙/.test(await p.innerText('#bt-turno')), 'Final de Turno com o sol no lugar da lua');
+  verdade(await p.evaluate(() => { const r = document.querySelector('#bt-turno').getBoundingClientRect(), b = document.querySelector('.barra-carros').getBoundingClientRect(); return r.width >= 190 && Math.abs((r.left + r.width / 2) - (b.left + b.width / 2)) < b.width * 0.22; }), 'Final de Turno é largo e fica mais ou menos no meio da barra');
+  verdade(await p.evaluate(() => [...document.querySelectorAll('.barra-carros .btn.pri')].map(b => b.id).join() === 'bt-novo-carro,bt-novo-van,bt-novo-caminhao,bt-turno'), 'só +Carro, +Van, +Caminhão e Final de Turno são azuis; o resto é cinza');
+  verdade(await p.evaluate(() => document.querySelector('#busca-cidade').getBoundingClientRect().width >= 240), 'o campo Buscar cidade ficou comprido');
+  await p.evaluate(() => { document.activeElement && document.activeElement.blur(); getSelection().removeAllRanges(); });
+  await p.keyboard.press('Control+KeyC');
+  verdade(await p.evaluate(() => document.activeElement.id === 'busca-cidade'), 'Ctrl+C (sem nada selecionado) leva direto para a digitação de Buscar cidade');
+  await p.evaluate(() => document.activeElement.blur());
 
   console.log('\nJanela KM das rotas, KM Total na folha e cálculo do KM (Configurações)');
   await p.click('#bt-ver-km');
@@ -1088,7 +1103,8 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.selectOption('#ged-alvo', '__esquecer'); verdade(/Esquecer/.test(await p.innerText('#ged-painel')), '"Aplicar em" ganhou a opção "Esquecer" (volta à cor normal)');
   const antesE = await p.evaluate(() => RT.S.reg.regioes.some(r => r.cidades.some(x => String(x) === '3541406')));
   await p.evaluate(() => RT.A.geoSelecionar('3541406', false));
-  verdade(await p.evaluate(() => !RT.S.reg.regioes.some(r => r.tipo === 'regiao' && r.cidades.some(x => String(x) === '3541406')) && !(RT.S.reg.aprend['3541406'] || {}).regiao && !RT.S.geo.mapa.geo.nf.has('3541406')), 'Esquecer: a cidade sai das listas e das etiquetas e NÃO fica cinza (cor normal)');
+  verdade(await p.evaluate(() => !RT.S.reg.regioes.some(r => r.tipo === 'regiao' && r.cidades.some(x => String(x) === '3541406')) && RT.S.reg.aprend['3541406'].regiao === '~' && !RT.S.geo.mapa.geo.nf.has('3541406')), 'Esquecer: a cidade sai das listas, é marcada como esquecida e NÃO fica cinza (cor normal)');
+  verdade(await p.evaluate(() => { RT.A.geoLimparCache && RT.A.geoLimparCache(); return RT.A.geoClasse('3541406', 'regiao').fonte === 'esquecida' && RT.A.geoClasse('3541406', 'regiao').ids.length === 0; }), 'e ela NÃO volta pintada como automática pela vizinhança');
   await p.click('#ged-desfaz');
   verdade(await p.evaluate(a => RT.S.reg.regioes.some(r => r.cidades.some(x => String(x) === '3541406')) === a, antesE), 'e dá para desfazer');
   await p.click('#ged-sair'); verdade(await p.evaluate(() => !document.querySelector('#ged-painel') && !RT.G.interceptar), 'Fechar editor');

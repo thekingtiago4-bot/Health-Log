@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.46.2';
+  const VERSAO = '0.47.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -956,7 +956,7 @@
     doc.addEventListener('pointerdown', onPtrDown, true); doc.addEventListener('pointerup', onPtrUp, true); doc.addEventListener('pointercancel', onPtrUp, true); doc.addEventListener('dragend', onDragEnd, true);
     doc.addEventListener('pointerdown', onFocoDown, true); U.ligarZ && doc !== document && U.ligarZ(doc);
     if (doc !== document) doc.addEventListener('keydown', e => { if (S.onTecla) S.onTecla(e); });   // (nesta janela o teclado já é ligado no boot)
-    doc.addEventListener('contextmenu', aoBotaoDireito);
+    doc.addEventListener('contextmenu', aoBotaoDireito); doc.addEventListener('contextmenu', semMenu);
     doc.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.jan-ext'); if (b) { const j = b.closest('.jan, #pop-focar'); if (j) janParaOutraTela(j.id.replace(/^(jan|pop)-/, ''), !j.classList.contains('na-ext')); } });
   }
   /* botão direito num cliente ou numa nota (janela da cidade, tabela de Notas, Buscar nota, lista do veículo): Editar informações */
@@ -974,6 +974,9 @@
     e.preventDefault(); RT.obs.editar(nid, cliente);
   }
   document.addEventListener('contextmenu', aoBotaoDireito);
+  /* botão direito onde não há função: bloqueia (nem o menu do Windows/navegador aparece). Campos de texto mantêm o menu (colar/copiar). */
+  const semMenu = e => { if (e.defaultPrevented) return; const t = e.target; if (t && t.closest && t.closest('input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=range]):not([type=color]):not([type=file]), textarea, [contenteditable="true"], iframe')) return; e.preventDefault(); };
+  document.addEventListener('contextmenu', semMenu);
   ligarDocumento(document);
   /* ================= janela PRÓPRIA de cada veículo ================= */
   S.veicJan = new Map(); S.veicAbertos = new Set();
@@ -1138,6 +1141,7 @@
     else {
       const ap = ((S.reg.aprend || {})[k] || {})[tipo];
       if (ap === '-') r = { ids: [], fonte: 'aprendido' };
+      else if (ap === '~') r = { ids: [], fonte: 'esquecida' };   // "Esquecer": sem região/base, cor normal, e NÃO volta como automática
       else if (ap && S.reg.regioes.some(x => x.id === ap)) r = { ids: [ap], fonte: 'aprendido' };
       else {
         const p = munInfo(k);
@@ -1189,6 +1193,7 @@
     } else {
       if (r.fonte === 'aprendido') { fonte = '<span class="geo-fonte aprendido">ensinado por você</span>'; corpo = r.ids.length ? nomeL(r.ids[0]) : '<span class="geo-et">Nenhuma</span>'; }
       else if (r.fonte === 'auto') { fonte = '<span class="geo-fonte auto">automático · ' + r.conf + '% de certeza</span>'; corpo = nomeL(r.ids[0]) + '<p class="geo-expl">Não está em nenhuma lista, mas fica dentro da área desta ' + (tp === 'base' ? 'base' : 'região') + ': perto de ' + viz(r.viz) + '.</p>'; }
+      else if (r.fonte === 'esquecida') { fonte = '<span class="geo-fonte fora">esquecida por você</span>'; corpo = '<span class="geo-et">Nenhuma</span><p class="geo-expl">Você pediu para esquecer: sem região nem base, na cor normal. Para voltar a classificar, ensine uma lista abaixo.</p>'; }
       else if (r.fonte === 'fora') { fonte = '<span class="geo-fonte fora">fora das listas</span>'; corpo = '<span class="geo-et">Nenhuma</span><p class="geo-expl">' + (r.sug ? 'A mais perto é ' + esc(geoNomeLista(r.sug)) + ', a ' + r.dn + ' km (' + viz(r.viz) + '). Longe demais para etiquetar sozinho.' : 'Nenhuma lista tem cidades por perto.') + '</p>'; }
       else corpo = '<span class="geo-et">—</span><p class="geo-expl">Sem coordenadas desta cidade.</p>';
       const atual = r.fonte === 'auto' ? '' : (r.ids[0] || r.sug || '');
@@ -1562,7 +1567,6 @@
     $('#bt-novo-carro').onclick = () => novoVeiculo('carro');
     $('#bt-novo-van').onclick = () => novoVeiculo('van');
     $('#bt-novo-caminhao').onclick = () => novoVeiculo('caminhao');
-    $('#bt-desfazer').onclick = desfazer;
     $('#bt-enquadrar').onclick = e => (ajustarPadMapa(), S.mapa.enquadrar(null, e.shiftKey));
     $('#bt-ver-pend').onclick = () => janVer('pend', $('#jan-pend').hidden);
     $('#bt-ver-carros').onclick = () => janVer('carros', $('#jan-carros').hidden);
@@ -1670,6 +1674,7 @@
       if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: abre/fecha o pop-up de focar (vale com qualquer janela aberta)
       else if (so && tecla === 's') { e.preventDefault(); if (!S.modoMapa) salvarAgora(); }
       else if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
+      else if (so && tecla === 'c' && !emCampo && !S.modoMapa && !document.querySelector('.fundo') && (!window.getSelection || window.getSelection().isCollapsed)) { e.preventDefault(); if (tela !== 'rotas') irPara('rotas'); const bc = $('#busca-cidade'); if (bc) { bc.focus(); bc.select(); } } // Ctrl+C sem nada selecionado (não atrapalha copiar): vai direto para "Buscar cidade"
       else if (so && tecla === 'l' && !S.modoMapa && !document.querySelector('.fundo')) { e.preventDefault(); RT.sit.abrirBusca(); } // Ctrl+L: abre a busca de nota
       else if (so && tecla === 'v' && !emCampo && !S.modoMapa && !document.querySelector('.fundo')) { if (tela === 'rotas' && ciclarOrdemFoco()) e.preventDefault(); else if (tela === 'notas') { e.preventDefault(); ciclarOrdemNotas(); } } // Ctrl+V: A–Z → maior volume → maior valor → A–Z, na janela em foco
       else if (e.key === 'Escape' && !document.querySelector('.fundo')) {
