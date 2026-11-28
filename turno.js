@@ -52,7 +52,7 @@
   async function abrir() {
     const s = S(); if (!s.op || !s.res) { toast('Abra ou importe uma operação primeiro.'); return; }
     const f = fotografar(), antes = await guardados(s.op.id);
-    const html = '<h2>Final de Turno</h2><pre class="turno-txt" id="turno-txt">' + esc(texto(f)) + '</pre>' +
+    const html = '<div class="doc-logo"><img src="icons/healthlog.png" alt="Health Log"></div><h2>Final de Turno</h2><pre class="turno-txt" id="turno-txt">' + esc(texto(f)) + '</pre>' +
       '<p class="dica" id="turno-st">' + (antes.length ? 'Esta operação já tem ' + antes.length + ' final(is) de turno guardado(s); o último foi em ' + new Date(antes[0].quando).toLocaleString('pt-BR') + '.' : 'Nada guardado ainda para esta operação.') + ' Ao guardar, ficam a cópia de segurança e os números do dia para os relatórios, e o mapa e os XMLs são limpos para a próxima operação.</p>' +
       '<div class="botoes"><button class="btn" data-a="x">Fechar</button><button class="btn" data-a="h">Ver guardados (' + antes.length + ')</button><button class="btn" data-a="c">Copiar</button><button class="btn" data-a="w">WhatsApp</button><button class="btn pri" data-a="g" id="turno-g">Guardar final de turno</button></div>';
     return U.modal(html, (fm, fechar) => {

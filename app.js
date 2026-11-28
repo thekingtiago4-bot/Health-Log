@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.46.0';
+  const VERSAO = '0.46.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -721,7 +721,7 @@
     const kmTxt2 = c => { const k = kmDe(c.carro); return k.n ? (k.faltam ? '…' : Math.round(k.km).toLocaleString('pt-BR') + ' km') : '—'; };
     const kt = RT.kmj.total();
     let h = (faltam ? '<div class="folha-aviso">⚠ Esta folha ainda não está completa: faltam ' + faltam + ' nota(s) (' + m$(S.res.rota.valor - S.res.alocRota.valor) + ') sem carro.</div>' : '') +
-      '<div class="fl"><div class="fl-topo"><div class="fl-marca"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#0e444b"/><rect x="14" y="36" width="8" height="12" rx="2" fill="#6EE1DC"/><rect x="25" y="28" width="8" height="20" rx="2" fill="#6EE1DC"/><rect x="36" y="19" width="8" height="29" rx="2" fill="#6EE1DC"/><rect x="47" y="11" width="8" height="37" rx="2" fill="#fff"/></svg><div><b>ROTA ' + U.dataBR(S.op.data) + '</b><span>Emitida às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' · ' + cars.length + ' rota(s)</span></div></div><em>Health Log.</em></div><div class="fl-grade">' +
+      '<div class="fl"><div class="fl-topo"><div class="fl-marca"><div><b>ROTA ' + U.dataBR(S.op.data) + '</b><span>Emitida às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' · ' + cars.length + ' rota(s)</span></div></div><img src="icons/healthlog.png" alt="Health Log"></div><div class="fl-grade">' +
       cars.map(c => '<div class="fl-v" style="--c:' + esc(c.carro.cor) + '"><div class="fl-h"><span>' + esc(N.nomeCarro(c.carro).toUpperCase()) + (c.carro.motorista ? ' · ' + esc(c.carro.motorista.toUpperCase()) : '') + '</span></div>' +
         '<div class="fl-cid">' + (c.cidades.length ? c.cidades.map(x => '<div><i></i>' + esc(N.norm(x.nome)) + '</div>').join('') : '<div class="fl-vazio">sem cidades</div>') + '</div>' +
         '<div class="fl-est"><div><small>VOLUMES</small><b>' + i$(c.vol) + '</b></div><div><small>PARADAS</small><b>' + c.paradas + '</b></div><div class="vl"><small>VALOR</small><b>' + m$(c.valor) + '</b></div><div><small>KM TOTAL</small><b>' + kmTxt2(c) + '</b></div></div></div>').join('') +
