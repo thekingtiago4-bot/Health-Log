@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.47.0';
+  const VERSAO = '0.48.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -153,6 +153,7 @@
     else if (tela === 'config') renderConfig();
     else if (tela === 'xmls') { RT.rom.render(tela); renderLote(); renderOps(); renderBk(); RT.bip && RT.bip.render(); }
     else if (tela === 'cadastros') RT.rom.render(tela);
+    else if (tela === 'manual') { RT.man.ligar(); RT.man.render(); }
     else if (tela === 'agenda' || tela === 'diverg') RT.sit.render(tela);
     else if (tela === 'geo') { renderGeo(); RT.fer.atualizar(false); if (!document.activeElement || /^(BODY|BUTTON)$/.test(document.activeElement.tagName)) setTimeout(() => { const q = $('#geo-q'); if (q && tela === 'geo' && !matchMedia('(pointer:coarse)').matches) q.focus(); }, 60); requestAnimationFrame(() => { if (S.geo.mapa) { S.geo.mapa.redimensionar(); if (!S.geo.enq) { S.geo.enq = true; geoEnquadrarTudo(); } S.geo.mapa.marcar(); } }); }
   }
@@ -1671,7 +1672,8 @@
     S.onTecla = e => {
       const emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox';
       const so = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey, tecla = e.key.toLowerCase();
-      if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: abre/fecha o pop-up de focar (vale com qualquer janela aberta)
+      if (so && e.code === 'Space') { e.preventDefault(); const br = $('#bt-rail'); if (br && !S.modoMapa) br.click(); }   // Ctrl+Espaço: esconde / mostra o menu lateral
+      else if (so && tecla === 'f') { e.preventDefault(); if (!S.modoMapa && !document.querySelector('.fundo')) abrirFocar(); } // Ctrl+F: abre/fecha o pop-up de focar (vale com qualquer janela aberta)
       else if (so && tecla === 's') { e.preventDefault(); if (!S.modoMapa) salvarAgora(); }
       else if (so && tecla === 'z' && !emCampo) { e.preventDefault(); desfazer(); }
       else if (so && tecla === 'c' && !emCampo && !S.modoMapa && !document.querySelector('.fundo') && (!window.getSelection || window.getSelection().isCollapsed)) { e.preventDefault(); if (tela !== 'rotas') irPara('rotas'); const bc = $('#busca-cidade'); if (bc) { bc.focus(); bc.select(); } } // Ctrl+C sem nada selecionado (não atrapalha copiar): vai direto para "Buscar cidade"
@@ -1739,6 +1741,6 @@
     }
     RT.pronto = true;
   }
-  RT.A = { atualizarVias, kmDe, abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
+  RT.A = { versao: VERSAO, atualizarVias, kmDe, abrirCidade, fecharCidade, selecionarCarro, abrirJanelaVeiculo, fecharJanelaVeiculo, cidadeInteiraNoCarro, devolverJanelas, janParaOutraTela, encerrarOperacao, abrirPorId, ordenarCurto, geoClasse, geoSelecionar, backup, kmDe, salvar, reindexar, atualizarTudo, nomeId, carroPorId, abrirCidade, irPara, mutar, desfazer, janVer };
   boot().catch(e => { console.error(e); const fe = $('#faixa-erro'); fe.hidden = false; fe.textContent = '⚠ Erro ao abrir o app: ' + ((e && e.message) || e); });
 })();

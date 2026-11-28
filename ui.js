@@ -189,7 +189,7 @@
   U.imprimir = function (tipo) {
     let st = document.getElementById('pg-estilo');
     if (!st) { st = document.createElement('style'); st.id = 'pg-estilo'; document.head.appendChild(st); }
-    st.textContent = tipo === 'rel' ? '@page{size:A4 portrait;margin:0}' : '@page{size:A4 landscape;margin:8mm}';
+    st.textContent = (tipo === 'rel' || tipo === 'man') ? '@page{size:A4 portrait;margin:0}' : '@page{size:A4 landscape;margin:8mm}';
     document.body.dataset.imp = tipo;
     const fim = () => { delete document.body.dataset.imp; window.removeEventListener('afterprint', fim); };
     window.addEventListener('afterprint', fim);

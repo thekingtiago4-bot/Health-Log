@@ -38,6 +38,7 @@
       <div class="nav-grupo">Ajustes</div>
       <button data-tela="config"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Configurações</span></button>
       <button data-tela="cadastros"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg><span class="lbl">Cadastros</span></button>
+      <button data-tela="manual"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13"/><path d="M9 8h6"/></svg><span class="lbl">Manual</span></button>
     </nav>
     <div class="resumo">
       <dl><dt>Operação</dt><dd id="r-op">—</dd><dt>Notas</dt><dd id="r-nf">0</dd><dt>Volumes</dt><dd id="r-vol">0</dd><dt>Alocadas</dt><dd id="r-aloc">0%</dd><dt>Carros</dt><dd id="r-car">0</dd></dl>
@@ -46,7 +47,7 @@
     </div>
   </aside>
 
-  <button class="rail-seta" id="bt-rail" type="button" aria-label="Esconder o menu lateral" title="Esconder / mostrar o menu lateral" aria-expanded="true">‹</button>
+  <button class="rail-seta" id="bt-rail" type="button" aria-label="Esconder o menu lateral" title="Esconder / mostrar o menu lateral (Ctrl+Espaço)" aria-expanded="true">‹</button>
   <main id="principal">
     <div class="faixa-erro" id="faixa-erro" role="alert" hidden></div>
 
@@ -60,7 +61,7 @@
         <button class="btn mini" id="bt-busca" type="button" title="Buscar nota por NF, cliente, cidade, endereço ou origem (atalho: Ctrl+L)">Buscar nota</button>
         <button class="btn mini" id="bt-xml" type="button" title="Bipar uma nota que não está nos XMLs: ela entra no ROMANEIO - EXTRA com os dados do Meu Danfe">XML</button>
         <span class="mola"></span>
-        <button class="btn mini pri largo" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">☀ Final de Turno</button>
+        <button class="btn mini pri largo" id="bt-turno" type="button" title="Resume o dia e guarda os números para os relatórios">☀️ Final de Turno</button>
         <span class="mola"></span>
         <button class="btn mini" id="bt-ver-km" type="button" title="Janela com o KM de cada rota (calcula sozinha) e o KM Total" aria-pressed="false">KM</button>
         <button class="btn mini" id="bt-ver-pend" type="button" title="Mostrar / esconder a janela de cidades pendentes" aria-pressed="true">Pendentes</button>
@@ -193,6 +194,13 @@
       </div>
     </section>
 
+
+    <!-- MANUAL -->
+    <section class="tela" id="t-manual" aria-labelledby="h-manual" hidden>
+      <div class="folha-topo"><div><h1 id="h-manual">Manual do usuário</h1><p class="sub" style="margin:0">Todas as funcionalidades do Health Log., com fotos das telas e a lista completa de atalhos. Cada página é uma folha A4: use o botão para imprimir ou salvar em PDF.</p></div><button class="btn pri" id="bt-imprimir-man" type="button">Imprimir / salvar PDF</button></div>
+      <div id="man-saida"></div>
+    </section>
+
     <!-- CONFIGURAÇÕES -->
     <section class="tela" id="t-config" aria-labelledby="h-config" hidden>
       <h1 id="h-config">Configurações</h1>
@@ -322,6 +330,7 @@
 <script src="spotify.js"></script>
 <script src="musica.js"></script>
 <script src="boletim.js"></script>
+<script src="manual.js"></script>
 <script src="romaneio.js"></script>
 <script src="turno.js"></script>
 <script src="feriados.js"></script>

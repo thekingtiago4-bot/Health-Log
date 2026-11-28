@@ -13,6 +13,7 @@ function igual(real, esperado, nome) {
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
 }
 const verdade = (c, nome) => igual(!!c, true, nome);
+let foto = async () => {};   // com MANUAL_FOTOS=1 grava as fotos do Manual (manual/*.jpg, só dados de teste)
 /* escolhe o veículo pela janela "Veículos e rotas" (a faixa de carros do topo foi retirada) */
 async function selCarro(p, id) { await p.evaluate(() => RT.A.janVer('carros', true)); await p.locator('#car-corpo .vei[data-car="' + id + '"] .vei-cab b').click(); }
 const cents = s => Math.round(parseFloat(s) * 100);
@@ -73,6 +74,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const estado = p => p.evaluate(() => ({ rev: RT.S.op && RT.S.op.rev, atrib: RT.S.op && RT.S.op.atrib, carros: RT.S.op && RT.S.op.carros.map(c => c.id), cont: RT.S.res && RT.S.res.cont, nnotas: RT.S.op && RT.S.op.notas.length }));
 
   const { ctx, p } = await novaPagina();
+  if (process.env.MANUAL_FOTOS) { const fs0 = require('fs'), dirF = require('path').join(__dirname, '..', 'manual'); fs0.mkdirSync(dirF, { recursive: true }); foto = async (nome, sel) => { try { await p.evaluate(() => { const x = document.getElementById('toast'); if (x) x.style.display = 'none'; }); const alvo = sel ? p.locator(sel).first() : p; await alvo.screenshot({ path: dirF + '/' + nome + '.jpg', type: 'jpeg', quality: 70 }); await p.evaluate(() => { const x = document.getElementById('toast'); if (x) x.style.display = ''; }); } catch (e) { console.log('foto falhou', nome, e.message.slice(0, 80)); } }; }
   await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); }); });
   await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('hr-teste-fundo')) { localStorage.setItem('hr:fundoRotas', '"rodoviario"'); sessionStorage.setItem('hr-teste-fundo', '1'); } } catch (e) { /* ok */ } });   // os testes antigos falam do estilo rodoviário limpo; o padrão novo (ruas) tem teste próprio
   await abrir(p);
@@ -541,6 +543,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const nb = await p.evaluate(() => RT.S.op.notas[0].id);
   await p.evaluate(id => { RT.obs.editar(id, false); }, nb);
   const rev0 = await p.evaluate(() => RT.S.op.rev);
+  await foto('editar', '.modal-eo');
   await p.click('.modal-eo [data-cancelar]');
   verdade(await p.locator('.modal-eo').count() === 0 && await p.evaluate(r => RT.S.op.rev === r, rev0), 'Cancelar fecha o Editar informações sem mudar nada (mesmo numa nota)');
   await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); });
@@ -553,6 +556,38 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#car-corpo .vei[data-car="' + cid1 + '"] .vei-cab b');
   verdade(await p.evaluate(id => RT.S.veicAbertos.has(id), cid1), 'clicar no carro na lista Rotas também abre a janela dele');
   await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('carros', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
+
+  console.log('\nManual do usuário');
+  await p.click('.nav button[data-tela="xmls"]'); await p.waitForTimeout(400); await foto('xmls');
+  await p.click('.nav button[data-tela="notas"]'); await p.waitForTimeout(400); await foto('notas');
+  await p.click('.nav button[data-tela="manual"]');
+  await p.waitForSelector('#man-saida .man-pag');
+  const nPg = await p.locator('#man-saida .rl-pag').count();
+  verdade(nPg >= 18, 'o Manual tem capa, sumário, uma ou mais páginas por assunto e os atalhos (' + nPg + ' páginas A4)');
+  verdade(await p.locator('#man-saida img[src="icons/healthlog.png"]').count() === nPg, 'a logo do Health Log está em TODAS as páginas (capa inclusive)');
+  const tmMan = await p.innerText('#man-saida');
+  verdade(/MANUAL DO USUÁRIO/i.test(tmMan) && /Sumário/.test(tmMan) && /Primeiros passos/.test(tmMan) && /Boletim diário/.test(tmMan) && /Spotify/.test(tmMan) && /Editor de regiões/.test(tmMan) && /Romaneios/.test(tmMan) && /Final de Turno/.test(tmMan) && /Folha de rotas/.test(tmMan), 'cobre as telas e janelas do app (rotas, cidades, veículos, KM, geolocalização, folha, turno, relatórios, boletim, música…)');
+  const teclas = await p.evaluate(() => RT.man.teclado.map(x => x[0]).join(' | '));
+  verdade(['Ctrl + L', 'Ctrl + C', 'Ctrl + F', 'Ctrl + V', 'Ctrl + S', 'Ctrl + Z', 'Ctrl + Espaço', 'Enter', 'Esc'].every(x => teclas.includes(x)), 'a lista de atalhos traz todos: Ctrl+L, Ctrl+C, Ctrl+F, Ctrl+V, Ctrl+S, Ctrl+Z, Ctrl+Espaço, Enter e Esc');
+  verdade(await p.locator('#man-saida .man-sum li').count() >= 17, 'o sumário lista cada assunto com o número da página');
+  const estouro = await p.evaluate(() => [...document.querySelectorAll('#man-saida .man-corpo')].map((c, i) => [i + 3, c.scrollHeight - c.clientHeight]).filter(x => x[1] > 2));
+  verdade(estouro.length === 0, 'nenhum texto estoura a página A4 (' + (estouro.length ? 'estouro: ' + JSON.stringify(estouro.slice(0, 4)) : 'ok') + ')');
+  await foto('manual-pag', '#man-saida .rl-pag >> nth=3');
+  await p.click('.nav button[data-tela="rotas"]');
+
+  console.log('\nCtrl+Espaço esconde/mostra o menu lateral');
+  const oc0 = await p.evaluate(() => document.querySelector('.app').classList.contains('rail-oculta'));
+  await p.keyboard.press('Control+Space');
+  verdade(await p.evaluate(o => document.querySelector('.app').classList.contains('rail-oculta') !== o, oc0), 'Ctrl+Espaço esconde o menu lateral');
+  await p.keyboard.press('Control+Space');
+  verdade(await p.evaluate(o => document.querySelector('.app').classList.contains('rail-oculta') === o, oc0), 'e de novo mostra');
+
+  console.log('\nBotão direito em cidade não faz nada; rodapé da cidade em metades');
+  verdade(await p.evaluate(() => { const alvo = document.querySelector('#pend-lista li[data-cid]') || document.querySelector('#mapa-area'); const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); alvo.dispatchEvent(ev); return ev.defaultPrevented === true && !document.querySelector('.modal-eo'); }), 'botão direito numa cidade (lista ou mapa) não faz nada: sem menu e sem pop-up');
+  await p.evaluate(() => { const rc = RT.S.res.cidades.find(r => !r.fora && !r.cinza); RT.A.abrirCidade(rc.cidade.key, {}); });
+  verdade(await p.evaluate(() => { const r = document.querySelector('.jan-cid .cid-rod'), bs = [...r.querySelectorAll('.btn')].map(b => b.getBoundingClientRect()); const w = r.getBoundingClientRect().width; return bs.length === 2 && Math.abs(bs[0].width - bs[1].width) < 3 && bs[0].width > w * 0.38 && bs[0].bottom === bs[1].bottom; }), 'Cancelar e Concluir ocupam cada um a METADE do rodapé da janela da cidade');
+  await foto('cidade');
+  await p.evaluate(() => RT.A.fecharCidade(RT.S.cidadeAberta, true));
 
   console.log('\nBarra de cima: ordem, cores e Ctrl+C');
   verdade(await p.evaluate(() => { const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#mapa-area').dispatchEvent(ev); const ev2 = new MouseEvent('contextmenu', { bubbles: true, cancelable: true }); document.querySelector('#busca-cidade').dispatchEvent(ev2); return ev.defaultPrevented === true && ev2.defaultPrevented === false; }), 'botão direito onde não há função é bloqueado (sem menu do Windows); em campo de texto o menu continua');
@@ -567,6 +602,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.evaluate(() => { document.activeElement && document.activeElement.blur(); getSelection().removeAllRanges(); });
   await p.keyboard.press('Control+KeyC');
   verdade(await p.evaluate(() => document.activeElement.id === 'busca-cidade'), 'Ctrl+C (sem nada selecionado) leva direto para a digitação de Buscar cidade');
+  await foto('montar');
   await p.evaluate(() => document.activeElement.blur());
 
   console.log('\nJanela KM das rotas, KM Total na folha e cálculo do KM (Configurações)');
@@ -576,12 +612,14 @@ const cents = s => Math.round(parseFloat(s) * 100);
   const kmj = await p.evaluate(() => { const t = RT.kmj.total(); return { n: t.n, faltam: t.faltam, km: t.km, txt: document.querySelector('#km-corpo .km-tot b').textContent }; });
   verdade(kmj.n >= 1 && kmj.faltam === 0 && kmj.km > 0 && /\d/.test(kmj.txt), 'o botão KM abre a janela que calcula sozinha o KM de cada rota e mostra o KM Total (' + kmj.txt + ')');
   verdade(await p.locator('#km-corpo .km-tab tbody tr').count() === kmj.n, 'uma linha por veículo com carga');
+  await foto('km');
   await p.evaluate(() => RT.A.irPara('folha'));
   verdade(await p.locator('#folha img[src="icons/healthlog.png"]').count() === 1, 'a Folha de rotas leva a logo do Health Log');
   verdade(/KM TOTAL/.test(await p.innerText('#folha')) && /KM TOTAL\s*\d/.test(await p.innerText('#folha')), 'a Folha de rotas ganhou a linha "KM TOTAL" (por rota e no total)');
+  await foto('folha', '#folha');
   await p.waitForTimeout(500); await p.locator('#folha').screenshot({ path: '/tmp/claude-0/-home-user/e29cec66-ee3f-5752-bd59-92a5e47fd4bc/scratchpad/folha_nova.png' });
   await p.evaluate(() => RT.A.irPara('rotas'));
-  await p.click('.nav button[data-tela="config"]'); const nV = reqsValhalla.length;
+  await p.click('.nav button[data-tela="config"]'); await p.waitForTimeout(300); await foto('config'); const nV = reqsValhalla.length;
   await p.click('#cfg-km-curto');
   await p.waitForFunction(() => RT.vias.modo === 'curto'); await p.click('.nav button[data-tela="rotas"]');
   await p.waitForFunction(n => RT.vias.pendentes() === 0 && n < 99999, 0, { timeout: 30000 });
@@ -618,6 +656,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.locator('#bol-saida .rl-pag').count() === 4, 'dá para navegar para o dia anterior (◀) e o boletim se refaz');
   await p.evaluate(() => RT.U.pref.gravar('bolData', ''));
   await p.click('[data-bol-ult]'); await p.waitForSelector('#bol-saida .rl-pag');
+  await p.waitForTimeout(900); await foto('boletim', '#bol-saida .rl-pag >> nth=0');
   for (const [i, nome] of [[0, 'boletim1'], [1, 'boletim2'], [2, 'boletim3'], [3, 'boletim4']]) { await p.waitForTimeout(600); const pg = p.locator('#bol-saida .rl-pag').nth(i); await pg.screenshot({ path: '/tmp/claude-0/-home-user/e29cec66-ee3f-5752-bd59-92a5e47fd4bc/scratchpad/' + nome + '.png' }); }
   await p.click('[data-rl-aba="demanda"]'); verdade(await p.locator('#rl-demanda:not([hidden])').count() === 1, 'a primeira aba continua gerando o relatório de demanda e valor');
   await p.evaluate(async () => { for (const d of ['1', '2', '8']) await RT.DB.apagar('ops', 'boletim-teste-' + d); RT.U.pref.gravar('relAba', 'demanda'); RT.U.pref.gravar('bolData', ''); });
@@ -627,6 +666,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#bt-ver-mus');
   verdade(await p.locator('#jan-musica:not([hidden]) #mus-red').count() === 1 && /Create app/.test(await p.innerText('#mus-corpo')), 'sem Client ID: a janela explica o cadastro do app no Spotify e mostra a Redirect URI para copiar');
   verdade(await p.evaluate(() => document.querySelector('#mus-red').value === RT.spo.redirectUri()), 'a Redirect URI mostrada é a do próprio app');
+  await foto('musica', '#jan-musica');
   await p.fill('#mus-cid', 'CLIENTEid123'); await p.click('#mus-cid-ok');
   await p.waitForSelector('#mus-entrar');
   verdade(await p.evaluate(() => RT.spo.cfg.clientId === 'CLIENTEid123'), 'o Client ID fica guardado (só neste aparelho)');
@@ -715,6 +755,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   console.log('\nGeolocalização (regiões e bases)');
   await p.click('.nav button[data-tela="geo"]');
   await p.fill('#geo-q', 'presidente prud'); await p.keyboard.press('Enter');
+  await p.waitForTimeout(700); await foto('geo');
   verdade(/PRESIDENTE PRUDENTE E REGIÃO/.test(await p.innerText('#geo-res')), 'Presidente Prudente faz parte de "Presidente Prudente e região"');
   verdade(/EM ROTA/.test(await p.innerText('#geo-res')), 'e conta como em rota');
   await p.selectOption('[data-geo-sel="regiao"]', 'interior'); await p.click('[data-geo-mover="regiao"]');
@@ -966,10 +1007,10 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.waitForFunction(v => !RT.S.janExt.has(v) && !!document.querySelector('#jan-' + v), vid);
   await p.evaluate(() => { for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
   console.log('\nTodas as janelas flutuantes têm o botão da segunda tela');
-  await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); RT.A.janVer('busca', true); RT.A.janVer('carros', true); RT.A.abrirJanelaVeiculo(RT.S.op.carros[0].id); RT.A.abrirCidade(RT.S.res.cidades.find(r => !r.fora).cidade.key, {}); });
+  await p.evaluate(() => { const s = document.getElementById('teste-semveic'); if (s) s.remove(); RT.A.janVer('busca', true); RT.A.janVer('carros', true); RT.A.janVer('rom', true); RT.A.janVer('km', true); RT.A.janVer('mus', true); RT.A.abrirJanelaVeiculo(RT.S.op.carros[0].id); RT.A.abrirCidade(RT.S.res.cidades.find(r => !r.fora).cidade.key, {}); });
   await p.evaluate(() => { const c = document.querySelector('.jan-cid .cl-chk'); if (c) c.click(); });   // mexer na cidade refaz o título da janela
   const semBt = await p.evaluate(() => [...document.querySelectorAll('.jan')].filter(j => !j.hidden && !j.querySelector('.jan-ext')).map(j => j.id));
-  igual(semBt.join(','), '', 'toda janela flutuante aberta (pendentes, rotas, busca, veículo, cidade) tem o botão ⇥ da segunda tela');
+  igual(semBt.join(','), '', 'toda janela flutuante aberta (pendentes, rotas, busca, Romaneios, KM, Música, veículo, cidade) tem o botão ⇥ da segunda tela');
   await p.keyboard.press('Control+KeyF');
   verdade(await p.locator('#pop-focar .jan-ext').count() === 1, 'a janela do Foco (Ctrl+F) também tem o botão da segunda tela');
   await p.click('#pop-focar .jan-ext'); await pop.waitForSelector('#pop-focar');
@@ -978,7 +1019,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await pop.evaluate(() => !document.querySelector('#pop-focar')), 'e volta para a primeira');
   await p.keyboard.press('Control+KeyF');
 
-  await p.evaluate(() => { for (const k of [...RT.S.cidJan.keys()]) RT.A.fecharCidade(k, true); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('busca', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
+  await p.evaluate(() => { for (const k of [...RT.S.cidJan.keys()]) RT.A.fecharCidade(k, true); for (const id of [...RT.S.veicAbertos]) RT.A.fecharJanelaVeiculo(id); RT.A.janVer('busca', false); RT.A.janVer('rom', false); RT.A.janVer('km', false); RT.A.janVer('mus', false); const s = document.createElement('style'); s.id = 'teste-semveic'; s.textContent = '.jan-veic{display:none!important}'; document.head.appendChild(s); });
   console.log('\nTela das janelas (mapa na outra tela): cor de fundo');
   verdade(await p.evaluate(() => getComputedStyle(document.querySelector('#bt-parede-cor')).display !== 'none' && getComputedStyle(document.querySelector('#bt-realce')).display === 'none'), 'com o mapa na outra tela os botões do mapa somem e fica só o botão de cor de fundo');
   verdade(await p.evaluate(() => getComputedStyle(document.querySelector('.mapa-base')).display === 'none'), 'na tela das janelas o mapa de fundo não aparece (só a cor escolhida)');
@@ -1184,6 +1225,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.click('#bt-turno'); await p.waitForSelector('#turno-txt');
   const txtT = await p.textContent('#turno-txt');
   verdade(/Final de turno/.test(txtT) && /Veículos/.test(txtT) && /Bipadas/.test(txtT), 'o botão abre o resumo do turno com veículos e bipagem');
+  verdade(await p.locator('.modal .tr-kpis .tr-k').count() === 4 && await p.locator('.modal .tr-tab').count() >= 1 && !(await p.locator('.modal pre.turno-txt').count()), 'o resumo é bonito: cartões, chips e tabelas (não mais texto corrido)');
   verdade(await p.locator('.modal .doc-logo img[src="icons/healthlog.png"]').count() === 1, 'o resumo do Final de Turno leva a logo do Health Log');
   igual(await p.evaluate(async () => (await RT.turno.guardados()).length), 0, 'abrir só mostra: nada é guardado sozinho');
   const opIdT = await p.evaluate(() => RT.S.op.id), notasT = await p.evaluate(() => RT.S.op.notas.length);
@@ -1322,7 +1364,7 @@ const cents = s => Math.round(parseFloat(s) * 100);
   console.log('\nMenu em grupos, instalar/tema em Ajustes e sons');
   await p.click('.nav button[data-tela="rotas"]');
   igual(await p.evaluate(() => [...document.querySelectorAll('.nav .nav-grupo')].map(x => x.textContent)), ['Operação', 'Painel de Gestão', 'Ajustes'], 'grupos do menu: Operação · Painel de Gestão · Ajustes');
-  igual(await p.evaluate(() => [...document.querySelectorAll('.nav button')].map(b => b.dataset.tela)), ['rotas', 'notas', 'xmls', 'folha', 'geo', 'relatorios', 'agenda', 'diverg', 'config', 'cadastros'], 'ordem das abas (sem "Mural do dia" e sem "Importar XML")');
+  igual(await p.evaluate(() => [...document.querySelectorAll('.nav button')].map(b => b.dataset.tela)), ['rotas', 'notas', 'xmls', 'folha', 'geo', 'relatorios', 'agenda', 'diverg', 'config', 'cadastros', 'manual'], 'ordem das abas (sem "Mural do dia" e sem "Importar XML")');
   verdade(/XMLs e Romaneios/.test(await p.innerText('.nav button[data-tela="xmls"]')), '"XMLs e Romaneios" com R maiúsculo');
   await p.click('#marca'); verdade(await p.evaluate(() => !document.getElementById('mural').hidden), 'clicar na logo abre o Mural do dia'); await p.click('#mural-x');
   await p.click('.nav button[data-tela="xmls"]');
