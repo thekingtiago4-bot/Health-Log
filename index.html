@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://server.arcgisonline.com; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://server.arcgisonline.com https://api.meudanfe.com.br https://raw.githubusercontent.com; frame-src https://open.spotify.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: https://sdk.scdn.co; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://server.arcgisonline.com https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' data: blob: https://tiles.openfreemap.org https://routing.openstreetmap.de https://valhalla1.openstreetmap.de https://server.arcgisonline.com https://api.meudanfe.com.br https://raw.githubusercontent.com https://accounts.spotify.com https://api.spotify.com; frame-src https://open.spotify.com https://sdk.scdn.co; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0F4B55">
 <title>Health Log. · Eficiência Máxima Em Roteirização</title>
@@ -112,8 +112,8 @@
         </div>
         <!-- janela flutuante: música (Spotify) -->
         <div class="jan jan-musica" id="jan-musica" role="dialog" aria-label="Música" hidden>
-          <div class="jan-cab"><b>♪ Música</b><button type="button" class="jan-x" data-mus-limpar aria-label="Trocar a lista" title="Tirar a lista atual">⟲</button><button type="button" class="jan-x" data-mus-fechar aria-label="Fechar">✕</button></div>
-          <div class="jan-corpo mus-corpo"><div class="mus-barra"><input id="mus-link" class="filtro" placeholder="Cole o link do Spotify (playlist, álbum, música…)" autocomplete="off" aria-label="Link do Spotify"><button type="button" class="btn mini pri" id="mus-tocar">Tocar</button></div><p class="erro-linha" id="mus-erro" hidden></p><div class="mus-player" id="mus-player"></div></div>
+          <div class="jan-cab"><b>♪ Música · Spotify</b><button type="button" class="jan-x" data-mus-fechar aria-label="Fechar">✕</button></div>
+          <div class="jan-corpo mus-corpo"><p class="mus-msg" id="mus-msg" hidden></p><div id="mus-corpo"></div></div>
         </div>
         <!-- janela flutuante: KM das rotas -->
         <div class="jan jan-km" id="jan-km" role="dialog" aria-label="KM das rotas" hidden>
@@ -319,6 +319,7 @@
 <script src="obs.js"></script>
 <script src="romjan.js"></script>
 <script src="kmjan.js"></script>
+<script src="spotify.js"></script>
 <script src="musica.js"></script>
 <script src="boletim.js"></script>
 <script src="romaneio.js"></script>

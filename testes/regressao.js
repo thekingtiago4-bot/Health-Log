@@ -7,7 +7,7 @@ const amostra = require('./amostra.js');
 
 const PORTA = 8097, URL = 'http://localhost:' + PORTA + '/';
 let ok = 0, falhas = [], ignorarRede = false, falhaRotas = false;
-const reqsRota = [], reqsTile = [], reqsValhalla = []; let pedagioSim = false;
+const reqsRota = [], reqsTile = [], reqsValhalla = [], reqsSpo = []; let spoPremium = true; let pedagioSim = false;
 function igual(real, esperado, nome) {
   const a = JSON.stringify(real), b = JSON.stringify(esperado);
   if (a === b) { ok++; console.log('  ✔', nome); } else { falhas.push(nome); console.log('  ✘', nome, '\n      esperado:', b, '\n      recebido:', a); }
@@ -41,6 +41,18 @@ const cents = s => Math.round(parseFloat(s) * 100);
       return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ trip: { summary: { length: km + (evita ? 7 : 0), time: km * 55, has_toll: toll }, legs: [{ shape: enc([a, mid, b]), maneuvers: [{ begin_shape_index: 0, end_shape_index: 1, length: km / 2, toll: false, street_names: ['Rua A'] }, { begin_shape_index: 1, end_shape_index: 2, length: km / 2, toll, street_names: ['SP-255'] }] }] } }) });
     });
     await ctx.route(/open\.spotify\.com/, r => r.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>spotify simulado</body></html>' }));
+    await ctx.route('https://sdk.scdn.co/spotify-player.js', r => r.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: "window.Spotify={Player:class{constructor(o){this.o=o;this.l={};window.__spoPlayer=this;window.__spoAcoes=[];}addListener(e,f){this.l[e]=f;}connect(){setTimeout(()=>this.l.ready&&this.l.ready({device_id:'dev-teste'}),5);return Promise.resolve(true);}disconnect(){}togglePlay(){window.__spoAcoes.push('play');}nextTrack(){window.__spoAcoes.push('prox');}previousTrack(){window.__spoAcoes.push('ant');}setVolume(v){window.__spoAcoes.push('vol'+v);}seek(){}}};setTimeout(()=>window.onSpotifyWebPlaybackSDKReady&&window.onSpotifyWebPlaybackSDKReady(),0);" }));
+    await ctx.route('https://accounts.spotify.com/**', async r => { const rq = r.request(); if (rq.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } }); reqsSpo.push({ m: rq.method(), u: rq.url(), b: rq.postData() }); r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ access_token: 'AT-TESTE', refresh_token: 'RT-TESTE', expires_in: 3600 }) }); });
+    await ctx.route('https://api.spotify.com/**', async r => {
+      const rq = r.request(), u = new (require('url').URL)(rq.url()), cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+      if (rq.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors }); reqsSpo.push({ m: rq.method(), u: rq.url(), b: rq.postData(), auth: rq.headers().authorization });
+      const js = o => r.fulfill({ status: 200, headers: Object.assign({ 'content-type': 'application/json' }, cors), body: JSON.stringify(o) });
+      if (u.pathname === '/v1/me') return js({ id: 'tiago', display_name: 'Tiago Teste', product: spoPremium ? 'premium' : 'free' });
+      if (u.pathname === '/v1/me/playlists') return js({ items: [{ uri: 'spotify:playlist:AAAAAAAAAAAAAAAAAAAAAA', name: 'Rota da manhã', images: [], tracks: { total: 12 } }, { uri: 'spotify:playlist:BBBBBBBBBBBBBBBBBBBBBB', name: 'Estrada', images: [], tracks: { total: 30 } }] });
+      if (u.pathname === '/v1/search') return js({ tracks: { items: [{ uri: 'spotify:track:CCCCCCCCCCCCCCCCCCCCCC', name: 'Música de teste', artists: [{ name: 'Banda X' }], album: { images: [] } }] }, playlists: { items: [] }, albums: { items: [] } });
+      if (u.pathname === '/v1/me/player' || u.pathname === '/v1/me/player/play') return r.fulfill({ status: 204, headers: cors });
+      r.fulfill({ status: 404, headers: cors, body: '{}' });
+    });
     await ctx.route(/arcgisonline\.com/, r => r.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') }));   // mapa de ruas da Geolocalização SIMULADO (1 pixel)
     await ctx.route(/raw\.githubusercontent\.com/, r => { // feriados SIMULADOS: um estadual (MG) e um municipal (Araraquara) HOJE
       const d = new Date(), br = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
@@ -594,15 +606,45 @@ const cents = s => Math.round(parseFloat(s) * 100);
   await p.evaluate(async () => { for (const d of ['1', '2', '8']) await RT.DB.apagar('ops', 'boletim-teste-' + d); RT.U.pref.gravar('relAba', 'demanda'); RT.U.pref.gravar('bolData', ''); });
   await p.click('.nav button[data-tela="rotas"]');
 
-  console.log('\nJanela Música (Spotify)');
+  console.log('\nJanela Música: Spotify de verdade (login, busca, playlists e player)');
   await p.click('#bt-ver-mus');
-  verdade(await p.locator('#jan-musica:not([hidden]) #mus-link').count() === 1, 'o botão Música abre a janela flutuante do Spotify');
-  await p.fill('#mus-link', 'bobagem'); await p.click('#mus-tocar');
-  verdade(await p.locator('#mus-erro:visible').count() === 1, 'link que não é do Spotify: avisa');
-  await p.fill('#mus-link', 'https://open.spotify.com/intl-pt/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc'); await p.click('#mus-tocar');
-  igual(await p.getAttribute('#mus-player iframe', 'src'), 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?theme=0', 'link do Spotify vira o player incorporado oficial dentro da janela');
-  verdade(await p.evaluate(() => RT.mus.analisar('spotify:album:1DFixLWuPkv3KT3TnV35m3') !== null && RT.mus.analisar('https://example.com/playlist/37i9dQZF1DXcBWIGoYBM5M') === null), 'aceita também o formato spotify:… e recusa outros sites');
-  verdade(await p.evaluate(() => /playlist\/37i9dQZF1DXcBWIGoYBM5M/.test(RT.U.pref.ler('spotify', ''))), 'a última lista fica guardada para a próxima vez');
+  verdade(await p.locator('#jan-musica:not([hidden]) #mus-red').count() === 1 && /Create app/.test(await p.innerText('#mus-corpo')), 'sem Client ID: a janela explica o cadastro do app no Spotify e mostra a Redirect URI para copiar');
+  verdade(await p.evaluate(() => document.querySelector('#mus-red').value === RT.spo.redirectUri()), 'a Redirect URI mostrada é a do próprio app');
+  await p.fill('#mus-cid', 'CLIENTEid123'); await p.click('#mus-cid-ok');
+  await p.waitForSelector('#mus-entrar');
+  verdade(await p.evaluate(() => RT.spo.cfg.clientId === 'CLIENTEid123'), 'o Client ID fica guardado (só neste aparelho)');
+  const urlLogin = await p.evaluate(async () => { let u = null; RT.spo.irPara = x => { u = x; }; await RT.spo.conectar(); return u; });
+  const ql = new (require('url').URL)(urlLogin).searchParams;
+  verdade(/accounts\.spotify\.com\/authorize/.test(urlLogin) && ql.get('client_id') === 'CLIENTEid123' && ql.get('code_challenge_method') === 'S256' && ql.get('response_type') === 'code' && /streaming/.test(ql.get('scope')) && !!ql.get('code_challenge') && !!ql.get('state'), 'Conectar leva ao login do Spotify com PKCE (sem senha no app, sem segredo guardado)');
+  const volta = await p.evaluate(async () => { const s = JSON.parse(sessionStorage.getItem('hr:spo')); history.pushState({}, '', '?code=CODIGO123&state=' + s.estado); const ok = await RT.spo.tratarRetorno(); return { ok, url: location.search, at: RT.spo.cfg.access, rt: RT.spo.cfg.refresh }; });
+  verdade(volta.ok && volta.at === 'AT-TESTE' && volta.rt === 'RT-TESTE' && volta.url === '', 'ao voltar do Spotify o app troca o código pelo acesso e limpa o endereço');
+  verdade(reqsSpo.some(r => r.m === 'POST' && /grant_type=authorization_code/.test(r.b || '') && /code_verifier=/.test(r.b || '') && !/client_secret/.test(r.b || '')), 'a troca usa o verificador PKCE e nunca um segredo do app');
+  verdade(!JSON.stringify(await p.evaluate(() => RT.DB.todos('bk'))).includes('AT-TESTE') && !JSON.stringify(await p.evaluate(() => RT.S.op)).includes('AT-TESTE'), 'o acesso ao Spotify não vai para a operação nem para as cópias de segurança');
+  await p.evaluate(() => { RT.A.janVer('mus', false); RT.A.janVer('mus', true); });
+  await p.waitForSelector('#mus-lista .mus-it');
+  verdade(/Tiago Teste/.test(await p.innerText('#mus-quem')) && /Premium/.test(await p.innerText('#mus-quem')), 'conectado: mostra a sua conta e o Premium');
+  verdade(await p.locator('#mus-lista .mus-it').count() === 2 && /Rota da manhã/.test(await p.innerText('#mus-lista')), 'lista as suas playlists');
+  await p.fill('#mus-busca', 'teste'); await p.waitForSelector('#mus-lista .mus-it:has-text("Música de teste")');
+  verdade(true, 'a busca traz músicas, playlists e álbuns do Spotify');
+  await p.click('#mus-lista .mus-it:has-text("Música de teste")');
+  await p.waitForFunction(() => window.__spoPlayer);
+  await p.waitForFunction(() => RT.spo.device === 'dev-teste');
+  const playReq = await p.evaluate(() => null); await p.waitForTimeout(300);
+  verdade(reqsSpo.some(r => r.m === 'PUT' && /\/me\/player\/play\?device_id=dev-teste/.test(r.u) && /spotify:track:CCCCCCCCCCCCCCCCCCCCCC/.test(r.b || '') && r.auth === 'Bearer AT-TESTE'), 'clicar numa música manda tocar NESTE navegador (player Health Log) com o seu acesso');
+  await p.evaluate(() => window.__spoPlayer.l.player_state_changed({ paused: false, position: 5000, duration: 180000, track_window: { current_track: { name: 'Música de teste', artists: [{ name: 'Banda X' }], album: { images: [] } } } }));
+  verdade(/Música de teste/.test(await p.innerText('#mus-nome')) && /Banda X/.test(await p.innerText('#mus-art')) && /⏸/.test(await p.innerText('#mus-play')), 'a barra do player mostra o que está tocando e o botão vira pausar');
+  await p.click('#mus-play'); await p.click('[data-c="prox"]'); await p.click('[data-c="ant"]');
+  verdade(await p.evaluate(() => ['play', 'prox', 'ant'].every(a => window.__spoAcoes.includes(a))), 'os botões tocar/pausar, próxima e anterior controlam o player');
+  await p.evaluate(() => { const r = document.querySelector('#mus-vol'); r.value = 30; r.dispatchEvent(new Event('input', { bubbles: true })); });
+  verdade(await p.evaluate(() => window.__spoAcoes.includes('vol0.3')), 'o controle de volume funciona');
+  await p.evaluate(() => RT.spo.sair());
+  verdade(await p.evaluate(() => !RT.spo.cfg.access && !RT.spo.cfg.refresh) && await p.locator('#mus-entrar').count() === 1, 'Sair apaga o acesso guardado e volta para "Conectar ao Spotify"');
+  spoPremium = false;
+  await p.evaluate(async () => { RT.spo.cfg.access = 'AT2'; RT.spo.cfg.refresh = 'RT2'; RT.spo.cfg.exp = Date.now() + 3600000; RT.spo.me = null; RT.spo.estado = null; RT.mus.modo = ''; RT.mus.render(); });
+  await p.waitForSelector('#mus-quem:has-text("sem Premium")');
+  verdade(/Premium/.test(await p.innerText('#mus-msg')), 'conta sem Premium: avisa que o Spotify só libera tocar aqui dentro para Premium');
+  await p.evaluate(async () => { await RT.spo.sair(); await RT.spo.definirClientId(''); RT.mus.modo = ''; RT.mus.render(); }); spoPremium = true;
+  verdade(await p.evaluate(() => RT.mus.analisar('spotify:album:1DFixLWuPkv3KT3TnV35m3') !== null && RT.mus.analisar('https://example.com/playlist/37i9dQZF1DXcBWIGoYBM5M') === null), 'o modo simples (colar link) segue aceitando o formato do Spotify e recusando outros sites');
   await p.click('#bt-ver-mus');
 
   console.log('\nJanela Romaneios: tirar cidades que não vão hoje');

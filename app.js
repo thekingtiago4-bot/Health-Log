@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.44.0';
+  const VERSAO = '0.45.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -1716,7 +1716,7 @@
       } catch (e) { statusSalvo('erro', (e && e.message) || String(e)); }
       try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ok */ }
     }
-    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await RT.obs.carregar(); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
+    await carregarCfg(); aplicarRotaAnim(); await carregarReg(); await RT.fer.carregar(); await RT.obs.carregar(); await RT.spo.carregar(); if (!S.modoMapa && !S.soGeo && await RT.spo.tratarRetorno()) U.pref.gravar('ver:mus', true); await carregarApiKey(); await RT.sit.carregar(); await RT.rom.carregarMot(); S.pend.foraAberto = U.pref.ler('foraAberto', false); { const o = U.pref.ler('pendOrdem', 'nome'); S.pend.ordem = ['nome', 'volume', 'valor'].includes(o) ? o : 'nome'; $('#pend-ordem').value = S.pend.ordem; }
     if (!S.modoMapa) { janVer('pend', U.pref.ler('ver:pend', true)); janVer('carros', U.pref.ler('ver:carros', false)); janVer('busca', false); janVer('rom', U.pref.ler('ver:rom', false)); janVer('km', U.pref.ler('ver:km', false)); janVer('mus', U.pref.ler('ver:mus', false)); }
     if (reindexar(), S.op) atualizarTudo(); else atualizarTudo();
     if (S.op && !S.modoMapa && !S.soGeo) setTimeout(() => RT.obs.avisar(), 1500);   // lembra das observações do dia
