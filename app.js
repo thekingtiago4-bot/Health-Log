@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.48.0';
+  const VERSAO = '0.48.1';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -790,6 +790,7 @@
     reindexar(); await salvar();
     toast('Importei ' + rel.novas.length + ' nota(s) em ' + op.nome + '.' + (ap.auto.length ? ' ' + ap.auto.length + ' saíram da rota por serem agendamento' + (ap.mesa.length ? ' (' + ap.mesa.length + ' da MESA ficaram na rota)' : '') + '.' : ''));
     atualizarTudo(); irPara('rotas');
+    setTimeout(() => { if (S.op === op && !S.modoMapa) RT.obs.avisar(); }, 2600);   // observações já guardadas valem para as notas recém-importadas
     if (S.pdfsPend) { const p = S.pdfsPend; S.pdfsPend = null; RT.rom.adicionarPdfs(p); }
   }
   async function renderOps() {
@@ -1599,7 +1600,11 @@
       sug.hidden = !r.length; return r;
     };
     bi.addEventListener('input', achar);
-    bi.addEventListener('keydown', e => { if (e.key === 'Enter') { const r = achar(); if (r[0]) { abrirCidade(r[0].key, { centrar: true }); bi.value = ''; sug.hidden = true; } } if (e.key === 'Escape') { bi.value = ''; sug.hidden = true; } });
+    let esc0 = 0;
+    const marca = () => [...sug.children].forEach((li, i) => { li.classList.toggle('esc', i === esc0); if (i === esc0) li.scrollIntoView({ block: 'nearest' }); });
+    bi.addEventListener('input', () => { esc0 = 0; marca(); });
+    bi.addEventListener('keydown', e => { if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !sug.hidden && sug.children.length) { e.preventDefault(); esc0 = Math.max(0, Math.min(sug.children.length - 1, esc0 + (e.key === 'ArrowDown' ? 1 : -1))); marca(); return; }
+      if (e.key === 'Enter') { const r = achar(); if (r[Math.min(esc0, r.length - 1)]) { abrirCidade(r[Math.min(esc0, r.length - 1)].key, { centrar: true }); bi.value = ''; sug.hidden = true; esc0 = 0; } } if (e.key === 'Escape') { bi.value = ''; sug.hidden = true; } });
     sug.addEventListener('mousedown', e => { const li = e.target.closest('li'); if (li) { abrirCidade(li.dataset.cid, { centrar: true }); bi.value = ''; sug.hidden = true; } });
     bi.addEventListener('blur', () => setTimeout(() => { sug.hidden = true; }, 150));
 

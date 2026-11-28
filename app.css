@@ -934,3 +934,8 @@ kbd{display:inline-block;background:#EEF3F3;border:1px solid #9DB6BC;border-bott
   body[data-imp="man"] .rl-pag:last-child{break-after:auto;page-break-after:auto}
   body[data-imp="man"] #man-saida{padding:0}
 }
+
+/* Final de Turno: Copiar/WhatsApp à esquerda, Guardar no meio, Ver guardados/Fechar à direita */
+.tr-bot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}.tr-bl,.tr-bm,.tr-br{display:flex;gap:8px}.tr-bl{justify-content:flex-start}.tr-bm{justify-content:center}.tr-br{justify-content:flex-end}
+#busca-cidade+#sug-cidade li.esc,#sug-cidade li.esc{background:var(--sup2);outline:1px solid var(--aqua)}
+.lg-cinza{background:repeating-linear-gradient(135deg,#8a9a9c 0 3px,#fff 3px 5px)!important;border:1px solid #8a9a9c}

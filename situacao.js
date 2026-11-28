@@ -106,7 +106,7 @@
     aberta = null; renderBusca(); toast('NF ' + n.nf + ' saiu da rota → aba ' + (tipo === 'a' ? 'Agendamentos' : 'Divergências') + '.', { rotulo: 'Desfazer', fn: () => A().desfazer() });
   }
   function ligarBusca() {
-    $('#busca-q').addEventListener('input', e => { consulta = e.target.value; aberta = null; renderBusca(); marcarEscolha(false); });
+    $('#busca-q').addEventListener('input', e => { consulta = e.target.value; aberta = null; escolha = 0; renderBusca(); marcarEscolha(false); });
     $('#busca-res').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       const o = S().op;

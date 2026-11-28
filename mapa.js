@@ -198,6 +198,7 @@
         this.zoom(f, e.clientX - r.left, e.clientY - r.top);
       }, { passive: false });
       cv.addEventListener('pointerdown', e => {
+        if (e.button > 0) return;   // botão direito/do meio no mapa não clica, não arrasta, não abre cidade
         cv.setPointerCapture(e.pointerId);
         this.ponteiros.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
         this.anim = null;
