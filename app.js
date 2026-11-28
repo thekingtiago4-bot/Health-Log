@@ -3,7 +3,7 @@
   'use strict';
   const { N, U, DB } = RT;
   const { $, $$, esc, toast } = U;
-  const VERSAO = '0.45.0';
+  const VERSAO = '0.46.0';
   const cmp = (a, b) => String(a).localeCompare(String(b), 'pt-BR');
   const m$ = N.fmtMoeda, i$ = N.fmtInt;
 
@@ -718,19 +718,14 @@
     const agora = new Date();
     const tot = cars.reduce((t, c) => ({ vol: t.vol + c.vol, par: t.par + c.paradas, val: t.val + c.valor }), { vol: 0, par: 0, val: 0 });
     const faltam = S.res.rota.notas - S.res.alocRota.notas;
-    let h = (faltam ? '<div class="folha-aviso">⚠ Esta folha ainda não está completa: faltam ' + faltam + ' nota(s) (' + m$(S.res.rota.valor - S.res.alocRota.valor) + ') sem carro.</div>' : '') +
-      '<div class="folha"><div class="f-cab"><b>ROTA ' + U.dataBR(S.op.data) + '</b><span>Emitida às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</span></div>';
-    for (let i = 0; i < cars.length; i += 7) {
-      const bl = cars.slice(i, i + 7), pad = n => Array.from({ length: 7 - bl.length }, () => n);
-      const cel = (fn, tag) => bl.map(fn).concat(pad('')).map(x => '<' + (tag || 'td') + '>' + (x || '') + '</' + (tag || 'td') + '>').join('');
-      h += '<div class="f-blk"><table><tr><th class="lbl"></th>' + cel(c => esc((c.carro.motorista || N.nomeCarro(c.carro)).toUpperCase()), 'th') + '</tr>' +
-        '<tr><td class="lbl"></td>' + bl.map(c => '<td class="cidades">' + c.cidades.map(x => esc(N.norm(x.nome))).join('<br>') + '</td>').concat(pad('<td class="cidades"></td>')).join('') + '</tr>' +
-        '<tr class="vol"><td class="lbl">VOLUMES</td>' + cel(c => i$(c.vol)) + '</tr><tr class="par"><td class="lbl">PARADAS</td>' + cel(c => c.paradas) + '</tr>' +
-        '<tr class="val"><td class="lbl">VALOR</td>' + cel(c => m$(c.valor)) + '</tr>' +
-        '<tr class="km"><td class="lbl">KM TOTAL</td>' + cel(c => { const k = kmDe(c.carro); return k.n ? (k.faltam ? '…' : Math.round(k.km).toLocaleString('pt-BR') + ' km') : '—'; }) + '</tr></table></div>';
-    }
+    const kmTxt2 = c => { const k = kmDe(c.carro); return k.n ? (k.faltam ? '…' : Math.round(k.km).toLocaleString('pt-BR') + ' km') : '—'; };
     const kt = RT.kmj.total();
-    h += '<div class="f-tot"><div>TOTAL (' + cars.length + ' rotas)</div><div>VOLUMES: ' + i$(tot.vol) + '</div><div>PARADAS: ' + i$(tot.par) + '</div><div>VALOR: ' + m$(tot.val) + '</div><div>KM TOTAL: ' + (kt.faltam ? '…' : Math.round(kt.km).toLocaleString('pt-BR') + ' km') + '</div></div></div>';
+    let h = (faltam ? '<div class="folha-aviso">⚠ Esta folha ainda não está completa: faltam ' + faltam + ' nota(s) (' + m$(S.res.rota.valor - S.res.alocRota.valor) + ') sem carro.</div>' : '') +
+      '<div class="fl"><div class="fl-topo"><div class="fl-marca"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#0e444b"/><rect x="14" y="36" width="8" height="12" rx="2" fill="#6EE1DC"/><rect x="25" y="28" width="8" height="20" rx="2" fill="#6EE1DC"/><rect x="36" y="19" width="8" height="29" rx="2" fill="#6EE1DC"/><rect x="47" y="11" width="8" height="37" rx="2" fill="#fff"/></svg><div><b>ROTA ' + U.dataBR(S.op.data) + '</b><span>Emitida às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' · ' + cars.length + ' rota(s)</span></div></div><em>Health Log.</em></div><div class="fl-grade">' +
+      cars.map(c => '<div class="fl-v" style="--c:' + esc(c.carro.cor) + '"><div class="fl-h"><span>' + esc(N.nomeCarro(c.carro).toUpperCase()) + (c.carro.motorista ? ' · ' + esc(c.carro.motorista.toUpperCase()) : '') + '</span></div>' +
+        '<div class="fl-cid">' + (c.cidades.length ? c.cidades.map(x => '<div><i></i>' + esc(N.norm(x.nome)) + '</div>').join('') : '<div class="fl-vazio">sem cidades</div>') + '</div>' +
+        '<div class="fl-est"><div><small>VOLUMES</small><b>' + i$(c.vol) + '</b></div><div><small>PARADAS</small><b>' + c.paradas + '</b></div><div class="vl"><small>VALOR</small><b>' + m$(c.valor) + '</b></div><div><small>KM TOTAL</small><b>' + kmTxt2(c) + '</b></div></div></div>').join('') +
+      '</div><div class="fl-tot"><div><small>ROTAS</small><b>' + cars.length + '</b></div><div><small>VOLUMES</small><b>' + i$(tot.vol) + '</b></div><div><small>PARADAS</small><b>' + i$(tot.par) + '</b></div><div><small>VALOR</small><b>' + m$(tot.val) + '</b></div><div><small>KM TOTAL</small><b>' + (kt.faltam ? '…' : Math.round(kt.km).toLocaleString('pt-BR') + ' km') + '</b></div></div></div>';
     box.innerHTML = h;
   }
 

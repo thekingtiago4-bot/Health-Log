@@ -226,22 +226,6 @@ h2{font-family:"Barlow Semi Condensed";font-weight:600;font-size:var(--fs-lg);ma
 /* ---------- Folha de rotas ---------- */
 .folha-topo{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap}
 .folha-aviso{background:var(--amarBg);color:var(--amarTxt);border:1px solid var(--amar);border-radius:var(--r);padding:8px 14px;margin-bottom:12px;font-weight:600}
-.folha{background:#fff;color:#111;border:1px solid #cfd8d8;font-family:Arial,Helvetica,sans-serif;max-width:1180px}
-.folha .f-cab{background:#2980C4;color:#fff;text-align:center;padding:14px 8px}
-.folha .f-cab b{font-size:1.7rem;display:block}
-.folha .f-cab span{font-size:.85rem;opacity:.9}
-.folha .f-blk{margin:10px 8px 0;border:1px solid #8a9a9a;break-inside:avoid}
-.folha table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:.78rem}
-.folha td,.folha th{border:1px solid #8a9a9a;padding:3px 6px;vertical-align:top;overflow:hidden}
-.folha th{background:#EEF0F0;text-align:left}
-.folha .lbl{background:#EEF0F0;font-weight:700;width:9%}
-.folha tr.vol td{background:#BDD7EE;font-weight:700}
-.folha tr.par td{background:#E7E6E6;font-weight:700}
-.folha tr.val td{background:#C6E0B4;font-weight:700}
-.folha .cidades{height:104px;font-weight:700;line-height:1.28}
-.folha .f-tot{margin:10px 8px 8px;display:grid;grid-template-columns:1.1fr 1fr 1fr 1.4fr;border:1px solid #8a9a9a;background:#DCE6F0;font-weight:700;font-size:1rem}
-.folha .f-tot div{padding:9px 10px;border-right:1px solid #8a9a9a}
-.folha .f-tot div:last-child{border:0}
 
 /* ---------- MURAL DO DIA (mesmo desenho do Health Search) ---------- */
 .mural{position:fixed;inset:0;z-index:108;background:var(--papel);overflow:auto;padding:24px 16px}
@@ -818,7 +802,6 @@ details.rm .rm-qt.parcial{background:var(--amarBg);color:var(--amarTxt)}
 .km-tab th{text-align:left;color:var(--mudo);font-size:.7rem;text-transform:uppercase;padding:3px 4px}
 .km-tab td,.km-tab th{padding:5px 4px;border-bottom:1px solid var(--linha2)}.km-tab .d{text-align:right;white-space:nowrap}
 .km-pt{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--cor);margin-right:7px}
-.f-blk tr.km td{font-weight:700}
 
 /* janela Música (Spotify) */
 .jan-musica{width:380px;height:440px;left:60px;top:120px;max-height:calc(100% - 24px)}
@@ -872,3 +855,29 @@ details.rm .rm-qt.parcial{background:var(--amarBg);color:var(--amarTxt)}
 .mus-prog{display:flex;align-items:center;gap:6px;font-size:.68rem;color:var(--mudo)}.mus-prog input{flex:1;accent-color:var(--aqua)}
 .mus-ctl{display:flex;align-items:center;gap:8px}.mus-ctl button{all:unset;cursor:pointer;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:var(--sup);border:1px solid var(--linha);font-size:1rem}.mus-ctl #mus-play{background:var(--aqua);color:var(--priTxt);width:40px;height:40px}
 .mus-ctl input{flex:1;accent-color:var(--aqua);min-width:60px}
+
+/* Folha de rotas (opção A: cartões por veículo, no padrão do app; na impressão sai clara) */
+.fl{--fb:var(--papel);--fs:var(--sup);--fs2:var(--sup2);--ft:var(--tinta);--fm:var(--mudo);--fl-l:var(--linha);--fa:var(--acento);border:1px solid var(--linha);border-radius:14px;background:var(--fb);color:var(--ft);overflow:hidden;max-width:1280px}
+.fl-topo{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:linear-gradient(135deg,#0e444b,#061f23);color:#E2F0F0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.fl-marca{display:flex;align-items:center;gap:12px}.fl-marca svg{width:38px;height:38px}
+.fl-marca b{display:block;font-family:"Barlow Semi Condensed";font-size:1.7rem;line-height:1}.fl-marca span{font-size:.82rem;color:#9CC3C5}
+.fl-topo em{font-style:normal;font-family:"Barlow Semi Condensed";font-weight:700;color:#6EE1DC;font-size:1.1rem}
+.fl-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;padding:14px}
+.fl-v{border:1px solid var(--fl-l);background:var(--fs);border-radius:12px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+.fl-h{padding:9px 12px;font-family:"Barlow Semi Condensed";font-weight:700;font-size:1.05rem;background:var(--fs2);border-top:5px solid var(--c);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.fl-cid{padding:8px 12px;font-size:.82rem;font-weight:600;display:grid;gap:3px;min-height:96px;align-content:start}.fl-cid div{display:flex;gap:8px;align-items:center}.fl-cid i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}.fl-vazio{color:var(--fm);font-weight:400}
+.fl-est{display:grid;grid-template-columns:repeat(4,auto);border-top:1px solid var(--fl-l)}.fl-est>div{padding:7px 11px;border-right:1px solid var(--fl-l)}.fl-est>div:last-child{border:0}
+.fl-est small,.fl-tot small{display:block;font-size:.58rem;letter-spacing:.07em;color:var(--fm);font-weight:700}.fl-est b{font-family:"Barlow Semi Condensed";font-size:1.05rem}.fl-est .vl b{color:var(--fa)}
+.fl-tot{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:0 14px 14px}.fl-tot>div{background:var(--fs);border:1px solid var(--fl-l);border-radius:10px;padding:9px 12px}.fl-tot b{font-family:"Barlow Semi Condensed";font-size:1.4rem;color:var(--fa)}
+@media print{
+  .fl{--fb:#fff;--fs:#fff;--fs2:#F1F5F6;--ft:#0F2E33;--fm:#5B7B84;--fl-l:#C9D8DB;--fa:#0F6B73;border-color:#C9D8DB}
+  .fl-grade{grid-template-columns:repeat(3,1fr)}
+}
+
+/* Realce das cores dos carros (opção 1: faixa forte, cabeçalho em degradê e anel nos números) */
+.vei{border-left-width:8px}
+.vei-cab{background:linear-gradient(90deg,color-mix(in srgb,var(--cor) 34%,transparent),transparent 78%);border-radius:8px 8px 0 0}
+.cid .ord{margin:2px;box-shadow:0 0 0 2px var(--sup),0 0 0 4px var(--cor)}
+.jan-veic{border-left:8px solid var(--cor,var(--teal))}
+.jan-veic .jan-cab{border-left:0;background:linear-gradient(90deg,color-mix(in srgb,var(--cor) 38%,transparent),transparent 80%)}
+.jan-cid .jan-cab{background:linear-gradient(90deg,color-mix(in srgb,var(--cor,var(--teal)) 34%,transparent),transparent 80%)}
