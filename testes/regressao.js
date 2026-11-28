@@ -1085,6 +1085,12 @@ const cents = s => Math.round(parseFloat(s) * 100);
   verdade(await p.evaluate(() => RT.S.reg.aprend['3541406'].regiao === '-' && RT.S.geo.mapa.geo.nf.has('3541406')), '"Não fazemos": clicar na cidade a deixa cinza');
   await p.evaluate(() => RT.A.geoSelecionar('3541406', false));
   verdade(await p.evaluate(() => !(RT.S.reg.aprend['3541406'] || {}).regiao), 'e clicar de novo desmarca');
+  await p.selectOption('#ged-alvo', '__esquecer'); verdade(/Esquecer/.test(await p.innerText('#ged-painel')), '"Aplicar em" ganhou a opção "Esquecer" (volta à cor normal)');
+  const antesE = await p.evaluate(() => RT.S.reg.regioes.some(r => r.cidades.some(x => String(x) === '3541406')));
+  await p.evaluate(() => RT.A.geoSelecionar('3541406', false));
+  verdade(await p.evaluate(() => !RT.S.reg.regioes.some(r => r.tipo === 'regiao' && r.cidades.some(x => String(x) === '3541406')) && !(RT.S.reg.aprend['3541406'] || {}).regiao && !RT.S.geo.mapa.geo.nf.has('3541406')), 'Esquecer: a cidade sai das listas e das etiquetas e NÃO fica cinza (cor normal)');
+  await p.click('#ged-desfaz');
+  verdade(await p.evaluate(a => RT.S.reg.regioes.some(r => r.cidades.some(x => String(x) === '3541406')) === a, antesE), 'e dá para desfazer');
   await p.click('#ged-sair'); verdade(await p.evaluate(() => !document.querySelector('#ged-painel') && !RT.G.interceptar), 'Fechar editor');
 
   console.log('\nTrazer o mapa do Health Search');
